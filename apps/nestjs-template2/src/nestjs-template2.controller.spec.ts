@@ -11,7 +11,9 @@ describe('NestjsTemplate2Controller', () => {
       providers: [NestjsTemplate2Service],
     }).compile();
 
-    nestjsTemplate2Controller = app.get<NestjsTemplate2Controller>(NestjsTemplate2Controller);
+    nestjsTemplate2Controller = app.get<NestjsTemplate2Controller>(
+      NestjsTemplate2Controller,
+    );
   });
 
   describe('root', () => {

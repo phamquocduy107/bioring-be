@@ -1,12 +1,17 @@
-import { Controller, Get } from '@nestjs/common';
-import { NestjsTemplate2Service } from './nestjs-template2.service';
+import { Controller } from '@nestjs/common';
+import { MessagePattern, Payload } from '@nestjs/microservices';
+import { AppService } from './nestjs-template2.service';
 
 @Controller()
-export class NestjsTemplate2Controller {
-  constructor(private readonly nestjsTemplate2Service: NestjsTemplate2Service) {}
+export class AppController {
+  constructor(private readonly appService: AppService) {}
 
-  @Get()
-  getHello(): string {
-    return this.nestjsTemplate2Service.getHello();
+  /**
+   * Ví dụ: ping message pattern
+   * Gọi từ gateway: this.client.send('ping', {})
+   */
+  @MessagePattern('ping')
+  ping(@Payload() data: any) {
+    return this.appService.ping(data);
   }
 }

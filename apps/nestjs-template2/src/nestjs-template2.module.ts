@@ -1,10 +1,41 @@
 import { Module } from '@nestjs/common';
-import { NestjsTemplate2Controller } from './nestjs-template2.controller';
-import { NestjsTemplate2Service } from './nestjs-template2.service';
+import { APP_FILTER, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
+import {
+  CommonModule,
+  CustomValidationPipe,
+  FitRpcExceptionFilter,
+  LoggingInterceptor,
+  TimeoutInterceptor,
+} from '@app/common';
+import { AppController } from './nestjs-template2.controller';
+import { AppService } from './nestjs-template2.service';
 
 @Module({
-  imports: [],
-  controllers: [NestjsTemplate2Controller],
-  providers: [NestjsTemplate2Service],
+  imports: [
+    CommonModule,
+    // PrismaModule,   // uncomment khi dùng Prisma
+    // RedisModule,    // uncomment khi dùng Redis
+    // MongoModule,    // uncomment khi dùng MongoDB
+  ],
+  controllers: [AppController],
+  providers: [
+    AppService,
+    {
+      provide: APP_FILTER,
+      useClass: FitRpcExceptionFilter,
+    },
+    {
+      provide: APP_PIPE,
+      useClass: CustomValidationPipe,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: LoggingInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: TimeoutInterceptor,
+    },
+  ],
 })
-export class NestjsTemplate2Module {}
+export class AppModule {}

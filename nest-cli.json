@@ -16,7 +16,17 @@
       "entryFile": "main",
       "sourceRoot": "apps/nestjs-template/src",
       "compilerOptions": {
-        "tsConfigPath": "apps/nestjs-template/tsconfig.app.json"
+        "tsConfigPath": "apps/nestjs-template/tsconfig.app.json",
+        "plugins": [
+          {
+            "name": "@nestjs/swagger",
+            "options": {
+              "classValidatorShim": true,
+              "introspectComments": true,
+              "dtoFileNameSuffix": [".dto.ts", ".entity.ts"]
+            }
+          }
+        ]
       }
     },
     "nestjs-template2": {
@@ -26,6 +36,52 @@
       "sourceRoot": "apps/nestjs-template2/src",
       "compilerOptions": {
         "tsConfigPath": "apps/nestjs-template2/tsconfig.app.json"
+      }
+    },
+    "common": {
+      "type": "library",
+      "root": "libs/common",
+      "entryFile": "index",
+      "sourceRoot": "libs/common/src",
+      "compilerOptions": {
+        "tsConfigPath": "libs/common/tsconfig.lib.json",
+        "plugins": [
+          {
+            "name": "@nestjs/swagger",
+            "options": {
+              "classValidatorShim": true,
+              "introspectComments": true,
+              "dtoFileNameSuffix": [".dto.ts", ".entity.ts"]
+            }
+          }
+        ]
+      }
+    },
+    "prisma": {
+      "type": "library",
+      "root": "libs/prisma",
+      "entryFile": "index",
+      "sourceRoot": "libs/prisma/src",
+      "compilerOptions": {
+        "tsConfigPath": "libs/prisma/tsconfig.lib.json"
+      }
+    },
+    "redis": {
+      "type": "library",
+      "root": "libs/redis",
+      "entryFile": "index",
+      "sourceRoot": "libs/redis/src",
+      "compilerOptions": {
+        "tsConfigPath": "libs/redis/tsconfig.lib.json"
+      }
+    },
+    "mongo": {
+      "type": "library",
+      "root": "libs/mongo",
+      "entryFile": "index",
+      "sourceRoot": "libs/mongo/src",
+      "compilerOptions": {
+        "tsConfigPath": "libs/mongo/tsconfig.lib.json"
       }
     }
   }

@@ -1,8 +1,22 @@
+import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
-import { NestjsTemplate2Module } from './nestjs-template2.module';
+import { MicroserviceOptions, Transport } from '@nestjs/microservices';
+import { AppModule } from './nestjs-template2.module';
+
+const SERVICE_PORT = Number(process.env.SERVICE_PORT ?? 3001);
 
 async function bootstrap() {
-  const app = await NestFactory.create(NestjsTemplate2Module);
-  await app.listen(process.env.port ?? 3000);
+  const app = await NestFactory.createMicroservice<MicroserviceOptions>(
+    AppModule,
+    {
+      transport: Transport.TCP,
+      options: {
+        port: SERVICE_PORT,
+      },
+    },
+  );
+
+  await app.listen();
+  console.log(`[Microservice] running on TCP port ${SERVICE_PORT}`);
 }
 bootstrap();
