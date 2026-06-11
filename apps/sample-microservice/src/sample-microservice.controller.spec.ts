@@ -1,24 +1,26 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NestjsTemplate2Controller } from './nestjs-template2.controller';
-import { NestjsTemplate2Service } from './nestjs-template2.service';
+import { AppController } from './sample-microservice.controller';
+import { AppService } from './sample-microservice.service';
 
-describe('NestjsTemplate2Controller', () => {
-  let nestjsTemplate2Controller: NestjsTemplate2Controller;
+describe('AppController', () => {
+  let appController: AppController;
 
   beforeEach(async () => {
     const app: TestingModule = await Test.createTestingModule({
-      controllers: [NestjsTemplate2Controller],
-      providers: [NestjsTemplate2Service],
+      controllers: [AppController],
+      providers: [AppService],
     }).compile();
 
-    nestjsTemplate2Controller = app.get<NestjsTemplate2Controller>(
-      NestjsTemplate2Controller,
-    );
+    appController = app.get<AppController>(AppController);
   });
 
   describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(nestjsTemplate2Controller.getHello()).toBe('Hello World!');
+    it('should return pong', () => {
+      const data = { test: 'data' };
+      const response = appController.ping(data);
+      expect(response).toHaveProperty('pong', true);
+      expect(response).toHaveProperty('receivedAt');
+      expect(response).toHaveProperty('data', data);
     });
   });
 });
