@@ -1,98 +1,117 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# NestJS Microservice Template
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Đây là một template hoàn chỉnh để xây dựng hệ thống phân tán với **NestJS** theo kiến trúc Monorepo. Template đã được cấu hình sẵn các thành phần dùng chung (core, hạ tầng, cache, queue) để bạn có thể tập trung ngay vào việc phát triển nghiệp vụ.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## 🌟 Các tính năng và thư viện tích hợp sẵn
 
-## Description
+- **Kiến trúc Monorepo**: Dễ dàng quản lý nhiều ứng dụng (API Gateway, Microservices) và thư viện dùng chung trong một repository.
+- **API Gateway**: Mẫu ứng dụng HTTP được tích hợp sẵn **Swagger** (tại `/docs`), CORS, Cookie Parser và hệ thống global Guard/Interceptor.
+- **Microservice**: Mẫu ứng dụng Microservice dùng giao thức TCP (hoặc RabbitMQ) với `FitRpcExceptionFilter` tùy biến.
+- **Cơ sở dữ liệu**: Tích hợp sẵn **Prisma** (PostgreSQL) và **Mongoose** (MongoDB).
+- **Caching & Queue**: Tích hợp sẵn **Redis** (`ioredis`) và **BullMQ** (có sẵn Bull-Board UI).
+- **Giao tiếp Message Broker**: Đã thiết lập sẵn module `RmqModule` và `RmqService` để kết nối và truyền tin qua **RabbitMQ**.
+- **Common Library (`libs/common`)**: Thư viện dùng chung chứa:
+  - Các Decorator tự định nghĩa (`@Public`, `@CurrentUser`, `@Roles`, `@Permission`,...).
+  - DTOs, Enums, Constants chuẩn mực.
+  - Global Exception Filters (`AllExceptionsFilter`, `FitRpcExceptionFilter`).
+  - Global Interceptors (`LoggingInterceptor`, `TimeoutInterceptor`, `TransformInterceptor`).
+  - Phân quyền RBAC.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## 🚀 Hướng dẫn bắt đầu nhanh
 
-## Project setup
+### 1. Cài đặt
+
+Yêu cầu môi trường: **Node.js (>= 20)**.
 
 ```bash
+# Clone repo của bạn
+$ git clone <your-repo-url> my-microservice-project
+$ cd my-microservice-project
+
+# Cài đặt các gói phụ thuộc
 $ npm install
 ```
 
-## Compile and run the project
+### 2. Cấu hình biến môi trường
+
+Tạo file `.env` từ file mẫu:
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+$ cp .env.example .env
 ```
 
-## Run tests
+Vui lòng cập nhật các thông số kết nối Database (PostgreSQL, MongoDB), Redis, và RabbitMQ trong file `.env` theo môi trường của bạn.
+
+### 3. Khởi tạo Prisma (Nếu dùng PostgreSQL)
+
+Bạn cần sửa file `libs/prisma/prisma/schema.prisma` theo mô hình dữ liệu thực tế của dự án, sau đó chạy:
 
 ```bash
-# unit tests
-$ npm run test
+# Đồng bộ schema lên database (Development)
+$ npm run prisma:migrate
 
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+# Generate Prisma Client
+$ npm run prisma:generate
 ```
 
-## Deployment
+### 4. Chạy dự án (Development)
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+Sử dụng lệnh `dev` để chạy đồng thời cả API Gateway và Microservice mẫu thông qua thư viện `concurrently`:
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+$ npm run dev
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Hoặc chạy từng service độc lập:
 
-## Resources
+```bash
+# Chạy API Gateway (Mặc định ở cổng 3000)
+$ npm run start:gateway
 
-Check out a few resources that may come in handy when working with NestJS:
+# Chạy Microservice (Mặc định TCP cổng 3001)
+$ npm run start:service
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+Sau khi chạy thành công API Gateway, hãy truy cập [http://localhost:3000/docs](http://localhost:3000/docs) để xem tài liệu Swagger.
 
-## Support
+## 🛠 Cấu trúc thư mục
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+```text
+nestjs-template/
+├── apps/
+│   ├── nestjs-template/      # Ứng dụng HTTP (API Gateway) mẫu
+│   └── nestjs-template2/     # Ứng dụng TCP (Microservice) mẫu
+├── libs/
+│   ├── common/               # Core logic, module dùng chung (Auth, Filters, Queue,...)
+│   ├── mongo/                # Module kết nối MongoDB (Mongoose)
+│   ├── prisma/               # Module kết nối PostgreSQL (Prisma)
+│   └── redis/                # Module kết nối Redis (ioRedis)
+├── .env.example              # Mẫu biến môi trường
+├── nest-cli.json             # Cấu hình Nest CLI cho Monorepo
+├── package.json              # Khai báo thư viện và script
+└── tsconfig.json             # Cấu hình TypeScript (Kèm path alias)
+```
 
-## Stay in touch
+## 📜 Các lệnh (Scripts) hữu ích
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+| Lệnh | Ý nghĩa |
+|------|---------|
+| `npm run dev` | Khởi chạy đồng thời tất cả các ứng dụng trong chế độ `--watch`. |
+| `npm run build` | Build toàn bộ ứng dụng (nest build). |
+| `npm run lint` | Kiểm tra và tự động sửa lỗi syntax với ESLint. |
+| `npm run format` | Định dạng lại code với Prettier. |
+| `npm run prisma:generate` | Tạo mã nguồn Prisma Client dựa trên file `schema.prisma`. |
+| `npm run prisma:pull` | Pull cấu trúc database hiện tại về `schema.prisma`. |
+| `npm run prisma:migrate` | Áp dụng thay đổi `schema.prisma` lên database (chỉ dùng ở môi trường dev). |
 
-## License
+## 💡 Lưu ý khi tạo Microservice mới
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Khi muốn tạo thêm một ứng dụng mới trong Monorepo:
+
+1. Chạy lệnh: `npx nest generate app my-new-service`
+2. Mở file `nest-cli.json` để kiểm tra cấu hình của app mới.
+3. Nếu ứng dụng mới là HTTP (có dùng Swagger), hãy thêm plugin `@nestjs/swagger` vào mảng `compilerOptions.plugins` của app đó trong `nest-cli.json`.
+4. Cập nhật câu lệnh start/build tương ứng vào `package.json` (ví dụ: `"start:my-service": "nest start my-new-service --watch"`).
+
+---
+*Được tạo thành công từ việc tách cấu trúc cốt lõi của OrchidPal.*
