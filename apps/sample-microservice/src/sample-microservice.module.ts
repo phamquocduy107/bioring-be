@@ -7,8 +7,8 @@ import {
   LoggingInterceptor,
   TimeoutInterceptor,
 } from '@app/common';
-import { AppController } from './nestjs-template2.controller';
-import { AppService } from './nestjs-template2.service';
+import { AppController } from './sample-microservice.controller';
+import { AppService } from './sample-microservice.service';
 
 @Module({
   imports: [

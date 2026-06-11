@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
-import { AppModule } from './nestjs-template2.module';
+import { AppModule } from './sample-microservice.module';
 
 const SERVICE_PORT = Number(process.env.SERVICE_PORT ?? 3001);
 

@@ -1,22 +1,22 @@
 {
   "$schema": "https://json.schemastore.org/nest-cli",
   "collection": "@nestjs/schematics",
-  "sourceRoot": "apps/nestjs-template/src",
+  "sourceRoot": "apps/api-gateway/src",
   "compilerOptions": {
     "deleteOutDir": true,
     "webpack": true,
-    "tsConfigPath": "apps/nestjs-template/tsconfig.app.json"
+    "tsConfigPath": "apps/api-gateway/tsconfig.app.json"
   },
   "monorepo": true,
-  "root": "apps/nestjs-template",
+  "root": "apps/api-gateway",
   "projects": {
-    "nestjs-template": {
+    "api-gateway": {
       "type": "application",
-      "root": "apps/nestjs-template",
+      "root": "apps/api-gateway",
       "entryFile": "main",
-      "sourceRoot": "apps/nestjs-template/src",
+      "sourceRoot": "apps/api-gateway/src",
       "compilerOptions": {
-        "tsConfigPath": "apps/nestjs-template/tsconfig.app.json",
+        "tsConfigPath": "apps/api-gateway/tsconfig.app.json",
         "plugins": [
           {
             "name": "@nestjs/swagger",
@@ -29,13 +29,13 @@
         ]
       }
     },
-    "nestjs-template2": {
+    "sample-microservice": {
       "type": "application",
-      "root": "apps/nestjs-template2",
+      "root": "apps/sample-microservice",
       "entryFile": "main",
-      "sourceRoot": "apps/nestjs-template2/src",
+      "sourceRoot": "apps/sample-microservice/src",
       "compilerOptions": {
-        "tsConfigPath": "apps/nestjs-template2/tsconfig.app.json"
+        "tsConfigPath": "apps/sample-microservice/tsconfig.app.json"
       }
     },
     "common": {

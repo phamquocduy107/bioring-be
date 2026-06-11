@@ -1,6 +1,6 @@
 import { Controller } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
-import { AppService } from './nestjs-template2.service';
+import { AppService } from './sample-microservice.service';
 
 @Controller()
 export class AppController {
