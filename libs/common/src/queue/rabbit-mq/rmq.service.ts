@@ -24,7 +24,7 @@ export class RmqService {
 
   getOptions(queue: string, noAck = false): RmqOptions {
     const exchange =
-      this.configService.get<string>('RABBITMQ_EXCHANGE') || 'orchidpal';
+      this.configService.get<string>('RABBITMQ_EXCHANGE') || 'nestjs_template';
 
     return {
       transport: Transport.RMQ,

@@ -94,15 +94,15 @@ nestjs-template/
 
 ## 📜 Các lệnh (Scripts) hữu ích
 
-| Lệnh | Ý nghĩa |
-|------|---------|
-| `npm run dev` | Khởi chạy đồng thời tất cả các ứng dụng trong chế độ `--watch`. |
-| `npm run build` | Build toàn bộ ứng dụng (nest build). |
-| `npm run lint` | Kiểm tra và tự động sửa lỗi syntax với ESLint. |
-| `npm run format` | Định dạng lại code với Prettier. |
-| `npm run prisma:generate` | Tạo mã nguồn Prisma Client dựa trên file `schema.prisma`. |
-| `npm run prisma:pull` | Pull cấu trúc database hiện tại về `schema.prisma`. |
-| `npm run prisma:migrate` | Áp dụng thay đổi `schema.prisma` lên database (chỉ dùng ở môi trường dev). |
+| Lệnh                      | Ý nghĩa                                                                    |
+| ------------------------- | -------------------------------------------------------------------------- |
+| `npm run dev`             | Khởi chạy đồng thời tất cả các ứng dụng trong chế độ `--watch`.            |
+| `npm run build`           | Build toàn bộ ứng dụng (nest build).                                       |
+| `npm run lint`            | Kiểm tra và tự động sửa lỗi syntax với ESLint.                             |
+| `npm run format`          | Định dạng lại code với Prettier.                                           |
+| `npm run prisma:generate` | Tạo mã nguồn Prisma Client dựa trên file `schema.prisma`.                  |
+| `npm run prisma:pull`     | Pull cấu trúc database hiện tại về `schema.prisma`.                        |
+| `npm run prisma:migrate`  | Áp dụng thay đổi `schema.prisma` lên database (chỉ dùng ở môi trường dev). |
 
 ## 💡 Lưu ý khi tạo Microservice mới
 
@@ -112,6 +112,3 @@ Khi muốn tạo thêm một ứng dụng mới trong Monorepo:
 2. Mở file `nest-cli.json` để kiểm tra cấu hình của app mới.
 3. Nếu ứng dụng mới là HTTP (có dùng Swagger), hãy thêm plugin `@nestjs/swagger` vào mảng `compilerOptions.plugins` của app đó trong `nest-cli.json`.
 4. Cập nhật câu lệnh start/build tương ứng vào `package.json` (ví dụ: `"start:my-service": "nest start my-new-service --watch"`).
-
----
-*Được tạo thành công từ việc tách cấu trúc cốt lõi của OrchidPal.*

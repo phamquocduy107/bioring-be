@@ -23,7 +23,8 @@ export class RmqModule {
               const port = configService.get<string>('RABBITMQ_PORT');
               const vhost = configService.get<string>('RABBITMQ_VHOST');
               const exchange =
-                configService.get<string>('RABBITMQ_EXCHANGE') || 'orchidpal';
+                configService.get<string>('RABBITMQ_EXCHANGE') ||
+                'nestjs_template';
 
               if (!user || !pass || !host || !port || !vhost) {
                 throw new Error('Missing RabbitMQ configuration in .env file');
