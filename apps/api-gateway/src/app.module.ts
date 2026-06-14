@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { join } from 'node:path';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ClientsModule, Transport } from '@nestjs/microservices';
@@ -29,10 +30,12 @@ import { SampleModule } from './modules/sample/sample.module';
     EventEmitterModule.forRoot(),
     ClientsModule.register([
       {
-        name: 'SAMPLE_SERVICE', // Tên tham chiếu đến microservice
-        transport: Transport.TCP,
+        name: 'SAMPLE_SERVICE',
+        transport: Transport.GRPC,
         options: {
-          port: Number(process.env.SERVICE_PORT ?? 3001),
+          package: 'sample',
+          protoPath: join(process.cwd(), 'proto/sample.proto'),
+          url: process.env.SAMPLE_GRPC_URL ?? 'localhost:50051',
         },
       },
     ]),

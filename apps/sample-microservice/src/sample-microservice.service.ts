@@ -1,12 +1,16 @@
 import { Injectable } from '@nestjs/common';
 
+type PingRequest = {
+  data?: string;
+};
+
 @Injectable()
 export class AppService {
-  ping(data: any): { pong: boolean; receivedAt: string; data: any } {
+  ping(data: PingRequest): { pong: boolean; receivedAt: string; data: string } {
     return {
       pong: true,
       receivedAt: new Date().toISOString(),
-      data,
+      data: data.data ?? '',
     };
   }
 }

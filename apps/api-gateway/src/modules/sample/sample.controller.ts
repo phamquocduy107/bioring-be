@@ -14,4 +14,11 @@ export class SampleController {
   getHealth() {
     return this.sampleService.getHealth();
   }
+
+  @Public()
+  @Get('ping')
+  @ApiOperation({ summary: 'Ping sample microservice through gRPC' })
+  pingMicroservice() {
+    return this.sampleService.pingMicroservice();
+  }
 }

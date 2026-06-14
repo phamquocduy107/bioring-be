@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestMicroservice } from '@nestjs/common';
+import { join } from 'node:path';
 import { Transport } from '@nestjs/microservices';
 import { AppModule } from './../src/sample-microservice.module';
 
@@ -12,9 +13,11 @@ describe('AppController (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestMicroservice({
-      transport: Transport.TCP,
+      transport: Transport.GRPC,
       options: {
-        port: 3002, // random port for testing
+        package: 'sample',
+        protoPath: join(process.cwd(), 'proto/sample.proto'),
+        url: 'localhost:50052',
       },
     });
     await app.init();

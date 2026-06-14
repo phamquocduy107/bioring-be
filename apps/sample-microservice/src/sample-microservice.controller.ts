@@ -1,17 +1,17 @@
 import { Controller } from '@nestjs/common';
-import { MessagePattern, Payload } from '@nestjs/microservices';
+import { GrpcMethod } from '@nestjs/microservices';
 import { AppService } from './sample-microservice.service';
+
+type PingRequest = {
+  data?: string;
+};
 
 @Controller()
 export class AppController {
   constructor(private readonly appService: AppService) {}
 
-  /**
-   * Ví dụ: ping message pattern
-   * Gọi từ gateway: this.client.send('ping', {})
-   */
-  @MessagePattern('ping')
-  ping(@Payload() data: any) {
+  @GrpcMethod('SampleService', 'Ping')
+  ping(data: PingRequest) {
     return this.appService.ping(data);
   }
 }
