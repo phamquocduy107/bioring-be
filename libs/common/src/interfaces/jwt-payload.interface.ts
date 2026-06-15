@@ -3,3 +3,11 @@ export interface JwtPayload {
   email: string;
   role: string[]; // Array of role names
 }
+
+import 'express';
+
+declare module 'express-serve-static-core' {
+  interface Request {
+    user?: JwtPayload;
+  }
+}
