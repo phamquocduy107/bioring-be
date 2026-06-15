@@ -36,7 +36,6 @@ export class RmqService {
         queueOptions: {
           durable: true,
         },
-        // @ts-expect-error exchange is not in RMQ options type but works at runtime
         exchange: exchange,
       },
     };
