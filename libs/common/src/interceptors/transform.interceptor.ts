@@ -76,7 +76,7 @@ export class TransformInterceptor<T> implements NestInterceptor<
           message: message,
           data: resultData as T,
           meta: meta,
-        } as Response<T>;
+        };
       }),
     );
   }

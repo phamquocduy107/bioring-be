@@ -20,7 +20,10 @@ describe('AppController', () => {
       const response = appController.ping(data);
       expect(response).toHaveProperty('pong', true);
       expect(response).toHaveProperty('receivedAt');
-      expect(response).toHaveProperty('data', 'test data (processed by ecommerce-service)');
+      expect(response).toHaveProperty(
+        'data',
+        'test data (processed by ecommerce-service)',
+      );
     });
   });
 });

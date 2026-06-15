@@ -28,7 +28,9 @@ export class EcommerceService implements OnModuleInit {
 
   onModuleInit() {
     this.ecommerceGrpcService =
-      this.ecommerceClient?.getService<EcommerceGrpcService>('EcommerceService');
+      this.ecommerceClient?.getService<EcommerceGrpcService>(
+        'EcommerceService',
+      );
   }
 
   getHealth(): { status: string; message: string; timestamp: string } {
