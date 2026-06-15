@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AppController } from './sample-microservice.controller';
-import { AppService } from './sample-microservice.service';
+import { AppController } from './ecommerce-service.controller';
+import { AppService } from './ecommerce-service.service';
 
 describe('AppController', () => {
   let appController: AppController;
@@ -20,7 +20,7 @@ describe('AppController', () => {
       const response = appController.ping(data);
       expect(response).toHaveProperty('pong', true);
       expect(response).toHaveProperty('receivedAt');
-      expect(response).toHaveProperty('data', 'test data (processed by sample-microservice)');
+      expect(response).toHaveProperty('data', 'test data (processed by ecommerce-service)');
     });
   });
 });

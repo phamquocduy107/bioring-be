@@ -2,9 +2,9 @@ import 'dotenv/config';
 import { join } from 'node:path';
 import { NestFactory } from '@nestjs/core';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
-import { AppModule } from './sample-microservice.module';
+import { AppModule } from './ecommerce-service.module';
 
-const GRPC_URL = process.env.SAMPLE_GRPC_URL ?? '0.0.0.0:50051';
+const GRPC_URL = process.env.ECOMMERCE_GRPC_URL ?? '0.0.0.0:50051';
 
 async function bootstrap() {
   const app = await NestFactory.createMicroservice<MicroserviceOptions>(
@@ -12,14 +12,14 @@ async function bootstrap() {
     {
       transport: Transport.GRPC,
       options: {
-        package: 'sample',
-        protoPath: join(process.cwd(), 'proto/sample.proto'),
+        package: 'ecommerce',
+        protoPath: join(process.cwd(), 'proto/ecommerce.proto'),
         url: GRPC_URL,
       },
     },
   );
 
   await app.listen();
-  console.log(`[Microservice] running on gRPC ${GRPC_URL}`);
+  console.log(`[EcommerceService] running on gRPC ${GRPC_URL}`);
 }
 void bootstrap();

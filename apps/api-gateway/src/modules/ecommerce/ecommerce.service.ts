@@ -12,23 +12,23 @@ type PingResponse = {
   data: string;
 };
 
-type SampleGrpcService = {
+type EcommerceGrpcService = {
   ping(data: PingRequest): Observable<PingResponse>;
 };
 
 @Injectable()
-export class SampleService implements OnModuleInit {
-  private sampleGrpcService?: SampleGrpcService;
+export class EcommerceService implements OnModuleInit {
+  private ecommerceGrpcService?: EcommerceGrpcService;
 
   constructor(
     @Optional()
-    @Inject('SAMPLE_SERVICE')
-    private readonly sampleClient?: ClientGrpc,
+    @Inject('ECOMMERCE_SERVICE')
+    private readonly ecommerceClient?: ClientGrpc,
   ) {}
 
   onModuleInit() {
-    this.sampleGrpcService =
-      this.sampleClient?.getService<SampleGrpcService>('SampleService');
+    this.ecommerceGrpcService =
+      this.ecommerceClient?.getService<EcommerceGrpcService>('EcommerceService');
   }
 
   getHealth(): { status: string; message: string; timestamp: string } {
@@ -40,14 +40,14 @@ export class SampleService implements OnModuleInit {
   }
 
   async pingMicroservice(data = 'ping from api-gateway') {
-    if (!this.sampleGrpcService) {
+    if (!this.ecommerceGrpcService) {
       return {
         pong: false,
         receivedAt: new Date().toISOString(),
-        data: 'SAMPLE_SERVICE gRPC client is not initialized',
+        data: 'ECOMMERCE_SERVICE gRPC client is not initialized',
       };
     }
 
-    return lastValueFrom(this.sampleGrpcService.ping({ data }));
+    return lastValueFrom(this.ecommerceGrpcService.ping({ data }));
   }
 }
