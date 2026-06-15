@@ -29,8 +29,9 @@ export class AuthGuard implements CanActivate {
       return true;
     }
 
-    // Xử lý xác thực JWT
-    const request = context.switchToHttp().getRequest();
+    const request = context
+      .switchToHttp()
+      .getRequest<Request & { user?: unknown }>();
 
     const token = this.extractTokenFromHeader(request);
 
@@ -39,11 +40,13 @@ export class AuthGuard implements CanActivate {
     }
 
     try {
-      const payload = await this.jwtService.verifyAsync(token, {
+      const payload = await this.jwtService.verifyAsync<
+        Record<string, unknown>
+      >(token, {
         secret: this.configService.get<string>('JWT_ACCESS_TOKEN_SECRET'),
       });
 
-      request['user'] = payload;
+      request.user = payload;
     } catch {
       throw new UnauthorizedException('Token is invalid or has expired');
     }

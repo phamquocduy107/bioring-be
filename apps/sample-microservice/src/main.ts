@@ -22,4 +22,4 @@ async function bootstrap() {
   await app.listen();
   console.log(`[Microservice] running on gRPC ${GRPC_URL}`);
 }
-bootstrap();
+void bootstrap();

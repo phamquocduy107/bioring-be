@@ -13,7 +13,8 @@ import { RpcException } from '@nestjs/microservices';
 export class FitRpcExceptionFilter implements RpcExceptionFilter {
   private readonly logger = new Logger(FitRpcExceptionFilter.name);
 
-  catch(exception: any, host: ArgumentsHost): Observable<any> {
+  catch(exception: unknown, _host: ArgumentsHost): Observable<never> {
+    void _host;
     // 1. Mặc định là lỗi 500
     let errorResponse = {
       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
@@ -21,8 +22,9 @@ export class FitRpcExceptionFilter implements RpcExceptionFilter {
     };
 
     // 2. Xử lý lỗi DB phổ biến theo mã lỗi
-    if (typeof exception?.code === 'string') {
-      switch (exception.code) {
+    const err = exception as Record<string, unknown> | null;
+    if (err && typeof err.code === 'string') {
+      switch (err.code) {
         case 'P2025':
         case 'P2001':
           errorResponse = {
@@ -34,7 +36,7 @@ export class FitRpcExceptionFilter implements RpcExceptionFilter {
         case 'P2002':
           errorResponse = {
             statusCode: HttpStatus.CONFLICT,
-            message: `Unique constraint failed on field: ${exception.meta?.target}`,
+            message: `Unique constraint failed on field: ${String((err.meta as { target?: string })?.target ?? '')}`,
           };
           break;
 
@@ -47,11 +49,11 @@ export class FitRpcExceptionFilter implements RpcExceptionFilter {
 
         default:
           this.logger.error(
-            `Database Error: ${exception.code} - ${exception.message}`,
+            `Database Error: ${err.code} - ${String(err.message)}`,
           );
           errorResponse = {
             statusCode: HttpStatus.BAD_REQUEST,
-            message: `Database Error: ${exception.code}`,
+            message: `Database Error: ${err.code}`,
           };
           break;
       }
@@ -64,7 +66,10 @@ export class FitRpcExceptionFilter implements RpcExceptionFilter {
         message:
           typeof response === 'string'
             ? response
-            : (response as any).message || exception.message,
+            : String(
+                (response as Record<string, string>).message ??
+                  exception.message,
+              ),
       };
     }
     // 4. Xử lý RpcException
@@ -73,12 +78,12 @@ export class FitRpcExceptionFilter implements RpcExceptionFilter {
       errorResponse =
         typeof error === 'string'
           ? { statusCode: HttpStatus.INTERNAL_SERVER_ERROR, message: error }
-          : (error as any);
+          : (error as { statusCode: number; message: string });
     }
     // 5. Lỗi lạ khác
     else {
       this.logger.error(exception);
-      if (exception.message) errorResponse.message = exception.message;
+      if (typeof err?.message === 'string') errorResponse.message = err.message;
     }
 
     // Gửi lỗi đã được đóng gói về Gateway

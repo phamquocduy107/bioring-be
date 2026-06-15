@@ -3,7 +3,6 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
-import { RmqService } from '@app/common';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -65,4 +64,4 @@ async function bootstrap() {
   console.log(`[API Gateway] HTTP Server running on port ${port}`);
   console.log(`[API Gateway] Swagger docs at http://localhost:${port}/docs`);
 }
-bootstrap();
+void bootstrap();

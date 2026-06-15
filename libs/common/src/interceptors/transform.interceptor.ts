@@ -32,39 +32,40 @@ export class TransformInterceptor<T> implements NestInterceptor<
       context.getHandler(),
     );
     if (bypass) {
-      return next.handle();
+      return next.handle() as Observable<Response<T>>;
     }
 
     return next.handle().pipe(
-      map((data) => {
+      map((data: unknown) => {
         const contextHttp = context.switchToHttp();
-        const response = contextHttp.getResponse();
+        const response = contextHttp.getResponse<{
+          status: (code: number) => void;
+        }>();
 
         let status = HttpStatus.OK;
         let message = 'Success';
-        let resultData = data;
-        let meta = undefined;
+        let resultData: unknown = data;
+        let meta: unknown = undefined;
 
         if (data && typeof data === 'object') {
+          const obj = data as Record<string, unknown>;
+
           if (Array.isArray(data)) {
             resultData = data;
+          } else if ('data' in obj && 'meta' in obj) {
+            message = typeof obj.message === 'string' ? obj.message : message;
+            status =
+              typeof obj.statusCode === 'number' ? obj.statusCode : status;
+            resultData = obj.data;
+            meta = obj.meta;
           } else {
-            if ('data' in data && 'meta' in data) {
-              message = data.message || message;
-              status = data.statusCode || status;
-              resultData = data.data;
-              meta = data.meta;
-            } else {
-              if ('statusCode' in data) status = data.statusCode;
-              if ('message' in data) message = data.message;
+            if (typeof obj.statusCode === 'number') status = obj.statusCode;
+            if (typeof obj.message === 'string') message = obj.message;
 
-              const { statusCode, message: msg, ...rest } = data;
-              resultData = rest;
-
-              if (Object.keys(resultData).length === 0) {
-                resultData = null;
-              }
-            }
+            const rest = { ...obj };
+            delete rest.statusCode;
+            delete rest.message;
+            resultData = Object.keys(rest).length > 0 ? rest : null;
           }
         }
 

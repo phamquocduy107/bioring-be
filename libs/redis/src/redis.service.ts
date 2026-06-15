@@ -14,8 +14,13 @@ export class RedisService implements OnModuleDestroy {
     return this.redisClient;
   }
 
-  async set(key: string, value: any, ttl?: number): Promise<void> {
-    const data = typeof value === 'object' ? JSON.stringify(value) : value;
+  async set(key: string, value: unknown, ttl?: number): Promise<void> {
+    const data =
+      typeof value === 'object'
+        ? JSON.stringify(value)
+        : typeof value === 'string'
+          ? value
+          : JSON.stringify(value);
 
     if (ttl) {
       await this.redisClient.set(key, data, 'EX', ttl);
@@ -30,7 +35,7 @@ export class RedisService implements OnModuleDestroy {
 
     try {
       return JSON.parse(data) as T;
-    } catch (error) {
+    } catch {
       return data as unknown as T;
     }
   }

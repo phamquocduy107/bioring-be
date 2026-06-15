@@ -34,7 +34,10 @@ export class PermissionRbacGuard implements CanActivate {
       return true;
     }
 
-    const user = context.switchToHttp().getRequest().user;
+    const request = context
+      .switchToHttp()
+      .getRequest<{ user?: { sub: string } }>();
+    const user = request.user;
     if (!user?.sub) {
       throw new UnauthorizedException('No authenticated user');
     }

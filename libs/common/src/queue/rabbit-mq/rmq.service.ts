@@ -36,14 +36,14 @@ export class RmqService {
         queueOptions: {
           durable: true,
         },
-        // @ts-ignore
+        // @ts-expect-error exchange is not in RMQ options type but works at runtime
         exchange: exchange,
       },
     };
   }
 
   ack(context: RmqContext): void {
-    const channel = context.getChannelRef();
+    const channel = context.getChannelRef() as { ack: (msg: unknown) => void };
     const message = context.getMessage();
     channel.ack(message);
   }

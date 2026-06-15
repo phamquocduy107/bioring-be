@@ -14,7 +14,7 @@ import { BYPASS_INTERCEPTORS, SKIP_TIMEOUT } from '../decorators';
 export class TimeoutInterceptor implements NestInterceptor {
   constructor(private reflector: Reflector) {}
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const bypass = this.reflector.get<boolean>(
       BYPASS_INTERCEPTORS,
       context.getHandler(),
@@ -34,13 +34,13 @@ export class TimeoutInterceptor implements NestInterceptor {
 
     return next.handle().pipe(
       timeout(5000),
-      catchError((err) => {
+      catchError((err: unknown) => {
         if (err instanceof TimeoutError) {
           return throwError(
             () => new RequestTimeoutException('Request xử lý quá lâu!'),
           );
         }
-        return throwError(() => err);
+        return throwError(() => err as Error);
       }),
     );
   }

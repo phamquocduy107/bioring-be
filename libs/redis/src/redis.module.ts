@@ -10,7 +10,7 @@ import { REDIS_CLIENT } from '@app/common';
   providers: [
     {
       provide: REDIS_CLIENT,
-      useFactory: async (configService: ConfigService) => {
+      useFactory: (configService: ConfigService) => {
         const url = configService.get<string>('REDIS_URL');
 
         if (!url) {
