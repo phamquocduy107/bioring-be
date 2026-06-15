@@ -6,7 +6,7 @@ import { BullModule } from '@nestjs/bullmq';
   imports: [
     BullModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
+      useFactory: (configService: ConfigService) => ({
         connection: {
           url: configService.get<string>('REDIS_URL'),
           keepAlive: 10000,

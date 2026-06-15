@@ -1,4 +1,3 @@
-// libs/prisma/src/prisma.service.ts
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
@@ -8,10 +7,12 @@ export class PrismaService
   implements OnModuleInit, OnModuleDestroy
 {
   async onModuleInit() {
-    await this.$connect();
+    await (this as unknown as { $connect: () => Promise<void> }).$connect();
   }
 
   async onModuleDestroy() {
-    await this.$disconnect();
+    await (
+      this as unknown as { $disconnect: () => Promise<void> }
+    ).$disconnect();
   }
 }

@@ -36,14 +36,13 @@ export class RmqService {
         queueOptions: {
           durable: true,
         },
-        // @ts-ignore
         exchange: exchange,
       },
     };
   }
 
   ack(context: RmqContext): void {
-    const channel = context.getChannelRef();
+    const channel = context.getChannelRef() as { ack: (msg: unknown) => void };
     const message = context.getMessage();
     channel.ack(message);
   }

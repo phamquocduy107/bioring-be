@@ -42,7 +42,6 @@ export class RmqModule {
                   queueOptions: {
                     durable: true,
                   },
-                  // @ts-ignore
                   exchange: exchange,
                   type: 'topic',
                 },

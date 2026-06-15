@@ -18,9 +18,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const request = ctx.getRequest<Request>();
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
-    let message: any = 'Internal server error';
+    let message: string = 'Internal server error';
 
-    // Tránh lỗi khi headers đã được gửi khi hủy Google OAuth
     if (response.headersSent) {
       this.logger.warn(
         'Headers already sent, skipping exception filter response.',
@@ -28,39 +27,38 @@ export class AllExceptionsFilter implements ExceptionFilter {
       return;
     }
 
-    // 1. Xử lý lỗi HTTP thông thường
     if (exception instanceof HttpException) {
       status = exception.getStatus();
       const responseBody = exception.getResponse();
 
       message =
-        typeof responseBody === 'object' && 'message' in responseBody
-          ? (responseBody as any).message
-          : responseBody;
-    }
+        typeof responseBody === 'object' &&
+        responseBody !== null &&
+        'message' in responseBody
+          ? String((responseBody as Record<string, string>).message ?? '')
+          : typeof responseBody === 'string'
+            ? responseBody
+            : 'Http Error';
+    } else if (this.isRpcError(exception)) {
+      const errorObj = exception as Record<string, unknown>;
+      const realError = (errorObj.error as Record<string, unknown>) || errorObj;
 
-    // 2. Xử lý lỗi từ Microservice (RPC)
-    else if (this.isRpcError(exception)) {
-      const errorObj = exception as any;
-
-      // Lấy object thật bên trong nếu có
-      const realError = errorObj.error || errorObj;
-
-      // Lấy status từ object thật bên trong
-      status = Number(realError.statusCode || realError.status);
-      message = realError.message || 'Microservice Error';
-    }
-
-    // 3. Lỗi DB (Prisma)
-    else if (this.isNotFoundError(exception)) {
+      status = Number(
+        realError.statusCode ??
+          realError.status ??
+          HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+      message =
+        typeof realError.message === 'string'
+          ? realError.message
+          : 'Microservice Error';
+    } else if (this.isPrismaNotFoundError(exception)) {
       status = HttpStatus.NOT_FOUND;
       message = 'Resource not found';
     } else {
-      // Log lỗi 500 thực sự để debug
       this.logger.error(exception);
     }
 
-    // Kiểm tra an toàn lần cuối
     if (isNaN(status) || typeof status !== 'number') {
       status = HttpStatus.INTERNAL_SERVER_ERROR;
     }
@@ -73,24 +71,28 @@ export class AllExceptionsFilter implements ExceptionFilter {
     });
   }
 
-  private isRpcError(exception: any): boolean {
+  private isRpcError(exception: unknown): boolean {
     if (!exception || typeof exception !== 'object') return false;
 
-    // Check nếu là lỗi phẳng
-    const isFlatError = 'status' in exception || 'statusCode' in exception;
+    const err = exception as Record<string, unknown>;
 
-    // Check nếu là lỗi lồng nhau
+    const isFlatError = 'status' in err || 'statusCode' in err;
+
     const isNestedError =
-      'error' in exception &&
-      typeof exception.error === 'object' &&
-      ('status' in exception.error || 'statusCode' in exception.error);
+      'error' in err &&
+      typeof err.error === 'object' &&
+      err.error !== null &&
+      ('status' in (err.error as Record<string, unknown>) ||
+        'statusCode' in (err.error as Record<string, unknown>));
 
     return isFlatError || isNestedError;
   }
 
-  private isNotFoundError(exception: any): boolean {
-    if (exception.name === 'EntityNotFoundError') return true;
-    if (exception.code === 'P2025') return true;
+  private isPrismaNotFoundError(exception: unknown): boolean {
+    if (!exception || typeof exception !== 'object') return false;
+    const err = exception as Record<string, unknown>;
+    if (err.name === 'EntityNotFoundError') return true;
+    if (err.code === 'P2025') return true;
     return false;
   }
 }

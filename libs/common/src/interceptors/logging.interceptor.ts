@@ -12,18 +12,20 @@ import { tap } from 'rxjs/operators';
 export class LoggingInterceptor implements NestInterceptor {
   private readonly logger = new Logger(LoggingInterceptor.name);
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const now = Date.now();
     const type = context.getType();
 
-    // 1. Nếu là HTTP (Gateway)
     if (type === 'http') {
       const ctx = context.switchToHttp();
-      const request = ctx.getRequest();
+      const request = ctx.getRequest<{
+        method: string;
+        url: string;
+        get?: (name: string) => string | undefined;
+      }>();
       const method = request.method;
       const url = request.url;
-      // Chỉ gọi request.get() khi chắc chắn là HTTP
-      const userAgent = request.get ? request.get('user-agent') : '';
+      const userAgent = request.get ? (request.get('user-agent') ?? '') : '';
 
       return next
         .handle()
@@ -34,12 +36,7 @@ export class LoggingInterceptor implements NestInterceptor {
             ),
           ),
         );
-    }
-
-    // 2. Nếu là RPC
-    else if (type === 'rpc') {
-      const ctx = context.switchToRpc();
-      const data = ctx.getData();
+    } else if (type === 'rpc') {
       return next
         .handle()
         .pipe(
@@ -49,7 +46,6 @@ export class LoggingInterceptor implements NestInterceptor {
         );
     }
 
-    // 3. Trường hợp khác (mặc định)
     return next.handle();
   }
 }
