@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestMicroservice } from '@nestjs/common';
 import { join } from 'node:path';
 import { Transport } from '@nestjs/microservices';
-import { AppModule } from './../src/sample-microservice.module';
+import { AppModule } from './../src/ecommerce-service.module';
 
 describe('AppController (e2e)', () => {
   let app: INestMicroservice;
@@ -15,8 +15,8 @@ describe('AppController (e2e)', () => {
     app = moduleFixture.createNestMicroservice({
       transport: Transport.GRPC,
       options: {
-        package: 'sample',
-        protoPath: join(process.cwd(), 'proto/sample.proto'),
+        package: 'ecommerce',
+        protoPath: join(process.cwd(), 'proto/ecommerce.proto'),
         url: 'localhost:50052',
       },
     });

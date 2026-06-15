@@ -29,13 +29,13 @@
         ]
       }
     },
-    "sample-microservice": {
+    "ecommerce-service": {
       "type": "application",
-      "root": "apps/sample-microservice",
+      "root": "apps/ecommerce-service",
       "entryFile": "main",
-      "sourceRoot": "apps/sample-microservice/src",
+      "sourceRoot": "apps/ecommerce-service/src",
       "compilerOptions": {
-        "tsConfigPath": "apps/sample-microservice/tsconfig.app.json"
+        "tsConfigPath": "apps/ecommerce-service/tsconfig.app.json"
       }
     },
     "common": {
