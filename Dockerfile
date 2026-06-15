@@ -30,5 +30,6 @@ USER app
 EXPOSE 3000
 
 ARG APP_NAME
+ENV APP_NAME=${APP_NAME}
 ENV NODE_ENV=production
 CMD node "dist/apps/${APP_NAME}/main"
