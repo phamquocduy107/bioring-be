@@ -31,9 +31,10 @@ export class SampleService implements OnModuleInit {
       this.sampleClient?.getService<SampleGrpcService>('SampleService');
   }
 
-  getHealth(): { status: string; timestamp: string } {
+  getHealth(): { status: string; message: string; timestamp: string } {
     return {
       status: 'ok',
+      message: 'API Gateway is healthy',
       timestamp: new Date().toISOString(),
     };
   }
