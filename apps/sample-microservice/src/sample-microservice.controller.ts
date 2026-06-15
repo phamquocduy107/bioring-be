@@ -12,6 +12,7 @@ export class AppController {
 
   @GrpcMethod('SampleService', 'Ping')
   ping(data: PingRequest) {
-    return this.appService.ping(data);
+    const responseData = data.data + ' (processed by sample-microservice)';
+    return this.appService.ping({ ...data, data: responseData });
   }
 }
