@@ -8,7 +8,7 @@ on:
 
 env:
   GHCR_REGISTRY: ghcr.io
-  MANIFESTS_REPO: <owner>/bioring-be-manifests
+  MANIFESTS_REPO: phamquocduy107/bioring-be-manifests
   APPS: api-gateway sample-microservice
 
 jobs:
@@ -53,7 +53,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_USERNAME }}/bioring-${{ matrix.app }}:${{ github.sha }}
+          tags: ${{ env.GHCR_REGISTRY }}/${{ secrets.GHCR_USERNAME }}/bioring-${{ matrix.app }}:${{ github.sha }}
           build-args: APP_NAME=${{ matrix.app }}
 
   update-manifests:
