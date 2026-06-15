@@ -16,9 +16,9 @@ describe('AppController (e2e)', () => {
     await app.init();
   });
 
-  it('/sample/health (GET)', () => {
+  it('/ecommerce/health (GET)', () => {
     return request(app.getHttpServer())
-      .get('/sample/health')
+      .get('/ecommerce/health')
       .expect(200)
       .expect((res) => {
         expect(res.body).toHaveProperty('status', 'ok');

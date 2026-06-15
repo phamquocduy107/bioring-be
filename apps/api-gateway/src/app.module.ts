@@ -14,7 +14,7 @@ import {
   TimeoutInterceptor,
   TransformInterceptor,
 } from '@app/common';
-import { SampleModule } from './modules/sample/sample.module';
+import { EcommerceModule } from './modules/ecommerce/ecommerce.module';
 
 @Module({
   imports: [
@@ -26,7 +26,7 @@ import { SampleModule } from './modules/sample/sample.module';
       adapter: ExpressAdapter,
     }),
     EventEmitterModule.forRoot(),
-    SampleModule,
+    EcommerceModule,
   ],
   providers: [
     {

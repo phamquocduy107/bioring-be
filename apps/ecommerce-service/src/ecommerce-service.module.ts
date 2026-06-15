@@ -7,8 +7,8 @@ import {
   LoggingInterceptor,
   TimeoutInterceptor,
 } from '@app/common';
-import { AppController } from './sample-microservice.controller';
-import { AppService } from './sample-microservice.service';
+import { AppController } from './ecommerce-service.controller';
+import { AppService } from './ecommerce-service.service';
 
 @Module({
   imports: [

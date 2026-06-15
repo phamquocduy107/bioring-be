@@ -9,7 +9,7 @@ on:
 env:
   GHCR_REGISTRY: ghcr.io
   MANIFESTS_REPO: phamquocduy107/bioring-be-manifests
-  APPS: api-gateway sample-microservice
+  APPS: api-gateway ecommerce-service
 
 jobs:
   ci:
@@ -37,7 +37,7 @@ jobs:
       packages: write
     strategy:
       matrix:
-        app: [api-gateway, sample-microservice]
+        app: [api-gateway, ecommerce-service]
     steps:
       - uses: actions/checkout@v4
 
@@ -73,7 +73,7 @@ jobs:
       - name: Update image tags
         run: |
           npm install -g yq
-          for app in api-gateway sample-microservice; do
+          for app in api-gateway ecommerce-service; do
             yq -i '.spec.template.spec.containers[0].image = "${{ env.GHCR_REGISTRY }}/${{ secrets.GHCR_USERNAME }}/bioring-'${app}':${{ github.sha }}"' k8s/${app}/deployment.yaml
           done
 
@@ -81,6 +81,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add k8s/api-gateway/deployment.yaml k8s/sample-microservice/deployment.yaml
-          git commit -m "chore: deploy api-gateway & sample-microservice ${{ github.sha }}"
+          git add k8s/api-gateway/deployment.yaml k8s/ecommerce-service/deployment.yaml
+          git commit -m "chore: deploy api-gateway & ecommerce-service ${{ github.sha }}"
           git push
