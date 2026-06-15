@@ -31,4 +31,4 @@ EXPOSE 3000
 
 ARG APP_NAME
 ENV NODE_ENV=production
-CMD ["node", "dist/apps/${APP_NAME}/main"]
+CMD node "dist/apps/${APP_NAME}/main"

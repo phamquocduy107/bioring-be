@@ -1,8 +1,6 @@
 import { Module } from '@nestjs/common';
-import { join } from 'node:path';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-import { ClientsModule, Transport } from '@nestjs/microservices';
 import { BullConfigModule } from '@app/common/queue/bull-mq';
 import { BullBoardModule } from '@bull-board/nestjs/dist/bull-board.module';
 import { ExpressAdapter } from '@bull-board/express';
@@ -28,17 +26,6 @@ import { SampleModule } from './modules/sample/sample.module';
       adapter: ExpressAdapter,
     }),
     EventEmitterModule.forRoot(),
-    ClientsModule.register([
-      {
-        name: 'SAMPLE_SERVICE',
-        transport: Transport.GRPC,
-        options: {
-          package: 'sample',
-          protoPath: join(process.cwd(), 'proto/sample.proto'),
-          url: process.env.SAMPLE_GRPC_URL ?? 'localhost:50051',
-        },
-      },
-    ]),
     SampleModule,
   ],
   providers: [
