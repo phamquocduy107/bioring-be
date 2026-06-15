@@ -24,6 +24,7 @@ RUN addgroup --system --gid 1001 app && adduser --system --uid 1001 app
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/libs/prisma/prisma ./libs/prisma/prisma
+COPY --from=build /app/proto ./proto
 COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 
 USER app
