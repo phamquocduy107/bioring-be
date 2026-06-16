@@ -15,6 +15,7 @@ import {
   TransformInterceptor,
 } from '@app/common';
 import { EcommerceModule } from './modules/ecommerce/ecommerce.module';
+import { TestServiceModule } from './modules/test-service/test-service.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { EcommerceModule } from './modules/ecommerce/ecommerce.module';
     }),
     EventEmitterModule.forRoot(),
     EcommerceModule,
+    TestServiceModule,
   ],
   providers: [
     {

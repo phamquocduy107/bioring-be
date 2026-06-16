@@ -1,12 +1,18 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller } from '@nestjs/common';
+import { GrpcMethod } from '@nestjs/microservices';
 import { TestServiceService } from './test-service.service';
+
+type PingRequest = {
+  data?: string;
+};
 
 @Controller()
 export class TestServiceController {
   constructor(private readonly testServiceService: TestServiceService) {}
 
-  @Get()
-  getHello(): string {
-    return this.testServiceService.getHello();
+  @GrpcMethod('TestService', 'Ping')
+  ping(data: PingRequest) {
+    const responseData = data.data + ' (processed by test service)';
+    return this.testServiceService.ping({ ...data, data: responseData });
   }
 }
