@@ -23,19 +23,13 @@
             "options": {
               "classValidatorShim": true,
               "introspectComments": true,
-              "dtoFileNameSuffix": [".dto.ts", ".entity.ts"]
+              "dtoFileNameSuffix": [
+                ".dto.ts",
+                ".entity.ts"
+              ]
             }
           }
         ]
-      }
-    },
-    "ecommerce-service": {
-      "type": "application",
-      "root": "apps/ecommerce-service",
-      "entryFile": "main",
-      "sourceRoot": "apps/ecommerce-service/src",
-      "compilerOptions": {
-        "tsConfigPath": "apps/ecommerce-service/tsconfig.app.json"
       }
     },
     "common": {
@@ -51,10 +45,31 @@
             "options": {
               "classValidatorShim": true,
               "introspectComments": true,
-              "dtoFileNameSuffix": [".dto.ts", ".entity.ts"]
+              "dtoFileNameSuffix": [
+                ".dto.ts",
+                ".entity.ts"
+              ]
             }
           }
         ]
+      }
+    },
+    "ecommerce-service": {
+      "type": "application",
+      "root": "apps/ecommerce-service",
+      "entryFile": "main",
+      "sourceRoot": "apps/ecommerce-service/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/ecommerce-service/tsconfig.app.json"
+      }
+    },
+    "mongo": {
+      "type": "library",
+      "root": "libs/mongo",
+      "entryFile": "index",
+      "sourceRoot": "libs/mongo/src",
+      "compilerOptions": {
+        "tsConfigPath": "libs/mongo/tsconfig.lib.json"
       }
     },
     "prisma": {
@@ -75,13 +90,13 @@
         "tsConfigPath": "libs/redis/tsconfig.lib.json"
       }
     },
-    "mongo": {
-      "type": "library",
-      "root": "libs/mongo",
-      "entryFile": "index",
-      "sourceRoot": "libs/mongo/src",
+    "test-service": {
+      "type": "application",
+      "root": "apps/test-service",
+      "entryFile": "main",
+      "sourceRoot": "apps/test-service/src",
       "compilerOptions": {
-        "tsConfigPath": "libs/mongo/tsconfig.lib.json"
+        "tsConfigPath": "apps/test-service/tsconfig.app.json"
       }
     }
   }
