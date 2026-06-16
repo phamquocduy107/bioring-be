@@ -25,7 +25,7 @@ jobs:
             [.projects | to_entries[] | select(.value.type == "application") | .key]
             | join(" ")
           ' nest-cli.json)
-          echo "apps=$APPS"
+          echo "apps=$APPS" >> "$GITHUB_OUTPUT"
           echo "matrix={\"app\": $(echo "$APPS" | jq -Rc 'split(" ")')}" >> "$GITHUB_OUTPUT"
 
   ci:
@@ -72,7 +72,7 @@ jobs:
           build-args: APP_NAME=${{ matrix.app }}
 
   update-manifests:
-    needs: [ci, discover-apps]
+    needs: [build-and-push, discover-apps]
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
