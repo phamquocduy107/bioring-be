@@ -89,15 +89,6 @@
       "compilerOptions": {
         "tsConfigPath": "libs/redis/tsconfig.lib.json"
       }
-    },
-    "test-service": {
-      "type": "application",
-      "root": "apps/test-service",
-      "entryFile": "main",
-      "sourceRoot": "apps/test-service/src",
-      "compilerOptions": {
-        "tsConfigPath": "apps/test-service/tsconfig.app.json"
-      }
     }
   }
 }
