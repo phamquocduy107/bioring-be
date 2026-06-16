@@ -9,9 +9,25 @@ on:
 env:
   GHCR_REGISTRY: ghcr.io
   MANIFESTS_REPO: phamquocduy107/bioring-be-manifests
-  APPS: api-gateway ecommerce-service
 
 jobs:
+  discover-apps:
+    runs-on: ubuntu-latest
+    outputs:
+      apps: ${{ steps.set-matrix.outputs.apps }}
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: set-matrix
+        run: |
+          APPS=$(jq -r '
+            [.projects | to_entries[] | select(.value.type == "application") | .key]
+            | join(" ")
+          ' nest-cli.json)
+          echo "apps=$APPS"
+          echo "matrix={\"app\": $(echo "$APPS" | jq -Rc 'split(" ")')}" >> "$GITHUB_OUTPUT"
+
   ci:
     runs-on: ubuntu-latest
     steps:
@@ -29,15 +45,14 @@ jobs:
       - run: npm test
 
   build-and-push:
-    needs: ci
+    needs: [ci, discover-apps]
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     strategy:
-      matrix:
-        app: [api-gateway, ecommerce-service]
+      matrix: ${{ fromJson(needs.discover-apps.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
 
@@ -57,7 +72,7 @@ jobs:
           build-args: APP_NAME=${{ matrix.app }}
 
   update-manifests:
-    needs: build-and-push
+    needs: [build-and-push, discover-apps]
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
@@ -71,16 +86,34 @@ jobs:
           node-version: 20
 
       - name: Update image tags
+        env:
+          APPS: ${{ needs.discover-apps.outputs.apps }}
         run: |
           npm install -g yq
-          for app in api-gateway ecommerce-service; do
-            yq -i '.spec.template.spec.containers[0].image = "${{ env.GHCR_REGISTRY }}/${{ secrets.GHCR_USERNAME }}/bioring-'${app}':${{ github.sha }}"' k8s/${app}/deployment.yaml
+          for app in $APPS; do
+            if [ -d "k8s/$app" ]; then
+              yq -i \
+                '.spec.template.spec.containers[0].image = "${{ env.GHCR_REGISTRY }}/${{ secrets.GHCR_USERNAME }}/bioring-'${app}':${{ github.sha }}"' \
+                "k8s/${app}/deployment.yaml"
+            fi
           done
 
       - name: Commit and push
+        env:
+          APPS: ${{ needs.discover-apps.outputs.apps }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add k8s/api-gateway/deployment.yaml k8s/ecommerce-service/deployment.yaml
-          git commit -m "chore: deploy api-gateway & ecommerce-service ${{ github.sha }}"
-          git push
+          FILES=""
+          for app in $APPS; do
+            if [ -f "k8s/$app/deployment.yaml" ]; then
+              FILES="$FILES k8s/$app/deployment.yaml"
+            fi
+          done
+          if [ -n "$FILES" ]; then
+            git add $FILES
+            git commit -m "chore: deploy ${{ github.sha }}"
+            git push
+          else
+            echo "No manifests to update"
+          fi
