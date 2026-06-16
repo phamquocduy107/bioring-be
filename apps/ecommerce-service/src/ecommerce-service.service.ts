@@ -10,7 +10,7 @@ export class AppService {
     return {
       pong: true,
       receivedAt: new Date().toISOString(),
-      data: (data.data ?? '') + 'Response from Ecommerce Service',
+      data: (data.data ?? '') + ' Response from Ecommerce Service',
     };
   }
 }
