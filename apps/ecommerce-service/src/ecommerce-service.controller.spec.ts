@@ -22,7 +22,7 @@ describe('AppController', () => {
       expect(response).toHaveProperty('receivedAt');
       expect(response).toHaveProperty(
         'data',
-        'test data (processed by ecommerce service)',
+        'test data Response from Ecommerce Service',
       );
     });
   });
