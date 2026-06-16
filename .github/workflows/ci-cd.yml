@@ -72,7 +72,7 @@ jobs:
           build-args: APP_NAME=${{ matrix.app }}
 
   update-manifests:
-    needs: [build-and-push, discover-apps]
+    needs: [ci, discover-apps]
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
