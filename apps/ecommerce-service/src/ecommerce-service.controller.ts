@@ -12,7 +12,6 @@ export class AppController {
 
   @GrpcMethod('EcommerceService', 'Ping')
   ping(data: PingRequest) {
-    const responseData = data.data + ' (processed by ecommerce service)';
-    return this.appService.ping({ ...data, data: responseData });
+    return this.appService.ping(data);
   }
 }
