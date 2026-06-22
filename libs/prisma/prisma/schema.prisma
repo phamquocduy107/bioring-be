@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,15 +7,803 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ============================================================
-// EXAMPLE MODEL — xóa khi bắt đầu dự án thực tế
-// ============================================================
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model ai_messages {
+  id            String      @id @db.Uuid
+  ai_session_id String      @db.Uuid
+  sender        String?     @db.VarChar(50)
+  message       String?
+  metadata      Json?
+  created_at    DateTime?   @db.Timestamptz(6)
+  ai_sessions   ai_sessions @relation(fields: [ai_session_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
 
-model Example {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model ai_sessions {
+  id                   String          @id @db.Uuid
+  user_id              String?         @db.Uuid
+  guest_session_id     String?         @db.VarChar(255)
+  topic                String?         @db.VarChar(255)
+  summary              String?
+  final_recommendation Json?
+  created_at           DateTime?       @db.Timestamptz(6)
+  updated_at           DateTime?       @db.Timestamptz(6)
+  ai_messages          ai_messages[]
+  users                users?          @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  design_drafts        design_drafts[]
+}
 
-  @@map("examples")
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model audit_logs {
+  id          String    @id @db.Uuid
+  user_id     String?   @db.Uuid
+  action      String?   @db.VarChar(255)
+  entity_name String?   @db.VarChar(255)
+  entity_id   String?   @db.Uuid
+  old_value   Json?
+  new_value   Json?
+  ip_address  String?   @db.VarChar(100)
+  user_agent  String?
+  created_at  DateTime? @db.Timestamptz(6)
+  users       users?    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model biometric_capture_items {
+  id                         String                     @id @db.Uuid
+  capture_session_id         String                     @db.Uuid
+  capture_type               String?                    @db.VarChar(100)
+  raw_file_url               String?                    @db.VarChar(500)
+  processed_file_url         String?                    @db.VarChar(500)
+  svg_url                    String?                    @db.VarChar(500)
+  metadata                   Json?
+  quality_score              Decimal?                   @db.Decimal(5, 2)
+  upload_source              String?                    @db.VarChar(50)
+  status                     String?                    @db.VarChar(100)
+  created_at                 DateTime?                  @db.Timestamptz(6)
+  biometric_capture_sessions biometric_capture_sessions @relation(fields: [capture_session_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([capture_session_id])
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model biometric_capture_sessions {
+  id                                                  String                    @id @db.Uuid
+  order_id                                            String                    @db.Uuid
+  engraving_id                                        String?                   @db.Uuid
+  customer_id                                         String?                   @db.Uuid
+  guest_customer_id                                   String?                   @db.Uuid
+  staff_id                                            String?                   @db.Uuid
+  device_id                                           String?                   @db.Uuid
+  status                                              String?                   @db.VarChar(100)
+  quality_score                                       Decimal?                  @db.Decimal(5, 2)
+  staff_note                                          String?
+  started_at                                          DateTime?                 @db.Timestamptz(6)
+  completed_at                                        DateTime?                 @db.Timestamptz(6)
+  biometric_capture_items                             biometric_capture_items[]
+  users_biometric_capture_sessions_customer_idTousers users?                    @relation("biometric_capture_sessions_customer_idTousers", fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  iot_devices                                         iot_devices?              @relation(fields: [device_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  engravings                                          engravings?               @relation(fields: [engraving_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  guest_customers                                     guest_customers?          @relation(fields: [guest_customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  orders                                              orders                    @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_biometric_capture_sessions_staff_idTousers    users?                    @relation("biometric_capture_sessions_staff_idTousers", fields: [staff_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  staff_assignments                                   staff_assignments[]
+
+  @@index([device_id])
+  @@index([order_id])
+}
+
+model card_themes {
+  id             String        @id @db.Uuid
+  theme_code     String        @unique @db.VarChar(100)
+  name           String        @db.VarChar(255)
+  default_bg_url String?       @db.VarChar(500)
+  style_config   Json?
+  is_active      Boolean?      @default(true)
+  created_at     DateTime?     @db.Timestamptz(6)
+  qr_memories    qr_memories[]
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model design_drafts {
+  id                         String           @id @db.Uuid
+  user_id                    String?          @db.Uuid
+  guest_session_id           String?          @db.VarChar(255)
+  product_id                 String?          @db.Uuid
+  ai_session_id              String?          @db.Uuid
+  selected_user_ring_size_id String?          @db.Uuid
+  design_code                String?          @unique @db.VarChar(50)
+  design_source              String?          @db.VarChar(100)
+  ring_style                 String?          @db.VarChar(100)
+  ring_shape                 String?          @db.VarChar(100)
+  ring_size                  String?          @db.VarChar(50)
+  selected_material_id       String?          @db.Uuid
+  selected_gemstone_id       String?          @db.Uuid
+  customization_config       Json?
+  estimated_price            Decimal?         @db.Decimal(18, 2)
+  expires_at                 DateTime?        @db.Timestamptz(6)
+  status                     String?          @db.VarChar(100)
+  created_at                 DateTime?        @db.Timestamptz(6)
+  updated_at                 DateTime?        @db.Timestamptz(6)
+  ai_sessions                ai_sessions?     @relation(fields: [ai_session_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  products                   products?        @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  gemstones                  gemstones?       @relation(fields: [selected_gemstone_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  materials                  materials?       @relation(fields: [selected_material_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_ring_sizes            user_ring_sizes? @relation(fields: [selected_user_ring_size_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users                      users?           @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  orders                     orders[]
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model device_health_logs {
+  id            String      @id @db.Uuid
+  device_id     String      @db.Uuid
+  cpu_usage     Decimal?    @db.Decimal(5, 2)
+  memory_usage  Decimal?    @db.Decimal(5, 2)
+  battery_level Decimal?    @db.Decimal(5, 2)
+  error_message String?
+  logged_at     DateTime?   @db.Timestamptz(6)
+  iot_devices   iot_devices @relation(fields: [device_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model engraving_biometrics {
+  id                String     @id @db.Uuid
+  engraving_id      String     @db.Uuid
+  biometric_type    String     @db.VarChar(50)
+  required_channel  String     @db.VarChar(50)
+  raw_file_url      String?    @db.VarChar(500)
+  processed_svg_url String?    @db.VarChar(500)
+  extra_data        Json?
+  status            String?    @default("PENDING_CAPTURE") @db.VarChar(100)
+  created_at        DateTime?  @db.Timestamptz(6)
+  updated_at        DateTime?  @db.Timestamptz(6)
+  engravings        engravings @relation(fields: [engraving_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([engraving_id])
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model engraving_versions {
+  id                                                            String       @id @db.Uuid
+  engraving_id                                                  String       @db.Uuid
+  version_number                                                Int
+  selected_material_id                                          String?      @db.Uuid
+  selected_gemstone_id                                          String?      @db.Uuid
+  ring_size                                                     String?      @db.VarChar(50)
+  ring_style                                                    String?      @db.VarChar(100)
+  ring_shape                                                    String?      @db.VarChar(100)
+  customization_config                                          Json?
+  preview_image_url                                             String?      @db.VarChar(500)
+  model_3d_url                                                  String?      @db.VarChar(500)
+  production_file_url                                           String?      @db.VarChar(500)
+  status                                                        String?      @db.VarChar(100)
+  manager_id                                                    String?      @db.Uuid
+  manager_note                                                  String?
+  reviewed_at                                                   DateTime?    @db.Timestamptz(6)
+  created_at                                                    DateTime?    @db.Timestamptz(6)
+  engravings_engraving_versions_engraving_idToengravings        engravings   @relation("engraving_versions_engraving_idToengravings", fields: [engraving_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users                                                         users?       @relation(fields: [manager_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  gemstones                                                     gemstones?   @relation(fields: [selected_gemstone_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  materials                                                     materials?   @relation(fields: [selected_material_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  engravings_engravings_approved_version_idToengraving_versions engravings[] @relation("engravings_approved_version_idToengraving_versions")
+
+  @@index([engraving_id])
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model engravings {
+  id                                                                    String                       @id @db.Uuid
+  order_id                                                              String                       @db.Uuid
+  product_id                                                            String?                      @db.Uuid
+  unique_product_id                                                     String?                      @unique @db.VarChar(100)
+  approved_version_id                                                   String?                      @db.Uuid
+  biometric_consent_at                                                  DateTime?                    @db.Timestamptz(6)
+  raw_biometric_deleted_at                                              DateTime?                    @db.Timestamptz(6)
+  status                                                                String?                      @db.VarChar(100)
+  created_at                                                            DateTime?                    @db.Timestamptz(6)
+  updated_at                                                            DateTime?                    @db.Timestamptz(6)
+  biometric_capture_sessions                                            biometric_capture_sessions[]
+  engraving_biometrics                                                  engraving_biometrics[]
+  engraving_versions_engraving_versions_engraving_idToengravings        engraving_versions[]         @relation("engraving_versions_engraving_idToengravings")
+  engraving_versions_engravings_approved_version_idToengraving_versions engraving_versions?          @relation("engravings_approved_version_idToengraving_versions", fields: [approved_version_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  qr_memories                                                           qr_memories                  @relation(fields: [id], references: [engraving_id], onDelete: NoAction, onUpdate: NoAction)
+  warranties                                                            warranties                   @relation(fields: [id], references: [engraving_id], onDelete: NoAction, onUpdate: NoAction, map: "engravings_id_fkey1")
+  orders                                                                orders                       @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  products                                                              products?                    @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  production_tasks                                                      production_tasks[]
+  warranty_claims                                                       warranty_claims[]
+
+  @@index([order_id])
+  @@index([status])
+}
+
+model firmware_updates {
+  id            String    @id @db.Uuid
+  device_type   String?   @db.VarChar(100)
+  version       String?   @db.VarChar(100)
+  download_url  String?   @db.VarChar(500)
+  release_notes String?
+  released_at   DateTime? @db.Timestamptz(6)
+}
+
+model gemstones {
+  id                 String               @id @db.Uuid
+  type               String               @db.VarChar(100)
+  carat              Decimal?             @db.Decimal(10, 2)
+  cut                String?              @db.VarChar(100)
+  color              String?              @db.VarChar(100)
+  clarity            String?              @db.VarChar(100)
+  certification_code String?              @db.VarChar(255)
+  price              Decimal?             @db.Decimal(18, 2)
+  stock_quantity     Int?
+  is_available       Boolean?             @default(true)
+  design_drafts      design_drafts[]
+  engraving_versions engraving_versions[]
+  product_gemstones  product_gemstones[]
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model guest_customers {
+  id                         String                       @id @db.Uuid
+  guest_code                 String?                      @unique @db.VarChar(50)
+  full_name                  String?                      @db.VarChar(255)
+  phone                      String?                      @db.VarChar(50)
+  email                      String?                      @db.VarChar(255)
+  note                       String?
+  converted_user_id          String?                      @db.Uuid
+  created_at                 DateTime?                    @db.Timestamptz(6)
+  biometric_capture_sessions biometric_capture_sessions[]
+  users                      users?                       @relation(fields: [converted_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  orders                     orders[]
+  warranty_claims            warranty_claims[]
+
+  @@index([phone])
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model inventory_ledgers {
+  id                          String           @id @db.Uuid
+  item_type                   String?          @db.VarChar(100)
+  item_id                     String?          @db.Uuid
+  transaction_type            String?          @db.VarChar(100)
+  quantity                    Decimal?         @db.Decimal(18, 2)
+  unit                        String?          @db.VarChar(50)
+  reference_order_id          String?          @db.Uuid
+  reference_warranty_claim_id String?          @db.Uuid
+  note                        String?
+  created_at                  DateTime?        @db.Timestamptz(6)
+  orders                      orders?          @relation(fields: [reference_order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warranty_claims             warranty_claims? @relation(fields: [reference_warranty_claim_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model iot_devices {
+  id                         String                       @id @db.Uuid
+  device_name                String?                      @db.VarChar(255)
+  mac_address                String?                      @unique @db.VarChar(100)
+  ip_address                 String?                      @db.VarChar(100)
+  device_type                String?                      @db.VarChar(100)
+  status                     String?                      @db.VarChar(50)
+  firmware_version           String?                      @db.VarChar(100)
+  created_at                 DateTime?                    @db.Timestamptz(6)
+  updated_at                 DateTime?                    @db.Timestamptz(6)
+  biometric_capture_sessions biometric_capture_sessions[]
+  device_health_logs         device_health_logs[]
+}
+
+model materials {
+  id                     String               @id @db.Uuid
+  name                   String               @db.VarChar(100)
+  purity                 String?              @db.VarChar(100)
+  color                  String?              @db.VarChar(100)
+  current_price_per_gram Decimal?             @db.Decimal(18, 2)
+  stock_gram             Decimal?             @db.Decimal(18, 2)
+  last_updated           DateTime?            @db.Timestamptz(6)
+  design_drafts          design_drafts[]
+  engraving_versions     engraving_versions[]
+  product_materials      product_materials[]
+  products               products[]
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model notifications {
+  id         String    @id @db.Uuid
+  user_id    String    @db.Uuid
+  title      String?   @db.VarChar(255)
+  content    String?
+  type       String?   @db.VarChar(100)
+  is_read    Boolean?  @default(false)
+  created_at DateTime? @db.Timestamptz(6)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model orders {
+  id                                         String                       @id @db.Uuid
+  order_code                                 String                       @unique @db.VarChar(50)
+  user_id                                    String?                      @db.Uuid
+  guest_customer_id                          String?                      @db.Uuid
+  design_draft_id                            String?                      @db.Uuid
+  order_type                                 String?                      @db.VarChar(100)
+  package_type                               String?                      @db.VarChar(100)
+  capture_route                              String?                      @db.VarChar(50)
+  design_source                              String?                      @db.VarChar(100)
+  status                                     String?                      @db.VarChar(100)
+  subtotal                                   Decimal?                     @db.Decimal(18, 2)
+  service_fee                                Decimal?                     @db.Decimal(18, 2)
+  extra_fee                                  Decimal?                     @db.Decimal(18, 2)
+  discount_amount                            Decimal?                     @db.Decimal(18, 2)
+  total_price                                Decimal?                     @db.Decimal(18, 2)
+  paid_amount                                Decimal?                     @db.Decimal(18, 2)
+  remaining_amount                           Decimal?                     @db.Decimal(18, 2)
+  note                                       String?
+  created_by_staff_id                        String?                      @db.Uuid
+  approved_by_manager_id                     String?                      @db.Uuid
+  created_at                                 DateTime?                    @db.Timestamptz(6)
+  updated_at                                 DateTime?                    @db.Timestamptz(6)
+  biometric_capture_sessions                 biometric_capture_sessions[]
+  engravings                                 engravings[]
+  inventory_ledgers                          inventory_ledgers[]
+  users_orders_approved_by_manager_idTousers users?                       @relation("orders_approved_by_manager_idTousers", fields: [approved_by_manager_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_orders_created_by_staff_idTousers    users?                       @relation("orders_created_by_staff_idTousers", fields: [created_by_staff_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  design_drafts                              design_drafts?               @relation(fields: [design_draft_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  guest_customers                            guest_customers?             @relation(fields: [guest_customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_orders_user_idTousers                users?                       @relation("orders_user_idTousers", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  payments                                   payments[]
+  pickup_records                             pickup_records[]
+  production_tasks                           production_tasks[]
+  qa_checks                                  qa_checks[]
+  return_requests                            return_requests[]
+  shipments                                  shipments[]
+  staff_assignments                          staff_assignments[]
+  warranties                                 warranties[]
+  warranty_claims                            warranty_claims[]
+
+  @@index([created_at])
+  @@index([guest_customer_id])
+  @@index([status])
+  @@index([user_id])
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model payments {
+  id                   String           @id @db.Uuid
+  order_id             String?          @db.Uuid
+  warranty_claim_id    String?          @db.Uuid
+  payos_transaction_id String?          @db.VarChar(255)
+  payment_code         String?          @unique @db.VarChar(100)
+  amount               Decimal          @db.Decimal(18, 2)
+  payment_phase        String?          @db.VarChar(100)
+  method               String?          @db.VarChar(100)
+  status               String?          @db.VarChar(100)
+  is_refund            Boolean?         @default(false)
+  paid_at              DateTime?        @db.Timestamptz(6)
+  created_at           DateTime?        @db.Timestamptz(6)
+  orders               orders?          @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warranty_claims      warranty_claims? @relation(fields: [warranty_claim_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([order_id])
+  @@index([paid_at])
+  @@index([status])
+}
+
+model permissions {
+  id               String             @id @db.Uuid
+  slug             String             @unique @db.VarChar(150)
+  description      String?
+  role_permissions role_permissions[]
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model pickup_records {
+  id              String    @id @db.Uuid
+  order_id        String    @db.Uuid
+  store_staff_id  String?   @db.Uuid
+  receiver_name   String?   @db.VarChar(255)
+  receiver_phone  String?   @db.VarChar(50)
+  identity_note   String?
+  proof_image_url String?   @db.VarChar(500)
+  picked_up_at    DateTime? @db.Timestamptz(6)
+  orders          orders    @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users           users?    @relation(fields: [store_staff_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([order_id])
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model product_gemstones {
+  product_id  String    @db.Uuid
+  gemstone_id String    @db.Uuid
+  gemstones   gemstones @relation(fields: [gemstone_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  products    products  @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([product_id, gemstone_id])
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model product_materials {
+  product_id  String    @db.Uuid
+  material_id String    @db.Uuid
+  materials   materials @relation(fields: [material_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  products    products  @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([product_id, material_id])
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model production_tasks {
+  id                  String      @id @db.Uuid
+  order_id            String      @db.Uuid
+  engraving_id        String      @db.Uuid
+  assigned_jeweler_id String?     @db.Uuid
+  task_name           String?     @db.VarChar(255)
+  task_description    String?
+  status              String?     @db.VarChar(100)
+  started_at          DateTime?   @db.Timestamptz(6)
+  completed_at        DateTime?   @db.Timestamptz(6)
+  note                String?
+  created_at          DateTime?   @db.Timestamptz(6)
+  users               users?      @relation(fields: [assigned_jeweler_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  engravings          engravings  @relation(fields: [engraving_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  orders              orders      @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  qa_checks           qa_checks[]
+
+  @@index([status])
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model products {
+  id                String              @id @db.Uuid
+  name              String              @db.VarChar(255)
+  description       String?
+  base_material_id  String?             @db.Uuid
+  base_price        Decimal?            @db.Decimal(18, 2)
+  thumbnail_url     String?             @db.VarChar(500)
+  model_3d_url      String?             @db.VarChar(500)
+  is_active         Boolean?            @default(true)
+  created_at        DateTime?           @db.Timestamptz(6)
+  updated_at        DateTime?           @db.Timestamptz(6)
+  design_drafts     design_drafts[]
+  engravings        engravings[]
+  product_gemstones product_gemstones[]
+  product_materials product_materials[]
+  materials         materials?          @relation(fields: [base_material_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model qa_checks {
+  id                 String            @id @db.Uuid
+  order_id           String            @db.Uuid
+  production_task_id String?           @db.Uuid
+  checked_by_id      String?           @db.Uuid
+  result             String?           @db.VarChar(100)
+  checklist          Json?
+  proof_images       Json?
+  note               String?
+  checked_at         DateTime?         @db.Timestamptz(6)
+  users              users?            @relation(fields: [checked_by_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  orders             orders            @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  production_tasks   production_tasks? @relation(fields: [production_task_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model qr_memories {
+  id                         String                  @id @db.Uuid
+  engraving_id               String                  @unique @db.Uuid
+  theme_id                   String?                 @db.Uuid
+  qr_code                    String                  @unique @db.VarChar(255)
+  landing_page_url           String?                 @db.VarChar(500)
+  access_pin_hash            String?                 @db.VarChar(255)
+  card_title                 String?                 @db.VarChar(255)
+  greeting_message           String?
+  custom_images              Json?
+  biometric_display_settings Json?
+  is_locked                  Boolean?                @default(false)
+  failed_attempts            Int?                    @default(0)
+  activated_at               DateTime?               @db.Timestamptz(6)
+  created_at                 DateTime?               @db.Timestamptz(6)
+  updated_at                 DateTime?               @db.Timestamptz(6)
+  engravings                 engravings?
+  card_themes                card_themes?            @relation(fields: [theme_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  qr_memory_access_logs      qr_memory_access_logs[]
+
+  @@index([theme_id])
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model qr_memory_access_logs {
+  id                  String      @id @db.Uuid
+  qr_memory_id        String      @db.Uuid
+  accessed_by_user_id String?     @db.Uuid
+  ip_address          String?     @db.VarChar(100)
+  user_agent          String?
+  success             Boolean?
+  created_at          DateTime?   @db.Timestamptz(6)
+  users               users?      @relation(fields: [accessed_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  qr_memories         qr_memories @relation(fields: [qr_memory_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model return_requests {
+  id                                           String    @id @db.Uuid
+  order_id                                     String    @db.Uuid
+  requested_by_id                              String?   @db.Uuid
+  reason                                       String?
+  proof_images                                 Json?
+  status                                       String?   @db.VarChar(100)
+  resolution                                   String?
+  resolved_by_id                               String?   @db.Uuid
+  resolved_at                                  DateTime? @db.Timestamptz(6)
+  created_at                                   DateTime? @db.Timestamptz(6)
+  orders                                       orders    @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_return_requests_requested_by_idTousers users?    @relation("return_requests_requested_by_idTousers", fields: [requested_by_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_return_requests_resolved_by_idTousers  users?    @relation("return_requests_resolved_by_idTousers", fields: [resolved_by_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model role_permissions {
+  role_id       String      @db.Uuid
+  permission_id String      @db.Uuid
+  permissions   permissions @relation(fields: [permission_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  roles         roles       @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([role_id, permission_id])
+}
+
+model roles {
+  id               String             @id @db.Uuid
+  name             String             @unique @db.VarChar(100)
+  description      String?
+  role_permissions role_permissions[]
+  user_roles       user_roles[]
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model service_ticket_updates {
+  id                String          @id @db.Uuid
+  service_ticket_id String          @db.Uuid
+  updated_by_id     String?         @db.Uuid
+  old_status        String?         @db.VarChar(100)
+  new_status        String?         @db.VarChar(100)
+  note              String?
+  images            Json?
+  created_at        DateTime?       @db.Timestamptz(6)
+  service_tickets   service_tickets @relation(fields: [service_ticket_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users             users?          @relation(fields: [updated_by_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model service_tickets {
+  id                                               String                   @id @db.Uuid
+  ticket_code                                      String?                  @unique @db.VarChar(100)
+  warranty_claim_id                                String                   @db.Uuid
+  assigned_staff_id                                String?                  @db.Uuid
+  assigned_jeweler_id                              String?                  @db.Uuid
+  service_type                                     String?                  @db.VarChar(100)
+  description                                      String?
+  status                                           String?                  @db.VarChar(100)
+  received_product_at                              DateTime?                @db.Timestamptz(6)
+  service_started_at                               DateTime?                @db.Timestamptz(6)
+  service_completed_at                             DateTime?                @db.Timestamptz(6)
+  result_note                                      String?
+  cost_update                                      Decimal?                 @db.Decimal(18, 2)
+  created_at                                       DateTime?                @db.Timestamptz(6)
+  updated_at                                       DateTime?                @db.Timestamptz(6)
+  service_ticket_updates                           service_ticket_updates[]
+  users_service_tickets_assigned_jeweler_idTousers users?                   @relation("service_tickets_assigned_jeweler_idTousers", fields: [assigned_jeweler_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_service_tickets_assigned_staff_idTousers   users?                   @relation("service_tickets_assigned_staff_idTousers", fields: [assigned_staff_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warranty_claims                                  warranty_claims          @relation(fields: [warranty_claim_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([status])
+  @@index([warranty_claim_id])
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model shipments {
+  id                         String          @id @db.Uuid
+  order_id                   String          @db.Uuid
+  address_id                 String?         @db.Uuid
+  delivery_method            String?         @db.VarChar(100)
+  status                     String?         @db.VarChar(100)
+  assigned_delivery_staff_id String?         @db.Uuid
+  recipient_name             String?         @db.VarChar(255)
+  recipient_phone            String?         @db.VarChar(50)
+  shipping_address_text      String?
+  tracking_code              String?         @db.VarChar(100)
+  tracking_url               String?         @db.VarChar(500)
+  estimated_delivery_at      DateTime?       @db.Timestamptz(6)
+  delivered_at               DateTime?       @db.Timestamptz(6)
+  created_at                 DateTime?       @db.Timestamptz(6)
+  updated_at                 DateTime?       @db.Timestamptz(6)
+  user_addresses             user_addresses? @relation(fields: [address_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users                      users?          @relation(fields: [assigned_delivery_staff_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  orders                     orders          @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([order_id])
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model staff_assignments {
+  id                                            String                      @id @db.Uuid
+  staff_id                                      String                      @db.Uuid
+  order_id                                      String?                     @db.Uuid
+  warranty_claim_id                             String?                     @db.Uuid
+  capture_session_id                            String?                     @db.Uuid
+  assignment_type                               String?                     @db.VarChar(100)
+  status                                        String?                     @db.VarChar(100)
+  assigned_by_id                                String?                     @db.Uuid
+  assigned_at                                   DateTime?                   @db.Timestamptz(6)
+  completed_at                                  DateTime?                   @db.Timestamptz(6)
+  users_staff_assignments_assigned_by_idTousers users?                      @relation("staff_assignments_assigned_by_idTousers", fields: [assigned_by_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  biometric_capture_sessions                    biometric_capture_sessions? @relation(fields: [capture_session_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  orders                                        orders?                     @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_staff_assignments_staff_idTousers       users                       @relation("staff_assignments_staff_idTousers", fields: [staff_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warranty_claims                               warranty_claims?            @relation(fields: [warranty_claim_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model staff_shifts {
+  id            String    @id @db.Uuid
+  staff_id      String    @db.Uuid
+  shift_date    DateTime? @db.Date
+  start_time    DateTime? @db.Time(6)
+  end_time      DateTime? @db.Time(6)
+  max_tasks     Int?
+  current_tasks Int?
+  created_at    DateTime? @db.Timestamptz(6)
+  users         users     @relation(fields: [staff_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model user_addresses {
+  id             String      @id @db.Uuid
+  user_id        String      @db.Uuid
+  recipient_name String?     @db.VarChar(255)
+  phone_number   String?     @db.VarChar(50)
+  full_address   String?
+  ward           String?     @db.VarChar(100)
+  district       String?     @db.VarChar(100)
+  province       String?     @db.VarChar(100)
+  is_default     Boolean?    @default(false)
+  created_at     DateTime?   @db.Timestamptz(6)
+  shipments      shipments[]
+  users          users       @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model user_ring_sizes {
+  id                 String          @id @db.Uuid
+  user_id            String          @db.Uuid
+  label              String?         @db.VarChar(100)
+  hand_side          String?         @db.VarChar(20)
+  finger_type        String?         @db.VarChar(50)
+  size_system        String?         @db.VarChar(50)
+  ring_size          String?         @db.VarChar(50)
+  diameter_mm        Decimal?        @db.Decimal(6, 2)
+  circumference_mm   Decimal?        @db.Decimal(6, 2)
+  measurement_method String?         @db.VarChar(100)
+  measurement_source String?         @db.VarChar(100)
+  guide_step_result  Json?
+  image_url          String?         @db.VarChar(500)
+  confidence_score   Decimal?        @db.Decimal(5, 2)
+  is_default         Boolean?        @default(false)
+  note               String?
+  measured_at        DateTime?       @db.Timestamptz(6)
+  created_at         DateTime?       @db.Timestamptz(6)
+  updated_at         DateTime?       @db.Timestamptz(6)
+  design_drafts      design_drafts[]
+  users              users           @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model user_roles {
+  user_id String @db.Uuid
+  role_id String @db.Uuid
+  roles   roles  @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users   users  @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([user_id, role_id])
+}
+
+model users {
+  id                                                                       String                       @id @db.Uuid
+  email                                                                    String?                      @unique @db.VarChar(255)
+  password_hash                                                            String?                      @db.VarChar(255)
+  full_name                                                                String?                      @db.VarChar(255)
+  phone                                                                    String?                      @db.VarChar(50)
+  customer_type                                                            String?                      @db.VarChar(50)
+  skin_tone                                                                String?                      @db.VarChar(100)
+  preferences                                                              Json?
+  is_vip                                                                   Boolean?                     @default(false)
+  status                                                                   String?                      @db.VarChar(50)
+  created_at                                                               DateTime?                    @db.Timestamptz(6)
+  updated_at                                                               DateTime?                    @db.Timestamptz(6)
+  ai_sessions                                                              ai_sessions[]
+  audit_logs                                                               audit_logs[]
+  biometric_capture_sessions_biometric_capture_sessions_customer_idTousers biometric_capture_sessions[] @relation("biometric_capture_sessions_customer_idTousers")
+  biometric_capture_sessions_biometric_capture_sessions_staff_idTousers    biometric_capture_sessions[] @relation("biometric_capture_sessions_staff_idTousers")
+  design_drafts                                                            design_drafts[]
+  engraving_versions                                                       engraving_versions[]
+  guest_customers                                                          guest_customers[]
+  notifications                                                            notifications[]
+  orders_orders_approved_by_manager_idTousers                              orders[]                     @relation("orders_approved_by_manager_idTousers")
+  orders_orders_created_by_staff_idTousers                                 orders[]                     @relation("orders_created_by_staff_idTousers")
+  orders_orders_user_idTousers                                             orders[]                     @relation("orders_user_idTousers")
+  pickup_records                                                           pickup_records[]
+  production_tasks                                                         production_tasks[]
+  qa_checks                                                                qa_checks[]
+  qr_memory_access_logs                                                    qr_memory_access_logs[]
+  return_requests_return_requests_requested_by_idTousers                   return_requests[]            @relation("return_requests_requested_by_idTousers")
+  return_requests_return_requests_resolved_by_idTousers                    return_requests[]            @relation("return_requests_resolved_by_idTousers")
+  service_ticket_updates                                                   service_ticket_updates[]
+  service_tickets_service_tickets_assigned_jeweler_idTousers               service_tickets[]            @relation("service_tickets_assigned_jeweler_idTousers")
+  service_tickets_service_tickets_assigned_staff_idTousers                 service_tickets[]            @relation("service_tickets_assigned_staff_idTousers")
+  shipments                                                                shipments[]
+  staff_assignments_staff_assignments_assigned_by_idTousers                staff_assignments[]          @relation("staff_assignments_assigned_by_idTousers")
+  staff_assignments_staff_assignments_staff_idTousers                      staff_assignments[]          @relation("staff_assignments_staff_idTousers")
+  staff_shifts                                                             staff_shifts[]
+  user_addresses                                                           user_addresses[]
+  user_ring_sizes                                                          user_ring_sizes[]
+  user_roles                                                               user_roles[]
+  warranty_claims_warranty_claims_manager_idTousers                        warranty_claims[]            @relation("warranty_claims_manager_idTousers")
+  warranty_claims_warranty_claims_requested_by_user_idTousers              warranty_claims[]            @relation("warranty_claims_requested_by_user_idTousers")
+
+  @@index([phone])
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model warranties {
+  id              String            @id @db.Uuid
+  engraving_id    String            @unique @db.Uuid
+  order_id        String            @db.Uuid
+  warranty_code   String?           @unique @db.VarChar(100)
+  warranty_type   String?           @db.VarChar(100)
+  issue_format    String?           @db.VarChar(50)
+  warranty_scope  Json?
+  issue_date      DateTime?         @db.Timestamptz(6)
+  expiry_date     DateTime?         @db.Timestamptz(6)
+  activated_at    DateTime?         @db.Timestamptz(6)
+  status          String?           @db.VarChar(100)
+  created_at      DateTime?         @db.Timestamptz(6)
+  engravings      engravings?
+  orders          orders            @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warranty_claims warranty_claims[]
+
+  @@index([order_id])
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model warranty_claims {
+  id                                                String              @id @db.Uuid
+  claim_code                                        String?             @unique @db.VarChar(100)
+  warranty_id                                       String?             @db.Uuid
+  order_id                                          String              @db.Uuid
+  engraving_id                                      String              @db.Uuid
+  requested_by_user_id                              String?             @db.Uuid
+  guest_customer_id                                 String?             @db.Uuid
+  service_type                                      String?             @db.VarChar(100)
+  issue_description                                 String?
+  proof_images                                      Json?
+  proof_videos                                      Json?
+  status                                            String?             @db.VarChar(100)
+  charge_status                                     String?             @db.VarChar(100)
+  extra_fee                                         Decimal?            @db.Decimal(18, 2)
+  manager_id                                        String?             @db.Uuid
+  manager_note                                      String?
+  customer_confirmed_at                             DateTime?           @db.Timestamptz(6)
+  created_at                                        DateTime?           @db.Timestamptz(6)
+  updated_at                                        DateTime?           @db.Timestamptz(6)
+  inventory_ledgers                                 inventory_ledgers[]
+  payments                                          payments[]
+  service_tickets                                   service_tickets[]
+  staff_assignments                                 staff_assignments[]
+  engravings                                        engravings          @relation(fields: [engraving_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  guest_customers                                   guest_customers?    @relation(fields: [guest_customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_warranty_claims_manager_idTousers           users?              @relation("warranty_claims_manager_idTousers", fields: [manager_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  orders                                            orders              @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_warranty_claims_requested_by_user_idTousers users?              @relation("warranty_claims_requested_by_user_idTousers", fields: [requested_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warranties                                        warranties?         @relation(fields: [warranty_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([order_id])
+  @@index([warranty_id])
 }
