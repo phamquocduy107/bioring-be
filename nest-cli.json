@@ -32,6 +32,24 @@
         ]
       }
     },
+    "biometric-service": {
+      "type": "application",
+      "root": "apps/biometric-service",
+      "entryFile": "main",
+      "sourceRoot": "apps/biometric-service/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/biometric-service/tsconfig.app.json"
+      }
+    },
+    "identity-service": {
+      "type": "application",
+      "root": "apps/identity-service",
+      "entryFile": "main",
+      "sourceRoot": "apps/identity-service/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/identity-service/tsconfig.app.json"
+      }
+    },
     "common": {
       "type": "library",
       "root": "libs/common",
