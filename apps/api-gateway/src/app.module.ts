@@ -14,7 +14,9 @@ import {
   TimeoutInterceptor,
   TransformInterceptor,
 } from '@app/common';
+import { BiometricModule } from './modules/biometric/biometric.module';
 import { EcommerceModule } from './modules/ecommerce/ecommerce.module';
+import { IdentityModule } from './modules/identity/identity.module';
 
 @Module({
   imports: [
@@ -26,7 +28,9 @@ import { EcommerceModule } from './modules/ecommerce/ecommerce.module';
       adapter: ExpressAdapter,
     }),
     EventEmitterModule.forRoot(),
+    BiometricModule,
     EcommerceModule,
+    IdentityModule,
   ],
   providers: [
     {
