@@ -1,5 +1,14 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
+import { Permissions, Permission } from '@app/common';
 import { IdentityService } from '../identity.service';
 import {
   ApiGetRolesDocs,
@@ -17,6 +26,7 @@ export class RbacController {
   constructor(private readonly identityService: IdentityService) {}
 
   @Get('roles')
+  @Permissions(Permission.RoleRead)
   @ApiGetRolesDocs()
   async getRoles() {
     const result = await this.identityService.getRoles();
@@ -24,18 +34,21 @@ export class RbacController {
   }
 
   @Get('roles/:id')
+  @Permissions(Permission.RoleRead)
   @ApiGetRoleWithPermissionsDocs()
   getRoleWithPermissions(@Param('id') id: string) {
     return this.identityService.getRoleWithPermissions(id);
   }
 
   @Post('roles')
+  @Permissions(Permission.RoleWrite)
   @ApiCreateRoleDocs()
   createRole(@Body() body: { name: string; description?: string }) {
     return this.identityService.createRole(body.name, body.description);
   }
 
   @Patch('roles/:id')
+  @Permissions(Permission.RoleWrite)
   @ApiUpdateRoleDocs()
   updateRole(
     @Param('id') id: string,
@@ -45,12 +58,14 @@ export class RbacController {
   }
 
   @Delete('roles/:id')
+  @Permissions(Permission.RoleWrite)
   @ApiDeleteRoleDocs()
   deleteRole(@Param('id') id: string) {
     return this.identityService.deleteRole(id);
   }
 
   @Get('permissions')
+  @Permissions(Permission.RoleRead)
   @ApiGetPermissionsDocs()
   async getPermissions() {
     const result = await this.identityService.getPermissions();
@@ -58,6 +73,7 @@ export class RbacController {
   }
 
   @Post('permissions/assign')
+  @Permissions(Permission.RoleWrite)
   @ApiAssignPermissionsToRoleDocs()
   assignPermissionsToRole(
     @Body() body: { roleId: string; permissionIds: string[] },

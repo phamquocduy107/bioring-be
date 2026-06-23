@@ -4,7 +4,7 @@ import { Observable, lastValueFrom } from 'rxjs';
 
 // --- Response types matching identity.proto ---
 
-interface UserResponse {
+export interface UserResponse {
   id: string;
   email: string;
   fullName: string;
@@ -18,20 +18,20 @@ interface UserResponse {
   roles: string[];
 }
 
-interface PermissionResponse {
+export interface PermissionResponse {
   id: string;
   slug: string;
   description: string;
 }
 
-interface RoleResponse {
+export interface RoleResponse {
   id: string;
   name: string;
   description: string;
   permissions: PermissionResponse[];
 }
 
-interface PaginationMeta {
+export interface PaginationMeta {
   total: number;
   page: number;
   limit: number;

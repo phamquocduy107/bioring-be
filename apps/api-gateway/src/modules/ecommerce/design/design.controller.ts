@@ -16,6 +16,8 @@ import type { Request } from 'express';
 import {
   Public,
   CurrentUser,
+  Permissions,
+  Permission,
   CreateDesignDraftDto,
   UpdateDesignDraftDto,
 } from '@app/common';
@@ -169,6 +171,7 @@ export class DesignController implements OnModuleInit {
   }
 
   @Post('drafts/claim')
+  @Permissions(Permission.DesignWrite)
   @ApiClaimDesignDraftDocs()
   claimDesignDraft(
     @Body() body: { designCode: string },

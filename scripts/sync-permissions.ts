@@ -30,6 +30,9 @@ async function main() {
     // Settings
     { slug: 'settings.read', description: 'View settings' },
     { slug: 'settings.write', description: 'Update settings' },
+
+    // Design
+    { slug: 'design.write', description: 'Claim & manage design drafts' },
   ];
 
   // Upsert permissions
@@ -96,6 +99,7 @@ async function main() {
       permissionSlugs: [
         'product.read',
         'order.read',
+        'design.write',
       ],
     },
   ];

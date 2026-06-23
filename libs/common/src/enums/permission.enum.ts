@@ -22,4 +22,7 @@ export enum Permission {
   // Settings
   SettingsRead = 'settings.read',
   SettingsWrite = 'settings.write',
+
+  // Design
+  DesignWrite = 'design.write',
 }
