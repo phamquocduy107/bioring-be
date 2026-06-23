@@ -7,16 +7,14 @@ import {
   LoggingInterceptor,
   TimeoutInterceptor,
 } from '@app/common';
+import { PrismaModule } from '@app/prisma';
 import { AppController } from './ecommerce-service.controller';
 import { AppService } from './ecommerce-service.service';
+import { CatalogModule } from './catalog/catalog.module';
+import { DesignModule } from './design/design.module';
 
 @Module({
-  imports: [
-    CommonModule,
-    // PrismaModule,   // uncomment khi dùng Prisma
-    // RedisModule,    // uncomment khi dùng Redis
-    // MongoModule,    // uncomment khi dùng MongoDB
-  ],
+  imports: [CommonModule, PrismaModule, CatalogModule, DesignModule],
   controllers: [AppController],
   providers: [
     AppService,

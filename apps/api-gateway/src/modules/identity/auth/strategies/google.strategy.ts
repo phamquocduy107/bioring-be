@@ -37,8 +37,8 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       lastName: name.familyName,
       picture: photos[0]?.value,
       provider: 'google',
-      deviceAgent,
-      ipAddress,
+      deviceAgent: deviceAgent ?? '',
+      ipAddress: ipAddress ?? '',
     };
 
     const result = await this.identityService.googleLogin(socialUser);

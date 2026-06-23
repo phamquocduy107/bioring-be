@@ -3,3 +3,4 @@ export * from './auth/refresh-token.dto';
 export * from './id.dto';
 export * from './pagination.dto';
 export * from './uuid.dto';
+export * from './ecommerce';

@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { join } from 'node:path';
 import { ClientsModule, Transport } from '@nestjs/microservices';
-import { EcommerceController } from './ecommerce.controller';
-import { EcommerceService } from './ecommerce.service';
+import { CatalogController } from './catalog/catalog.controller';
+import { DesignController } from './design/design.controller';
 
 @Module({
   imports: [
@@ -18,7 +18,6 @@ import { EcommerceService } from './ecommerce.service';
       },
     ]),
   ],
-  controllers: [EcommerceController],
-  providers: [EcommerceService],
+  controllers: [CatalogController, DesignController],
 })
 export class EcommerceModule {}

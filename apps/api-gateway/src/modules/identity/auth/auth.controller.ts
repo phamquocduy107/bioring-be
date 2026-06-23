@@ -90,8 +90,8 @@ export class AuthController {
 
     const result = await this.identityService.refreshToken({
       oldRefreshToken,
-      deviceAgent: req.headers['user-agent'],
-      ipAddress: (req.headers['x-forwarded-for'] as string) ?? req.ip,
+      deviceAgent: req.headers['user-agent'] ?? '',
+      ipAddress: (req.headers['x-forwarded-for'] as string) ?? req.ip ?? '',
     });
 
     res.cookie('refresh_token', result.refreshToken, {

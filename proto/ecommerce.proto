@@ -4,8 +4,36 @@ package ecommerce;
 
 service EcommerceService {
   rpc Ping (PingRequest) returns (PingResponse);
+
+  // Catalog
+  rpc GetProducts (GetProductsRequest) returns (GetProductsResponse);
+  rpc GetProductById (GetProductByIdRequest) returns (GetProductByIdResponse);
+  rpc GetMaterials (Empty) returns (GetMaterialsResponse);
+  rpc GetGemstones (Empty) returns (GetGemstonesResponse);
+
+  // Design Drafts
+  rpc CreateDesignDraft (CreateDesignDraftRequest) returns (CreateDesignDraftResponse);
+  rpc GetDesignDraftByCode (GetDesignDraftByCodeRequest) returns (GetDesignDraftByCodeResponse);
+  rpc GetMyDrafts (GetMyDraftsRequest) returns (GetMyDraftsResponse);
+  rpc UpdateDesignDraft (UpdateDesignDraftRequest) returns (UpdateDesignDraftResponse);
+  rpc ClaimDesignDraft (ClaimDesignDraftRequest) returns (ClaimDesignDraftResponse);
 }
 
+// ===== Messages =====
+
+message ClaimDesignDraftRequest {
+  string designCode = 1;
+  string userId = 2;
+}
+
+message ClaimDesignDraftResponse {
+  DesignDraft draft = 1;
+}
+
+// ===== Generic =====
+message Empty {}
+
+// ===== Ping =====
 message PingRequest {
   string data = 1;
 }
@@ -14,4 +42,136 @@ message PingResponse {
   bool pong = 1;
   string receivedAt = 2;
   string data = 3;
+}
+
+// ===== Catalog =====
+message Product {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string baseMaterialId = 4;
+  double basePrice = 5;
+  string thumbnailUrl = 6;
+  string model3dUrl = 7;
+  repeated Material availableMaterials = 8;
+  repeated Gemstone availableGemstones = 9;
+}
+
+message GetProductsRequest {
+  int32 page = 1;
+  int32 limit = 2;
+  string materialId = 3;
+  double maxPrice = 4;
+}
+
+message GetProductsResponse {
+  repeated Product products = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+}
+
+message GetProductByIdRequest {
+  string id = 1;
+}
+
+message GetProductByIdResponse {
+  Product product = 1;
+}
+
+message Material {
+  string id = 1;
+  string name = 2;
+  string purity = 3;
+  string color = 4;
+  double currentPricePerGram = 5;
+}
+
+message GetMaterialsResponse {
+  repeated Material materials = 1;
+}
+
+message Gemstone {
+  string id = 1;
+  string type = 2;
+  double carat = 3;
+  string cut = 4;
+  string color = 5;
+  string clarity = 6;
+  string certificationCode = 7;
+  double price = 8;
+  bool isAvailable = 9;
+}
+
+message GetGemstonesResponse {
+  repeated Gemstone gemstones = 1;
+}
+
+// ===== Design Draft =====
+message DesignDraft {
+  string id = 1;
+  string userId = 2;
+  string productId = 3;
+  string designCode = 4;
+  string designSource = 5;
+  string ringStyle = 6;
+  string ringShape = 7;
+  string ringSize = 8;
+  string selectedMaterialId = 9;
+  string selectedGemstoneId = 10;
+  string customizationConfig = 11;
+  double estimatedPrice = 12;
+  string status = 13;
+  string createdAt = 14;
+  string updatedAt = 15;
+  Product product = 16;
+  Material selectedMaterial = 17;
+  Gemstone selectedGemstone = 18;
+}
+
+message GetMyDraftsRequest {
+  string guestSessionId = 1;
+}
+
+message GetMyDraftsResponse {
+  repeated DesignDraft drafts = 1;
+}
+
+message CreateDesignDraftRequest {
+  string productId = 1;
+  string ringStyle = 2;
+  string ringShape = 3;
+  string ringSize = 4;
+  string selectedMaterialId = 5;
+  string selectedGemstoneId = 6;
+  string customizationConfig = 7;
+  string guestSessionId = 8;
+}
+
+message CreateDesignDraftResponse {
+  DesignDraft draft = 1;
+  string designCode = 2;
+}
+
+message GetDesignDraftByCodeRequest {
+  string designCode = 1;
+}
+
+message GetDesignDraftByCodeResponse {
+  DesignDraft draft = 1;
+}
+
+message UpdateDesignDraftRequest {
+  string id = 1;
+  string ringStyle = 2;
+  string ringShape = 3;
+  string ringSize = 4;
+  string selectedMaterialId = 5;
+  string selectedGemstoneId = 6;
+  string customizationConfig = 7;
+  string guestSessionId = 8;
+}
+
+message UpdateDesignDraftResponse {
+  DesignDraft draft = 1;
 }
