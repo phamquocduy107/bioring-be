@@ -11,6 +11,7 @@ import {
   CommonModule,
   CustomValidationPipe,
   LoggingInterceptor,
+  PermissionRbacGuard,
   TimeoutInterceptor,
   TransformInterceptor,
 } from '@app/common';
@@ -44,6 +45,10 @@ import { IdentityModule } from './modules/identity/identity.module';
     {
       provide: APP_GUARD,
       useClass: AuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: PermissionRbacGuard,
     },
     {
       provide: APP_INTERCEPTOR,

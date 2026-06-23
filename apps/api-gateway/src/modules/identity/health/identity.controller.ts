@@ -1,23 +1,24 @@
 import { Controller, Get } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public } from '@app/common';
-import { IdentityService } from './identity.service';
+import { ApiTags } from '@nestjs/swagger';
+import { IdentityService } from '../identity.service';
+import { ApiGetHealthDocs, ApiPingMicroserviceDocs } from './identity.swagger';
 
-@ApiTags('Identity')
+@ApiTags('Health')
 @Controller('identity')
 export class IdentityController {
   constructor(private readonly identityService: IdentityService) {}
 
   @Public()
   @Get('health')
-  @ApiOperation({ summary: 'Health check endpoint' })
+  @ApiGetHealthDocs()
   getHealth() {
     return this.identityService.getHealth();
   }
 
   @Public()
   @Get('ping')
-  @ApiOperation({ summary: 'Ping identity service through gRPC' })
+  @ApiPingMicroserviceDocs()
   pingMicroservice() {
     return this.identityService.pingMicroservice();
   }

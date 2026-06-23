@@ -1,11 +1,222 @@
 syntax = "proto3";
-
 package identity;
 
 service IdentityService {
+  // Auth
+  rpc GoogleLogin (GoogleLoginRequest) returns (GoogleLoginResponse);
+  rpc RefreshToken (RefreshTokenRequest) returns (RefreshTokenResponse);
+  rpc Logout (LogoutRequest) returns (LogoutResponse);
+
+  // Users
+  rpc GetUsers (GetUsersRequest) returns (GetUsersResponse);
+  rpc GetUserById (GetUserByIdRequest) returns (GetUserByIdResponse);
+  rpc BanUser (BanUserRequest) returns (BanUserResponse);
+  rpc UnbanUser (UnbanUserRequest) returns (UnbanUserResponse);
+  rpc AssignRole (AssignRoleRequest) returns (AssignRoleResponse);
+
+  // RBAC
+  rpc GetRoles (GetRolesRequest) returns (GetRolesResponse);
+  rpc GetRoleWithPermissions (GetRoleWithPermissionsRequest) returns (GetRoleWithPermissionsResponse);
+  rpc CreateRole (CreateRoleRequest) returns (CreateRoleResponse);
+  rpc UpdateRole (UpdateRoleRequest) returns (UpdateRoleResponse);
+  rpc DeleteRole (DeleteRoleRequest) returns (DeleteRoleResponse);
+  rpc GetPermissions (GetPermissionsRequest) returns (GetPermissionsResponse);
+  rpc AssignPermissionsToRole (AssignPermissionsToRoleRequest) returns (AssignPermissionsToRoleResponse);
+  rpc GetUserPermissions (GetUserPermissionsRequest) returns (GetUserPermissionsResponse);
+  rpc GetUserRoles (GetUserRolesRequest) returns (GetUserRolesResponse);
+
+  // Health
   rpc Ping (PingRequest) returns (PingResponse);
 }
 
+// --- Auth ---
+message GoogleLoginRequest {
+  string email = 1;
+  string firstName = 2;
+  string lastName = 3;
+  string picture = 4;
+  string provider = 5;
+  string deviceAgent = 6;
+  string ipAddress = 7;
+}
+
+message GoogleLoginResponse {
+  User user = 1;
+  string accessToken = 2;
+  string refreshToken = 3;
+}
+
+message RefreshTokenRequest {
+  string oldRefreshToken = 1;
+  string deviceAgent = 2;
+  string ipAddress = 3;
+}
+
+message RefreshTokenResponse {
+  string accessToken = 1;
+  string refreshToken = 2;
+}
+
+message LogoutRequest {
+  string refreshToken = 1;
+}
+
+message LogoutResponse {
+  bool success = 1;
+}
+
+// --- Users ---
+message User {
+  string id = 1;
+  string email = 2;
+  string fullName = 3;
+  string phone = 4;
+  string avatarUrl = 5;
+  string status = 6;
+  string customerType = 7;
+  bool isVip = 8;
+  string createdAt = 9;
+  string updatedAt = 10;
+  repeated string roles = 11;
+}
+
+message GetUsersRequest {
+  int32 page = 1;
+  int32 limit = 2;
+}
+
+message GetUsersResponse {
+  repeated User data = 1;
+  PaginationMeta meta = 2;
+}
+
+message PaginationMeta {
+  int32 total = 1;
+  int32 page = 2;
+  int32 limit = 3;
+  int32 lastPage = 4;
+}
+
+message GetUserByIdRequest {
+  string id = 1;
+}
+
+message GetUserByIdResponse {
+  User user = 1;
+}
+
+message BanUserRequest {
+  string id = 1;
+}
+
+message BanUserResponse {
+  bool success = 1;
+}
+
+message UnbanUserRequest {
+  string id = 1;
+}
+
+message UnbanUserResponse {
+  bool success = 1;
+}
+
+message AssignRoleRequest {
+  string userId = 1;
+  string roleId = 2;
+}
+
+message AssignRoleResponse {
+  bool success = 1;
+}
+
+// --- RBAC ---
+message Role {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  repeated Permission permissions = 4;
+}
+
+message Permission {
+  string id = 1;
+  string slug = 2;
+  string description = 3;
+}
+
+message GetRolesRequest {}
+
+message GetRolesResponse {
+  repeated Role roles = 1;
+}
+
+message GetRoleWithPermissionsRequest {
+  string id = 1;
+}
+
+message GetRoleWithPermissionsResponse {
+  Role role = 1;
+}
+
+message CreateRoleRequest {
+  string name = 1;
+  string description = 2;
+}
+
+message CreateRoleResponse {
+  Role role = 1;
+}
+
+message UpdateRoleRequest {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+}
+
+message UpdateRoleResponse {
+  Role role = 1;
+}
+
+message DeleteRoleRequest {
+  string id = 1;
+}
+
+message DeleteRoleResponse {
+  bool success = 1;
+}
+
+message GetPermissionsRequest {}
+
+message GetPermissionsResponse {
+  repeated Permission permissions = 1;
+}
+
+message AssignPermissionsToRoleRequest {
+  string roleId = 1;
+  repeated string permissionIds = 2;
+}
+
+message AssignPermissionsToRoleResponse {
+  bool success = 1;
+}
+
+message GetUserPermissionsRequest {
+  string userId = 1;
+}
+
+message GetUserPermissionsResponse {
+  repeated string permissionSlugs = 1;
+}
+
+message GetUserRolesRequest {
+  string userId = 1;
+}
+
+message GetUserRolesResponse {
+  repeated string roles = 1;
+}
+
+// --- Ping ---
 message PingRequest {
   string data = 1;
 }

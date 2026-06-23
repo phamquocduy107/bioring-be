@@ -7,14 +7,21 @@ import {
   LoggingInterceptor,
   TimeoutInterceptor,
 } from '@app/common';
-import { IdentityServiceController } from './identity-service.controller';
-import { IdentityServiceService } from './identity-service.service';
+import { PrismaModule } from '@app/prisma';
+import { AuthController } from './controllers/auth.controller';
+import { UsersController } from './controllers/users.controller';
+import { RbacController } from './controllers/rbac.controller';
+import { AuthService } from './services/auth.service';
+import { UsersService } from './services/users.service';
+import { RbacService } from './services/rbac.service';
 
 @Module({
-  imports: [CommonModule],
-  controllers: [IdentityServiceController],
+  imports: [CommonModule, PrismaModule],
+  controllers: [AuthController, UsersController, RbacController],
   providers: [
-    IdentityServiceService,
+    AuthService,
+    UsersService,
+    RbacService,
     {
       provide: APP_FILTER,
       useClass: FitRpcExceptionFilter,

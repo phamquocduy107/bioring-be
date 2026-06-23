@@ -1,11 +1,19 @@
-import { Module } from '@nestjs/common';
+import { Module, OnModuleInit } from '@nestjs/common';
 import { join } from 'node:path';
 import { ClientsModule, Transport } from '@nestjs/microservices';
-import { IdentityController } from './identity.controller';
+import { PassportModule } from '@nestjs/passport';
+import { RbacService } from '@app/common';
+import { IdentityController } from './health/identity.controller';
+import { AuthController } from './auth/auth.controller';
+import { UsersController } from './users/users.controller';
+import { RbacController } from './rbac/rbac.controller';
 import { IdentityService } from './identity.service';
+import { GoogleStrategy } from './auth/strategies/google.strategy';
+import { GoogleOauthGuard } from './auth/guards/google.guard';
 
 @Module({
   imports: [
+    PassportModule.register({ defaultStrategy: 'google' }),
     ClientsModule.register([
       {
         name: 'IDENTITY_SERVICE',
@@ -18,7 +26,29 @@ import { IdentityService } from './identity.service';
       },
     ]),
   ],
-  controllers: [IdentityController],
-  providers: [IdentityService],
+  controllers: [
+    IdentityController,
+    AuthController,
+    UsersController,
+    RbacController,
+  ],
+  providers: [IdentityService, GoogleStrategy, GoogleOauthGuard],
+  exports: [IdentityService],
 })
-export class IdentityModule {}
+export class IdentityModule implements OnModuleInit {
+  constructor(
+    private readonly rbacService: RbacService,
+    private readonly identityService: IdentityService,
+  ) {}
+
+  onModuleInit() {
+    this.rbacService.setPermissionResolver(async (userId: string) => {
+      try {
+        const result = await this.identityService.getUserPermissions(userId);
+        return result.permissionSlugs ?? [];
+      } catch {
+        return [];
+      }
+    });
+  }
+}

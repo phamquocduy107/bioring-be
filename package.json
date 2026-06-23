@@ -16,7 +16,8 @@
     "start:prod": "node dist/apps/api-gateway/main",
     "start:gateway": "nest start api-gateway --watch",
     "start:service": "nest start ecommerce-service --watch",
-    "dev": "concurrently -k -p \"[{name}]\" -n \"GATEWAY,ECOMMERCE\" -c \"cyan,green\" \"npm run start:gateway\" \"npm run start:service\"",
+    "start:identity": "nest start identity-service --watch",
+    "dev": "concurrently -k -p \"[{name}]\" -n \"GATEWAY,IDENTITY,ECOMMERCE\" -c \"cyan,green,yellow\" \"npm run start:gateway\" \"npm run start:identity\" \"npm run start:service\"",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -25,7 +26,8 @@
     "test:e2e": "jest --config ./apps/api-gateway/test/jest-e2e.json",
     "prisma:generate": "prisma generate --schema=./libs/prisma/prisma/schema.prisma",
     "prisma:pull": "prisma db pull --schema=./libs/prisma/prisma/schema.prisma",
-    "prisma:migrate": "prisma migrate dev --schema=./libs/prisma/prisma/schema.prisma"
+    "prisma:migrate": "prisma migrate dev --schema=./libs/prisma/prisma/schema.prisma",
+    "sync:permissions": "ts-node -r tsconfig-paths/register scripts/sync-permissions.ts"
   },
   "dependencies": {
     "@bull-board/api": "^6.16.4",

@@ -5,9 +5,9 @@ export const jwtConfig = {
   global: true,
   inject: [ConfigService],
   useFactory: (configService: ConfigService): JwtModuleOptions => ({
-    secret: configService.get<string>('JWT_SECRET'),
+    secret: configService.get<string>('JWT_ACCESS_TOKEN_SECRET'),
     signOptions: {
-      expiresIn: configService.get<number>('JWT_EXPIRES_IN'),
+      expiresIn: configService.get<number>('JWT_ACCESS_TOKEN_EXPIRATION'),
     },
   }),
 };
