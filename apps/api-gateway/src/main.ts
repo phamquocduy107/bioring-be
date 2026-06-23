@@ -36,7 +36,6 @@ async function bootstrap() {
       },
       'access-token',
     )
-    .addTag('Health', 'Health check')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);

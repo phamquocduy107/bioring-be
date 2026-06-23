@@ -20,7 +20,6 @@ interface IdentityGrpcService {
   assignPermissionsToRole(data: any): Observable<any>;
   getUserPermissions(data: any): Observable<any>;
   getUserRoles(data: any): Observable<any>;
-  ping(data: any): Observable<any>;
 }
 
 @Injectable()
@@ -101,23 +100,4 @@ export class IdentityService implements OnModuleInit {
     return this.call(this.grpc!.getUserRoles, { userId });
   }
 
-  // Health
-  getHealth() {
-    return {
-      status: 'ok',
-      message: 'API Gateway is healthy',
-      timestamp: new Date().toISOString(),
-    };
-  }
-
-  async pingMicroservice(data = 'ping from api-gateway') {
-    if (!this.grpc) {
-      return {
-        pong: false,
-        receivedAt: new Date().toISOString(),
-        data: 'IDENTITY_SERVICE gRPC client is not initialized',
-      };
-    }
-    return this.call(this.grpc!.ping, { data });
-  }
 }

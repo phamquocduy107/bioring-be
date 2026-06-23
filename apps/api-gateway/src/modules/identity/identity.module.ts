@@ -3,7 +3,6 @@ import { join } from 'node:path';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { PassportModule } from '@nestjs/passport';
 import { RbacService } from '@app/common';
-import { IdentityController } from './health/identity.controller';
 import { AuthController } from './auth/auth.controller';
 import { UsersController } from './users/users.controller';
 import { RbacController } from './rbac/rbac.controller';
@@ -27,7 +26,6 @@ import { GoogleOauthGuard } from './auth/guards/google.guard';
     ]),
   ],
   controllers: [
-    IdentityController,
     AuthController,
     UsersController,
     RbacController,
