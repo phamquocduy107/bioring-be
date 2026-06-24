@@ -2,9 +2,16 @@ import { applyDecorators } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { ApiAuthFailures } from '@app/common';
 
+const ADMIN_USERS_NOTE = 'Requires `user.read` permission';
+const ADMIN_BLOCK_NOTE = 'Requires `user.block` permission';
+const ADMIN_WRITE_NOTE = 'Requires `user.write` permission';
+
 export function ApiGetUsersDocs() {
   return applyDecorators(
-    ApiOperation({ summary: 'List users (paginated)' }),
+    ApiOperation({
+      summary: 'List users (paginated)',
+      description: ADMIN_USERS_NOTE,
+    }),
     ApiAuthFailures(),
     ApiQuery({ name: 'page', required: false, type: 'number', example: 1 }),
     ApiQuery({ name: 'limit', required: false, type: 'number', example: 10 }),
@@ -36,7 +43,7 @@ export function ApiGetUsersDocs() {
 
 export function ApiGetUserByIdDocs() {
   return applyDecorators(
-    ApiOperation({ summary: 'Get user by ID' }),
+    ApiOperation({ summary: 'Get user by ID', description: ADMIN_USERS_NOTE }),
     ApiAuthFailures(),
     ApiParam({
       name: 'id',
@@ -50,17 +57,19 @@ export function ApiGetUserByIdDocs() {
       description: 'User details',
       schema: {
         example: {
-          id: '550e8400-e29b-41d4-a716-446655440000',
-          email: 'user@gmail.com',
-          fullName: 'John Doe',
-          phone: '0987654321',
-          avatarUrl: null,
-          status: 'ACTIVE',
-          customerType: null,
-          isVip: false,
-          createdAt: '2026-01-01T00:00:00.000Z',
-          updatedAt: '2026-01-01T00:00:00.000Z',
-          roles: ['CUSTOMER'],
+          user: {
+            id: '550e8400-e29b-41d4-a716-446655440000',
+            email: 'user@gmail.com',
+            fullName: 'John Doe',
+            phone: '0987654321',
+            avatarUrl: null,
+            status: 'ACTIVE',
+            customerType: null,
+            isVip: false,
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+            roles: ['CUSTOMER'],
+          },
         },
       },
     }),
@@ -74,7 +83,7 @@ export function ApiGetUserByIdDocs() {
 
 export function ApiBanUserDocs() {
   return applyDecorators(
-    ApiOperation({ summary: 'Ban user' }),
+    ApiOperation({ summary: 'Ban user', description: ADMIN_BLOCK_NOTE }),
     ApiAuthFailures(),
     ApiParam({
       name: 'id',
@@ -98,7 +107,7 @@ export function ApiBanUserDocs() {
 
 export function ApiUnbanUserDocs() {
   return applyDecorators(
-    ApiOperation({ summary: 'Unban user' }),
+    ApiOperation({ summary: 'Unban user', description: ADMIN_BLOCK_NOTE }),
     ApiAuthFailures(),
     ApiParam({
       name: 'id',
@@ -122,7 +131,10 @@ export function ApiUnbanUserDocs() {
 
 export function ApiAssignRoleDocs() {
   return applyDecorators(
-    ApiOperation({ summary: 'Assign role to user' }),
+    ApiOperation({
+      summary: 'Assign role to user',
+      description: ADMIN_WRITE_NOTE,
+    }),
     ApiAuthFailures(),
     ApiParam({
       name: 'id',

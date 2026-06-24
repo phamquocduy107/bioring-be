@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { Permissions, Permission } from '@app/common';
 import { IdentityService } from '../identity.service';
@@ -18,38 +18,42 @@ export class UsersController {
   @Get()
   @Permissions(Permission.UserRead)
   @ApiGetUsersDocs()
-  getUsers(@Query('page') page?: string, @Query('limit') limit?: string) {
-    return this.identityService.getUsers(
+  async getUsers(@Query('page') page?: string, @Query('limit') limit?: string) {
+    const result = await this.identityService.getUsers(
       page ? Number(page) : 1,
       limit ? Number(limit) : 10,
     );
+    return {
+      data: result?.data ?? [],
+      meta: result?.meta ?? { total: 0, page: 1, limit: 10, lastPage: 0 },
+    };
   }
 
   @Get(':id')
   @Permissions(Permission.UserRead)
   @ApiGetUserByIdDocs()
-  getUserById(@Param('id') id: string) {
+  getUserById(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.identityService.getUserById(id);
   }
 
   @Patch(':id/ban')
   @Permissions(Permission.UserBlock)
   @ApiBanUserDocs()
-  banUser(@Param('id') id: string) {
+  banUser(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.identityService.banUser(id);
   }
 
   @Patch(':id/unban')
   @Permissions(Permission.UserBlock)
   @ApiUnbanUserDocs()
-  unbanUser(@Param('id') id: string) {
+  unbanUser(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.identityService.unbanUser(id);
   }
 
   @Post(':id/assign-role')
   @Permissions(Permission.UserWrite)
   @ApiAssignRoleDocs()
-  assignRole(@Param('id') userId: string, @Query('roleId') roleId: string) {
+  assignRole(@Param('id', new ParseUUIDPipe({ version: '4' })) userId: string, @Query('roleId', new ParseUUIDPipe({ version: '4' })) roleId: string) {
     return this.identityService.assignRole(userId, roleId);
   }
 }

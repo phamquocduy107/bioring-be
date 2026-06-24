@@ -5,11 +5,11 @@ import {
   ApiQuery,
   ApiResponse,
 } from '@nestjs/swagger';
-import { ApiAuthFailures } from '@app/common';
-
 export function ApiGoogleAuthDocs() {
   return applyDecorators(
-    ApiOperation({ summary: 'Google OAuth login — redirects to Google consent screen' }),
+    ApiOperation({
+      summary: 'Google OAuth login — redirects to Google consent screen',
+    }),
     ApiQuery({
       name: 'platform',
       required: false,
@@ -19,7 +19,8 @@ export function ApiGoogleAuthDocs() {
     ApiQuery({
       name: 'app_redirect',
       required: false,
-      description: 'Custom scheme URL to redirect back to mobile app (e.g. myapp://callback)',
+      description:
+        'Custom scheme URL to redirect back to mobile app (e.g. myapp://callback)',
       example: 'bioringapp://auth/callback',
     }),
     ApiResponse({
@@ -31,7 +32,9 @@ export function ApiGoogleAuthDocs() {
 
 export function ApiGoogleAuthCallbackDocs() {
   return applyDecorators(
-    ApiOperation({ summary: 'Google OAuth callback — handles redirect from Google' }),
+    ApiOperation({
+      summary: 'Google OAuth callback — handles redirect from Google',
+    }),
     ApiQuery({
       name: 'code',
       required: false,
@@ -58,7 +61,6 @@ export function ApiRefreshTokenDocs() {
   return applyDecorators(
     ApiOperation({ summary: 'Refresh access token' }),
     ApiCookieAuth('refresh_token'),
-    ApiAuthFailures(),
     ApiResponse({
       status: 200,
       description: 'Token refreshed successfully',

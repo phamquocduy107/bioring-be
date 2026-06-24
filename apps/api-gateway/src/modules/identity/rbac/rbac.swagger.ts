@@ -1,15 +1,13 @@
 import { applyDecorators } from '@nestjs/common';
-import {
-  ApiBody,
-  ApiOperation,
-  ApiParam,
-  ApiResponse,
-} from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { ApiAuthFailures } from '@app/common';
+
+const READ_NOTE = 'Requires `role.read` permission';
+const WRITE_NOTE = 'Requires `role.write` permission';
 
 export function ApiGetRolesDocs() {
   return applyDecorators(
-    ApiOperation({ summary: 'List all roles' }),
+    ApiOperation({ summary: 'List all roles', description: READ_NOTE }),
     ApiAuthFailures(),
     ApiResponse({
       status: 200,
@@ -17,8 +15,16 @@ export function ApiGetRolesDocs() {
       schema: {
         example: {
           roles: [
-            { id: '660e8400-e29b-41d4-a716-446655440001', name: 'ADMIN', description: 'Administrator' },
-            { id: '660e8400-e29b-41d4-a716-446655440002', name: 'CUSTOMER', description: 'Customer' },
+            {
+              id: '660e8400-e29b-41d4-a716-446655440001',
+              name: 'ADMIN',
+              description: 'Administrator',
+            },
+            {
+              id: '660e8400-e29b-41d4-a716-446655440002',
+              name: 'CUSTOMER',
+              description: 'Customer',
+            },
           ],
         },
       },
@@ -28,7 +34,10 @@ export function ApiGetRolesDocs() {
 
 export function ApiGetRoleWithPermissionsDocs() {
   return applyDecorators(
-    ApiOperation({ summary: 'Get role with permissions' }),
+    ApiOperation({
+      summary: 'Get role with permissions',
+      description: READ_NOTE,
+    }),
     ApiAuthFailures(),
     ApiParam({
       name: 'id',
@@ -47,7 +56,11 @@ export function ApiGetRoleWithPermissionsDocs() {
             name: 'ADMIN',
             description: 'Administrator',
             permissions: [
-              { id: '770e8400-e29b-41d4-a716-446655440001', slug: 'users.read', description: 'Read users' },
+              {
+                id: '770e8400-e29b-41d4-a716-446655440001',
+                slug: 'users.read',
+                description: 'Read users',
+              },
             ],
           },
         },
@@ -63,7 +76,7 @@ export function ApiGetRoleWithPermissionsDocs() {
 
 export function ApiCreateRoleDocs() {
   return applyDecorators(
-    ApiOperation({ summary: 'Create role' }),
+    ApiOperation({ summary: 'Create role', description: WRITE_NOTE }),
     ApiAuthFailures(),
     ApiBody({
       schema: {
@@ -79,11 +92,17 @@ export function ApiCreateRoleDocs() {
       description: 'Role created',
       schema: {
         example: {
-          id: '660e8400-e29b-41d4-a716-446655440003',
-          name: 'MANAGER',
-          description: 'Manager role',
+          role: {
+            id: '660e8400-e29b-41d4-a716-446655440003',
+            name: 'MANAGER',
+            description: 'Manager role',
+          },
         },
       },
+    }),
+    ApiResponse({
+      status: 400,
+      description: 'Invalid input (e.g. missing name)',
     }),
     ApiResponse({
       status: 409,
@@ -95,7 +114,7 @@ export function ApiCreateRoleDocs() {
 
 export function ApiUpdateRoleDocs() {
   return applyDecorators(
-    ApiOperation({ summary: 'Update role' }),
+    ApiOperation({ summary: 'Update role', description: WRITE_NOTE }),
     ApiAuthFailures(),
     ApiParam({
       name: 'id',
@@ -117,9 +136,11 @@ export function ApiUpdateRoleDocs() {
       description: 'Role updated',
       schema: {
         example: {
-          id: '660e8400-e29b-41d4-a716-446655440003',
-          name: 'SUPER_MANAGER',
-          description: 'Updated description',
+          role: {
+            id: '660e8400-e29b-41d4-a716-446655440003',
+            name: 'SUPER_MANAGER',
+            description: 'Updated description',
+          },
         },
       },
     }),
@@ -138,7 +159,7 @@ export function ApiUpdateRoleDocs() {
 
 export function ApiDeleteRoleDocs() {
   return applyDecorators(
-    ApiOperation({ summary: 'Delete role' }),
+    ApiOperation({ summary: 'Delete role', description: WRITE_NOTE }),
     ApiAuthFailures(),
     ApiParam({
       name: 'id',
@@ -160,14 +181,16 @@ export function ApiDeleteRoleDocs() {
     ApiResponse({
       status: 403,
       description: 'Cannot delete role assigned to users',
-      schema: { example: { message: 'Cannot delete role that is assigned to users' } },
+      schema: {
+        example: { message: 'Cannot delete role that is assigned to users' },
+      },
     }),
   );
 }
 
 export function ApiGetPermissionsDocs() {
   return applyDecorators(
-    ApiOperation({ summary: 'List all permissions' }),
+    ApiOperation({ summary: 'List all permissions', description: READ_NOTE }),
     ApiAuthFailures(),
     ApiResponse({
       status: 200,
@@ -175,8 +198,16 @@ export function ApiGetPermissionsDocs() {
       schema: {
         example: {
           permissions: [
-            { id: '770e8400-e29b-41d4-a716-446655440001', slug: 'users.read', description: 'Read users' },
-            { id: '770e8400-e29b-41d4-a716-446655440002', slug: 'users.write', description: 'Create/update users' },
+            {
+              id: '770e8400-e29b-41d4-a716-446655440001',
+              slug: 'users.read',
+              description: 'Read users',
+            },
+            {
+              id: '770e8400-e29b-41d4-a716-446655440002',
+              slug: 'users.write',
+              description: 'Create/update users',
+            },
           ],
         },
       },
@@ -186,17 +217,27 @@ export function ApiGetPermissionsDocs() {
 
 export function ApiAssignPermissionsToRoleDocs() {
   return applyDecorators(
-    ApiOperation({ summary: 'Assign permissions to role' }),
+    ApiOperation({
+      summary: 'Assign permissions to role',
+      description: WRITE_NOTE,
+    }),
     ApiAuthFailures(),
     ApiBody({
       schema: {
         required: ['roleId', 'permissionIds'],
         properties: {
-          roleId: { type: 'string', format: 'uuid', example: '660e8400-e29b-41d4-a716-446655440001' },
+          roleId: {
+            type: 'string',
+            format: 'uuid',
+            example: '660e8400-e29b-41d4-a716-446655440001',
+          },
           permissionIds: {
             type: 'array',
             items: { type: 'string', format: 'uuid' },
-            example: ['770e8400-e29b-41d4-a716-446655440001', '770e8400-e29b-41d4-a716-446655440002'],
+            example: [
+              '770e8400-e29b-41d4-a716-446655440001',
+              '770e8400-e29b-41d4-a716-446655440002',
+            ],
           },
         },
       },

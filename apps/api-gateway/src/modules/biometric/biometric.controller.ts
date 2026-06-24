@@ -1,7 +1,8 @@
 import { Controller, Get } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiTags } from '@nestjs/swagger';
 import { Public } from '@app/common';
 import { BiometricService } from './biometric.service';
+import { ApiHealthDocs, ApiPingMicroserviceDocs } from './biometric.swagger';
 
 @ApiTags('Biometric')
 @Controller('biometric')
@@ -10,14 +11,14 @@ export class BiometricController {
 
   @Public()
   @Get('health')
-  @ApiOperation({ summary: 'Health check endpoint' })
+  @ApiHealthDocs()
   getHealth() {
     return this.biometricService.getHealth();
   }
 
   @Public()
   @Get('ping')
-  @ApiOperation({ summary: 'Ping biometric service through gRPC' })
+  @ApiPingMicroserviceDocs()
   pingMicroservice() {
     return this.biometricService.pingMicroservice();
   }

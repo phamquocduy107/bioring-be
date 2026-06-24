@@ -4,6 +4,7 @@ import {
   Post,
   Put,
   Param,
+  ParseUUIDPipe,
   Body,
   Req,
   Inject,
@@ -147,18 +148,21 @@ export class DesignController implements OnModuleInit {
   @Get('drafts')
   @Public()
   @ApiGetMyDraftsDocs()
-  getMyDrafts(@Req() req: Request) {
+  async getMyDrafts(@Req() req: Request) {
     const guestSessionId =
       (req.cookies as Record<string, string> | undefined)?.guest_session_id ??
       '';
-    return this.call(() => this.grpc!.getMyDrafts({ guestSessionId }));
+    const result = await this.call(() =>
+      this.grpc!.getMyDrafts({ guestSessionId }),
+    );
+    return { drafts: result?.drafts ?? [] };
   }
 
   @Put('drafts/:id')
   @Public()
   @ApiUpdateDesignDraftDocs()
   updateDesignDraft(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @Body() body: UpdateDesignDraftDto,
     @Req() req: Request,
   ) {

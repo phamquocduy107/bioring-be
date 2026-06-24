@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Query,
   Inject,
   OnModuleInit,
@@ -93,25 +94,33 @@ export class CatalogController implements OnModuleInit {
 
   @Get('products')
   @ApiGetProductsDocs()
-  getProducts(@Query() filters: CatalogFilterDto) {
-    return this.call(() => this.grpc!.getProducts(filters));
+  async getProducts(@Query() filters: CatalogFilterDto) {
+    const result = await this.call(() => this.grpc!.getProducts(filters));
+    return {
+      products: result?.products ?? [],
+      total: result?.total ?? 0,
+      page: result?.page ?? 1,
+      limit: result?.limit ?? 10,
+    };
   }
 
   @Get('products/:id')
   @ApiGetProductByIdDocs()
-  getProductById(@Param('id') id: string) {
+  getProductById(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.call(() => this.grpc!.getProductById({ id }));
   }
 
   @Get('materials')
   @ApiGetMaterialsDocs()
-  getMaterials() {
-    return this.call(() => this.grpc!.getMaterials({}));
+  async getMaterials() {
+    const result = await this.call(() => this.grpc!.getMaterials({}));
+    return { materials: result?.materials ?? [] };
   }
 
   @Get('gemstones')
   @ApiGetGemstonesDocs()
-  getGemstones() {
-    return this.call(() => this.grpc!.getGemstones({}));
+  async getGemstones() {
+    const result = await this.call(() => this.grpc!.getGemstones({}));
+    return { gemstones: result?.gemstones ?? [] };
   }
 }

@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
 } from '@nestjs/common';
@@ -36,7 +37,7 @@ export class RbacController {
   @Get('roles/:id')
   @Permissions(Permission.RoleRead)
   @ApiGetRoleWithPermissionsDocs()
-  getRoleWithPermissions(@Param('id') id: string) {
+  getRoleWithPermissions(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.identityService.getRoleWithPermissions(id);
   }
 
@@ -51,7 +52,7 @@ export class RbacController {
   @Permissions(Permission.RoleWrite)
   @ApiUpdateRoleDocs()
   updateRole(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @Body() body: { name?: string; description?: string },
   ) {
     return this.identityService.updateRole(id, body.name, body.description);
@@ -60,7 +61,7 @@ export class RbacController {
   @Delete('roles/:id')
   @Permissions(Permission.RoleWrite)
   @ApiDeleteRoleDocs()
-  deleteRole(@Param('id') id: string) {
+  deleteRole(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.identityService.deleteRole(id);
   }
 
