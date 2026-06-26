@@ -14,15 +14,15 @@ export class FitRpcExceptionFilter implements RpcExceptionFilter {
   private readonly logger = new Logger(FitRpcExceptionFilter.name);
 
   private readonly httpStatusToGrpcCode: Record<number, number> = {
-    400: 3,  // INVALID_ARGUMENT
+    400: 3, // INVALID_ARGUMENT
     401: 16, // UNAUTHENTICATED
-    403: 7,  // PERMISSION_DENIED
-    404: 5,  // NOT_FOUND
-    409: 6,  // ALREADY_EXISTS
-    429: 8,  // RESOURCE_EXHAUSTED
+    403: 7, // PERMISSION_DENIED
+    404: 5, // NOT_FOUND
+    409: 6, // ALREADY_EXISTS
+    429: 8, // RESOURCE_EXHAUSTED
     500: 13, // INTERNAL
     503: 14, // UNAVAILABLE
-    504: 4,  // DEADLINE_EXCEEDED
+    504: 4, // DEADLINE_EXCEEDED
   };
 
   private grpcError(statusCode: number, message: string): Error {
@@ -67,6 +67,24 @@ export class FitRpcExceptionFilter implements RpcExceptionFilter {
           );
 
         case 'P2003':
+          this.logger.error(
+            'Foreign key constraint violation: ' +
+              'field=' +
+              String(
+                err.meta && typeof err.meta === 'object' && 'field' in err.meta
+                  ? ((err.meta as { field?: string }).field ?? '')
+                  : '',
+              ) +
+              ' ' +
+              'constraint=' +
+              String(
+                err.meta &&
+                  typeof err.meta === 'object' &&
+                  'constraint' in err.meta
+                  ? ((err.meta as { constraint?: string }).constraint ?? '')
+                  : '',
+              ),
+          );
           return throwError(() =>
             this.grpcError(
               HttpStatus.BAD_REQUEST,

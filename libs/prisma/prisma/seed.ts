@@ -257,7 +257,9 @@ async function main() {
     }
   }
 
-  console.log(`Created ${products.length} products with material and gemstone links`);
+  console.log(
+    `Created ${products.length} products with material and gemstone links`,
+  );
   console.log('Seeding completed!');
 }
 

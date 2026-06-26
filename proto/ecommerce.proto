@@ -3,8 +3,6 @@ syntax = "proto3";
 package ecommerce;
 
 service EcommerceService {
-  rpc Ping (PingRequest) returns (PingResponse);
-
   // Catalog
   rpc GetProducts (GetProductsRequest) returns (GetProductsResponse);
   rpc GetProductById (GetProductByIdRequest) returns (GetProductByIdResponse);
@@ -17,6 +15,33 @@ service EcommerceService {
   rpc GetMyDrafts (GetMyDraftsRequest) returns (GetMyDraftsResponse);
   rpc UpdateDesignDraft (UpdateDesignDraftRequest) returns (UpdateDesignDraftResponse);
   rpc ClaimDesignDraft (ClaimDesignDraftRequest) returns (ClaimDesignDraftResponse);
+
+  // Engraving
+  rpc CreateEngraving (CreateEngravingRequest) returns (CreateEngravingResponse);
+  rpc UpdateEngravingVersionConfig (UpdateEngravingVersionConfigRequest) returns (UpdateEngravingVersionConfigResponse);
+  rpc ResubmitEngravingVersion (ResubmitEngravingVersionRequest) returns (ResubmitEngravingVersionResponse);
+  rpc GetMyEngravings (GetMyEngravingsRequest) returns (GetMyEngravingsResponse);
+  rpc GetEngraving (GetEngravingRequest) returns (GetEngravingResponse);
+
+  // Orders
+  rpc CreateOrder (CreateOrderRequest) returns (CreateOrderResponse);
+  rpc GetOrder (GetOrderRequest) returns (GetOrderResponse);
+  rpc GetMyOrders (GetMyOrdersRequest) returns (GetMyOrdersResponse);
+  rpc ReviewOrder (ReviewOrderRequest) returns (ReviewOrderResponse);
+
+  // Payments
+  rpc InitiatePayment (InitiatePaymentRequest) returns (InitiatePaymentResponse);
+  rpc HandlePayOSWebhook (PayOSWebhookRequest) returns (PayOSWebhookResponse);
+  rpc CancelPayment (CancelPaymentRequest) returns (CancelPaymentResponse);
+
+  // Production
+  rpc AssignJeweler (AssignJewelerRequest) returns (AssignJewelerResponse);
+  rpc UpdateProductionStatus (UpdateProductionStatusRequest) returns (UpdateProductionStatusResponse);
+
+  // QR Memory
+  rpc UpdateQrMemory (UpdateQrMemoryRequest) returns (UpdateQrMemoryResponse);
+  rpc GetQrMemory (GetQrMemoryRequest) returns (GetQrMemoryResponse);
+  rpc ActivateQrMemory (ActivateQrMemoryRequest) returns (ActivateQrMemoryResponse);
 }
 
 // ===== Messages =====
@@ -28,21 +53,12 @@ message ClaimDesignDraftRequest {
 
 message ClaimDesignDraftResponse {
   DesignDraft draft = 1;
+  Engraving engraving = 2;
+  EngravingVersion engravingVersion = 3;
 }
 
 // ===== Generic =====
 message Empty {}
-
-// ===== Ping =====
-message PingRequest {
-  string data = 1;
-}
-
-message PingResponse {
-  bool pong = 1;
-  string receivedAt = 2;
-  string data = 3;
-}
 
 // ===== Catalog =====
 message Product {
@@ -131,10 +147,15 @@ message DesignDraft {
 
 message GetMyDraftsRequest {
   string guestSessionId = 1;
+  int32 page = 2;
+  int32 limit = 3;
 }
 
 message GetMyDraftsResponse {
   repeated DesignDraft drafts = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
 }
 
 message CreateDesignDraftRequest {
@@ -175,3 +196,306 @@ message UpdateDesignDraftRequest {
 message UpdateDesignDraftResponse {
   DesignDraft draft = 1;
 }
+
+// === Engraving ===
+message CreateEngravingRequest {
+  string userId = 1;
+  string productId = 2;
+}
+
+message CreateEngravingResponse {
+  Engraving engraving = 1;
+  EngravingVersion engravingVersion = 2;
+  string qrCode = 3;
+}
+
+message UpdateEngravingVersionConfigRequest {
+  string engravingVersionId = 1;
+  string customizationConfig = 2;
+  string selectedMaterialId = 3;
+  string selectedGemstoneId = 4;
+  string ringSize = 5;
+  string ringStyle = 6;
+  string ringShape = 7;
+  string previewImageUrl = 8;
+  string model3dUrl = 9;
+  string productionFileUrl = 10;
+}
+
+message ResubmitEngravingVersionRequest {
+  string engravingVersionId = 1;
+}
+
+message ResubmitEngravingVersionResponse {
+  EngravingVersion version = 1;
+  string orderId = 2;
+  string orderStatus = 3;
+}
+
+message UpdateEngravingVersionConfigResponse {
+  EngravingVersion version = 1;
+  string orderId = 2;
+  string orderStatus = 3;
+}
+
+message GetMyEngravingsRequest {
+  string userId = 1;
+  int32 page = 2;
+  int32 limit = 3;
+  string status = 4;
+  string orderId = 5;
+}
+
+message GetMyEngravingsResponse {
+  repeated Engraving engravings = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+}
+
+message GetEngravingRequest {
+  string id = 1;
+}
+
+message GetEngravingResponse {
+  Engraving engraving = 1;
+}
+
+// === Orders ===
+message Order {
+  string id = 1;
+  string orderCode = 2;
+  string userId = 3;
+  string designDraftId = 4;
+  string captureRoute = 5;
+  string designSource = 6;
+  string status = 7;
+  double subtotal = 8;
+  double serviceFee = 9;
+  double extraFee = 10;
+  double discountAmount = 11;
+  double totalPrice = 12;
+  double paidAmount = 13;
+  double remainingAmount = 14;
+  string note = 15;
+  string createdAt = 16;
+  string updatedAt = 17;
+  DesignDraft designDraft = 18;
+  repeated Payment payments = 19;
+  repeated Engraving engravings = 20;
+}
+
+message CreateOrderRequest {
+  repeated string engravingIds = 1;
+  string userId = 2;
+}
+
+message CreateOrderResponse {
+  Order order = 1;
+}
+
+message GetOrderRequest {
+  string id = 1;
+}
+
+message GetOrderResponse {
+  Order order = 1;
+}
+
+message GetMyOrdersRequest {
+  int32 page = 1;
+  int32 limit = 2;
+  string userId = 3;
+}
+
+message GetMyOrdersResponse {
+  repeated Order orders = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+}
+
+message ReviewOrderRequest {
+  string id = 1;
+  string action = 2;
+  string note = 3;
+  string managerId = 4;
+  repeated string engravingIds = 5;  // empty = all engravings
+}
+
+message ReviewOrderResponse {
+  Order order = 1;
+}
+
+// === Engraving messages ===
+message Engraving {
+  string id = 1;
+  string orderId = 2;
+  string userId = 3;
+  string productId = 4;
+  string uniqueProductId = 5;
+  string approvedVersionId = 6;
+  string status = 7;
+  repeated EngravingVersion versions = 8;
+  repeated EngravingBioMetric biometrics = 9;
+  QrMemory qrMemory = 10;
+  EngravingVersion currentVersion = 11;
+}
+
+message EngravingVersion {
+  string id = 1;
+  string engravingId = 2;
+  int32 versionNumber = 3;
+  string selectedMaterialId = 4;
+  string selectedGemstoneId = 5;
+  string ringSize = 6;
+  string ringStyle = 7;
+  string ringShape = 8;
+  string customizationConfig = 9;
+  string status = 10;
+  string managerId = 11;
+  string managerNote = 12;
+  string reviewedAt = 13;
+  string createdAt = 14;
+}
+
+message EngravingBioMetric {
+  string id = 1;
+  string engravingId = 2;
+  string biometricType = 3;
+  string requiredChannel = 4;
+  string rawFileUrl = 5;
+  string processedSvgUrl = 6;
+  string extraData = 7;
+  string status = 8;
+}
+
+// === Payment ===
+message Payment {
+  string id = 1;
+  string orderId = 2;
+  string paymentPhase = 3;
+  double amount = 4;
+  string method = 5;
+  string status = 6;
+  string payosTransactionId = 7;
+  string paymentUrl = 8;
+  string paidAt = 9;
+  string createdAt = 10;
+}
+
+message InitiatePaymentRequest {
+  string orderId = 1;
+  string paymentPhase = 2;
+  string returnUrl = 3;
+  string cancelUrl = 4;
+  string userId = 5;
+}
+
+message InitiatePaymentResponse {
+  Payment payment = 1;
+  string paymentUrl = 2;
+  string qrCode = 3;
+}
+
+message PayOSWebhookRequest {
+  string orderCode = 1;
+  string transactionId = 2;
+  string paymentCode = 3;
+  string status = 4;
+  double amount = 5;
+  string signature = 6;
+}
+
+message PayOSWebhookResponse {
+  bool success = 1;
+}
+
+message CancelPaymentRequest {
+  string orderId = 1;
+  string userId = 2;
+}
+
+message CancelPaymentResponse {
+  bool success = 1;
+  string orderCode = 2;
+}
+
+// === Production ===
+message ProductionTask {
+  string id = 1;
+  string orderId = 2;
+  string engravingId = 3;
+  string assignedJewelerId = 4;
+  string assignedJewelerName = 5;
+  string status = 6;
+  string note = 7;
+  string startedAt = 8;
+  string completedAt = 9;
+  string createdAt = 10;
+}
+
+message AssignJewelerRequest {
+  string orderId = 1;
+  string jewelerId = 2;
+}
+
+message AssignJewelerResponse {
+  ProductionTask task = 1;
+}
+
+message UpdateProductionStatusRequest {
+  string taskId = 1;
+  string status = 2;
+  string note = 3;
+}
+
+message UpdateProductionStatusResponse {
+  ProductionTask task = 1;
+}
+
+// === QR Memory ===
+message CardTheme {
+  string id = 1;
+  string themeCode = 2;
+  string name = 3;
+  string defaultBgUrl = 4;
+  string styleConfig = 5;
+}
+
+message QrMemory {
+  string id = 1;
+  string engravingId = 2;
+  string qrCode = 3;
+  string cardTitle = 4;
+  string greetingMessage = 5;
+  string recipientEmail = 6;
+  string biometricDisplaySettings = 7;
+  string accessPinHash = 8;
+  bool isLocked = 9;
+  string createdAt = 10;
+  string updatedAt = 11;
+  CardTheme cardTheme = 12;
+}
+
+message UpdateQrMemoryRequest {
+  string engravingId = 1;
+  string cardTitle = 2;
+  string greetingMessage = 3;
+  string recipientEmail = 4;
+  string cardThemeId = 5;
+  string customImages = 6;
+  string biometricDisplaySettings = 7;
+}
+
+message UpdateQrMemoryResponse { QrMemory qrMemory = 1; }
+
+message GetQrMemoryRequest { string engravingId = 1; }
+message GetQrMemoryResponse { QrMemory qrMemory = 1; }
+
+message ActivateQrMemoryRequest {
+  string qrCode = 1;
+  string accessPin = 2;
+}
+
+message ActivateQrMemoryResponse { QrMemory qrMemory = 1; }

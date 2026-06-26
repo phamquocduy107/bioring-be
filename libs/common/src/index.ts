@@ -13,3 +13,4 @@ export * from './rbac/rbac.service';
 export * from './queue/rabbit-mq/rmq.module';
 export * from './queue/rabbit-mq/rmq.service';
 export * from './swagger/common.swagger';
+export * from './payment';

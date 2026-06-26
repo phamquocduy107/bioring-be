@@ -36,12 +36,9 @@ export class AuthController {
   @Get('google/callback')
   @UseGuards(GoogleOauthGuard)
   @ApiGoogleAuthCallbackDocs()
-  async googleAuthRedirect(
-    @Req() req: RequestWithUser,
-    @Res() res: Response,
-  ) {
+  async googleAuthRedirect(@Req() req: RequestWithUser, @Res() res: Response) {
     const { accessToken, refreshToken } = req.user;
-    const rawState = req.query.state as string;
+    const rawState = req.query.state;
 
     let platform = 'web';
     let appRedirect: string | undefined;
@@ -107,10 +104,7 @@ export class AuthController {
 
   @Post('logout')
   @ApiLogoutDocs()
-  async logout(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-  ) {
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const refreshToken = req.cookies?.['refresh_token'];
     if (refreshToken) {
       await this.identityService.logout({ refreshToken });

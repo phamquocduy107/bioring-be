@@ -1,6 +1,6 @@
 import { Controller } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
-import { RbacService } from '../services/rbac.service';
+import { RbacService } from './rbac.service';
 
 @Controller()
 export class RbacController {

@@ -7,7 +7,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '@app/prisma';
 import { generateDesignCode } from './design-code.util';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash, randomBytes } from 'node:crypto';
 
 type ProductWithRelations = Prisma.productsGetPayload<{
   include: {
@@ -123,17 +123,28 @@ export class DesignService {
     return { draft: await this.includeRelations(draft) };
   }
 
-  async getMyDrafts(guestSessionId: string) {
-    const drafts = await this.prisma.design_drafts.findMany({
-      where: { guest_session_id: guestSessionId },
-      orderBy: { created_at: 'desc' },
-    });
+  async getMyDrafts(
+    guestSessionId: string,
+    page: number = 1,
+    limit: number = 10,
+  ) {
+    const where = { guest_session_id: guestSessionId };
+
+    const [drafts, total] = await Promise.all([
+      this.prisma.design_drafts.findMany({
+        where,
+        orderBy: { created_at: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.design_drafts.count({ where }),
+    ]);
 
     const result = await Promise.all(
       drafts.map((d) => this.includeRelations(d)),
     );
 
-    return { drafts: result };
+    return { drafts: result, total, page, limit };
   }
 
   async updateDesignDraft(data: {
@@ -222,15 +233,97 @@ export class DesignService {
     });
     if (!draft) throw new NotFoundException('Design draft not found');
 
-    const updated = await this.prisma.design_drafts.update({
-      where: { id: draft.id },
-      data: {
-        user_id: userId,
-        guest_session_id: null,
-      },
+    const engravingId = randomUUID();
+    const versionId = randomUUID();
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.design_drafts.update({
+        where: { id: draft.id },
+        data: {
+          user_id: userId,
+          guest_session_id: null,
+          status: 'CONVERTED',
+        },
+      });
+
+      const engraving = await tx.engravings.create({
+        data: {
+          id: engravingId,
+          user_id: userId,
+          product_id: draft.product_id,
+          unique_product_id: draft.design_code,
+          status: 'ACTIVE',
+        },
+      });
+
+      const engravingVersion = await tx.engraving_versions.create({
+        data: {
+          id: versionId,
+          engraving_id: engravingId,
+          version_number: 1,
+          selected_material_id: draft.selected_material_id,
+          selected_gemstone_id: draft.selected_gemstone_id,
+          ring_size: draft.ring_size,
+          ring_style: draft.ring_style,
+          ring_shape: draft.ring_shape,
+          customization_config:
+            draft.customization_config as Prisma.InputJsonValue,
+          status: 'PENDING',
+        },
+      });
+
+      const qrCode = randomBytes(6).toString('hex'); // 12 hex chars
+      const defaultPin = '123456';
+      const accessPinHash = createHash('sha256')
+        .update(defaultPin)
+        .digest('hex');
+
+      await tx.qr_memories.create({
+        data: {
+          id: randomUUID(),
+          engraving_id: engravingId,
+          qr_code: qrCode,
+          access_pin_hash: accessPinHash,
+          is_locked: true,
+        },
+      });
+
+      return { updated, engraving, engravingVersion, qrCode };
     });
 
-    return { draft: await this.includeRelations(updated) };
+    return {
+      draft: await this.includeRelations(result.updated),
+      engraving: {
+        id: result.engraving.id,
+        orderId: result.engraving.order_id ?? '',
+        userId: result.engraving.user_id ?? '',
+        productId: result.engraving.product_id ?? '',
+        uniqueProductId: result.engraving.unique_product_id ?? '',
+        approvedVersionId: result.engraving.approved_version_id ?? '',
+        status: result.engraving.status ?? '',
+        versions: [],
+        biometrics: [],
+      },
+      engravingVersion: {
+        id: result.engravingVersion.id,
+        engravingId: result.engravingVersion.engraving_id,
+        versionNumber: result.engravingVersion.version_number,
+        selectedMaterialId: result.engravingVersion.selected_material_id ?? '',
+        selectedGemstoneId: result.engravingVersion.selected_gemstone_id ?? '',
+        ringSize: result.engravingVersion.ring_size ?? '',
+        ringStyle: result.engravingVersion.ring_style ?? '',
+        ringShape: result.engravingVersion.ring_shape ?? '',
+        customizationConfig: result.engravingVersion.customization_config
+          ? JSON.stringify(result.engravingVersion.customization_config)
+          : '',
+        status: result.engravingVersion.status ?? '',
+        managerId: result.engravingVersion.manager_id ?? '',
+        managerNote: result.engravingVersion.manager_note ?? '',
+        reviewedAt: result.engravingVersion.reviewed_at?.toISOString() ?? '',
+        createdAt: result.engravingVersion.created_at?.toISOString() ?? '',
+      },
+      qrCode: result.qrCode,
+    };
   }
 
   private validateCustomizationConfig(config: Record<string, unknown>): void {

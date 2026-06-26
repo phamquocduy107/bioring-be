@@ -25,11 +25,7 @@ import { GoogleOauthGuard } from './auth/guards/google.guard';
       },
     ]),
   ],
-  controllers: [
-    AuthController,
-    UsersController,
-    RbacController,
-  ],
+  controllers: [AuthController, UsersController, RbacController],
   providers: [IdentityService, GoogleStrategy, GoogleOauthGuard],
   exports: [IdentityService],
 })

@@ -26,8 +26,16 @@ export class DesignController {
   }
 
   @GrpcMethod('EcommerceService', 'GetMyDrafts')
-  async getMyDrafts(data: { guestSessionId: string }) {
-    return this.designService.getMyDrafts(data.guestSessionId);
+  async getMyDrafts(data: {
+    guestSessionId: string;
+    page?: number;
+    limit?: number;
+  }) {
+    return this.designService.getMyDrafts(
+      data.guestSessionId,
+      data.page ?? 1,
+      data.limit ?? 10,
+    );
   }
 
   @GrpcMethod('EcommerceService', 'UpdateDesignDraft')

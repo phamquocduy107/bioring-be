@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   Body,
   Req,
+  Query,
   Inject,
   OnModuleInit,
   Optional,
@@ -21,6 +22,8 @@ import {
   Permission,
   CreateDesignDraftDto,
   UpdateDesignDraftDto,
+  ClaimDesignDraftDto,
+  GetMyDraftsQueryDto,
 } from '@app/common';
 import type { JwtPayload } from '@app/common';
 import {
@@ -93,14 +96,18 @@ interface EcommerceGrpcService {
   }): Observable<{ draft: DesignDraftResponse }>;
   getMyDrafts(data: {
     guestSessionId: string;
-  }): Observable<{ drafts: DesignDraftResponse[] }>;
+    page: number;
+    limit: number;
+  }): Observable<{ drafts: DesignDraftResponse[]; total: number; page: number; limit: number }>;
   updateDesignDraft(
     data: UpdateDesignDraftDto & { id: string; guestSessionId: string },
   ): Observable<{ draft: DesignDraftResponse }>;
-  claimDesignDraft(data: {
-    designCode: string;
-    userId: string;
-  }): Observable<{ draft: DesignDraftResponse }>;
+  claimDesignDraft(data: { designCode: string; userId: string }): Observable<{
+    draft: DesignDraftResponse;
+    engraving: object;
+    engravingVersion: object;
+    qrCode: string;
+  }>;
 }
 
 @Controller('api/v1/design')
@@ -148,14 +155,21 @@ export class DesignController implements OnModuleInit {
   @Get('drafts')
   @Public()
   @ApiGetMyDraftsDocs()
-  async getMyDrafts(@Req() req: Request) {
+  async getMyDrafts(
+    @Req() req: Request,
+    @Query() query: GetMyDraftsQueryDto,
+  ) {
     const guestSessionId =
       (req.cookies as Record<string, string> | undefined)?.guest_session_id ??
       '';
     const result = await this.call(() =>
-      this.grpc!.getMyDrafts({ guestSessionId }),
+      this.grpc!.getMyDrafts({
+        guestSessionId,
+        page: query.page ?? 1,
+        limit: query.limit ?? 10,
+      }),
     );
-    return { drafts: result?.drafts ?? [] };
+    return { drafts: result?.drafts ?? [], total: result?.total ?? 0, page: result?.page ?? 1, limit: result?.limit ?? 10 };
   }
 
   @Put('drafts/:id')
@@ -178,7 +192,7 @@ export class DesignController implements OnModuleInit {
   @Permissions(Permission.DesignWrite)
   @ApiClaimDesignDraftDocs()
   claimDesignDraft(
-    @Body() body: { designCode: string },
+    @Body() body: ClaimDesignDraftDto,
     @CurrentUser() user: JwtPayload,
   ) {
     return this.call(() =>

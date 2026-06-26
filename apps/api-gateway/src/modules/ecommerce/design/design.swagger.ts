@@ -2,9 +2,11 @@ import { applyDecorators } from '@nestjs/common';
 import {
   ApiOperation,
   ApiParam,
+  ApiBody,
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
+import { ClaimDesignDraftDto } from '@app/common';
 
 function designDraftExample() {
   return {
@@ -158,18 +160,72 @@ export function ApiClaimDesignDraftDocs() {
     ApiOperation({
       summary: 'Claim a design draft (mobile, requires JWT)',
       description:
+        'Claim a design draft by code. Creates Engraving + EngravingVersion and marks draft as CONVERTED. ' +
         'Requires `design.write` permission. User ID is extracted from JWT token via @CurrentUser().',
     }),
+    ApiBody({ type: ClaimDesignDraftDto }),
     ApiResponse({
       status: 200,
-      description: 'Design draft claimed',
-      schema: { example: { draft: designDraftExample() } },
+      description:
+        'Design draft claimed. Trả về engraving + engravingVersion để mobile dùng cho các PATCH config tiếp theo.',
+      schema: {
+        example: {
+          draft: designDraftExample(),
+          engraving: {
+            id: '550e8400-e29b-41d4-a716-446655440003',
+            orderId: null,
+            userId: '550e8400-e29b-41d4-a716-44665544000a',
+            productId: 'prod-classic-band',
+            uniqueProductId: null,
+            approvedVersionId: null,
+            status: 'PENDING',
+            versions: [
+              {
+                id: '550e8400-e29b-41d4-a716-446655440004',
+                engravingId: '550e8400-e29b-41d4-a716-446655440003',
+                versionNumber: 1,
+                selectedMaterialId: 'mat-gold-18k',
+                selectedGemstoneId: 'gmt-diamond-05',
+                ringSize: '7',
+                ringStyle: 'CLASSIC',
+                ringShape: 'ROUND',
+                customizationConfig: '',
+                status: 'PENDING',
+                managerId: '',
+                managerNote: '',
+                reviewedAt: '',
+                createdAt: '2026-06-24T10:00:00.000Z',
+              },
+            ],
+            biometrics: [],
+          },
+          engravingVersion: {
+            id: '550e8400-e29b-41d4-a716-446655440004',
+            engravingId: '550e8400-e29b-41d4-a716-446655440003',
+            versionNumber: 1,
+            selectedMaterialId: 'mat-gold-18k',
+            selectedGemstoneId: 'gmt-diamond-05',
+            ringSize: '7',
+            ringStyle: 'CLASSIC',
+            ringShape: 'ROUND',
+            customizationConfig: '',
+            status: 'PENDING',
+            managerId: '',
+            managerNote: '',
+            reviewedAt: '',
+            createdAt: '2026-06-24T10:00:00.000Z',
+          },
+        },
+      },
     }),
     ApiResponse({ status: 400, description: 'Invalid input' }),
     ApiResponse({
       status: 401,
       description: 'Unauthorized or insufficient permissions',
     }),
-    ApiResponse({ status: 404, description: 'Design draft not found' }),
+    ApiResponse({
+      status: 404,
+      description: 'Design draft not found or already claimed',
+    }),
   );
 }

@@ -37,7 +37,9 @@ export class RbacController {
   @Get('roles/:id')
   @Permissions(Permission.RoleRead)
   @ApiGetRoleWithPermissionsDocs()
-  getRoleWithPermissions(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
+  getRoleWithPermissions(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+  ) {
     return this.identityService.getRoleWithPermissions(id);
   }
 

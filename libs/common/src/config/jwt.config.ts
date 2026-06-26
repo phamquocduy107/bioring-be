@@ -7,7 +7,7 @@ export const jwtConfig = {
   useFactory: (configService: ConfigService): JwtModuleOptions => ({
     secret: configService.get<string>('JWT_ACCESS_TOKEN_SECRET'),
     signOptions: {
-      expiresIn: configService.get<number>('JWT_ACCESS_TOKEN_EXPIRATION'),
+      expiresIn: Number(configService.get('JWT_ACCESS_TOKEN_EXPIRATION', '86400')),
     },
   }),
 };

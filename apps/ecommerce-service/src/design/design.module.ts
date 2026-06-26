@@ -7,5 +7,6 @@ import { DesignService } from './design.service';
   imports: [PrismaModule],
   controllers: [DesignController],
   providers: [DesignService],
+  exports: [DesignService],
 })
 export class DesignModule {}

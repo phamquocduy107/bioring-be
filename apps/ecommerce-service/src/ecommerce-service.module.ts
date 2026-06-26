@@ -8,16 +8,23 @@ import {
   TimeoutInterceptor,
 } from '@app/common';
 import { PrismaModule } from '@app/prisma';
-import { AppController } from './ecommerce-service.controller';
-import { AppService } from './ecommerce-service.service';
 import { CatalogModule } from './catalog/catalog.module';
 import { DesignModule } from './design/design.module';
+import { OrderModule } from './order/order.module';
+import { EngravingModule } from './engraving/engraving.module';
+import { MemoryCardModule } from './memory-card/memory-card.module';
 
 @Module({
-  imports: [CommonModule, PrismaModule, CatalogModule, DesignModule],
-  controllers: [AppController],
+  imports: [
+    CommonModule,
+    PrismaModule,
+    CatalogModule,
+    DesignModule,
+    OrderModule,
+    EngravingModule,
+    MemoryCardModule,
+  ],
   providers: [
-    AppService,
     {
       provide: APP_FILTER,
       useClass: FitRpcExceptionFilter,

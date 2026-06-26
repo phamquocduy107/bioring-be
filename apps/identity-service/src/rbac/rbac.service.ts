@@ -79,7 +79,11 @@ export class RbacService {
       data: { ...(name && { name }), ...(description && { description }) },
     });
 
-    return { id: updated.id, name: updated.name, description: updated.description };
+    return {
+      id: updated.id,
+      name: updated.name,
+      description: updated.description,
+    };
   }
 
   async deleteRole(id: string) {

@@ -1,4 +1,12 @@
-import { Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { Permissions, Permission } from '@app/common';
 import { IdentityService } from '../identity.service';
@@ -53,7 +61,10 @@ export class UsersController {
   @Post(':id/assign-role')
   @Permissions(Permission.UserWrite)
   @ApiAssignRoleDocs()
-  assignRole(@Param('id', new ParseUUIDPipe({ version: '4' })) userId: string, @Query('roleId', new ParseUUIDPipe({ version: '4' })) roleId: string) {
+  assignRole(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) userId: string,
+    @Query('roleId', new ParseUUIDPipe({ version: '4' })) roleId: string,
+  ) {
     return this.identityService.assignRole(userId, roleId);
   }
 }

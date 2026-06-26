@@ -1,20 +1,9 @@
-import { IsOptional, IsPositive, IsString, IsNumber } from 'class-validator';
+import { IsOptional, IsString, IsNumber } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { PaginationDto } from '../pagination.dto';
 
-export class CatalogFilterDto {
-  @ApiPropertyOptional({ type: Number, example: 1 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsPositive()
-  page?: number = 1;
-
-  @ApiPropertyOptional({ type: Number, example: 10 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsPositive()
-  limit?: number = 10;
-
+export class CatalogFilterDto extends PaginationDto {
   @ApiPropertyOptional({ type: String, example: 'mat-gold-18k' })
   @IsOptional()
   @IsString()

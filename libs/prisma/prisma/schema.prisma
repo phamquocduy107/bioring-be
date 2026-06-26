@@ -146,20 +146,21 @@ model device_health_logs {
   iot_devices   iot_devices @relation(fields: [device_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
-/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
 model engraving_biometrics {
-  id                String     @id @db.Uuid
-  engraving_id      String     @db.Uuid
-  biometric_type    String     @db.VarChar(50)
-  required_channel  String     @db.VarChar(50)
-  raw_file_url      String?    @db.VarChar(500)
-  processed_svg_url String?    @db.VarChar(500)
+  id                String    @id @db.Uuid
+  engraving_id      String    @db.Uuid
+  biometric_type    String    @db.VarChar(50)
+  required_channel  String    @db.VarChar(50)
+  raw_file_url      String?   @db.VarChar(500)
+  processed_svg_url String?   @db.VarChar(500)
   extra_data        Json?
-  status            String?    @default("PENDING_CAPTURE") @db.VarChar(100)
-  created_at        DateTime?  @db.Timestamptz(6)
-  updated_at        DateTime?  @db.Timestamptz(6)
-  engravings        engravings @relation(fields: [engraving_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status            String?   @default("PENDING_CAPTURE") @db.VarChar(100)
+  created_at        DateTime? @db.Timestamptz(6)
+  updated_at        DateTime? @db.Timestamptz(6)
 
+  engravings engravings @relation(fields: [engraving_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([engraving_id, biometric_type])
   @@index([engraving_id])
 }
 
@@ -194,7 +195,8 @@ model engraving_versions {
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
 model engravings {
   id                                                                    String                       @id @db.Uuid
-  order_id                                                              String                       @db.Uuid
+  order_id                                                              String?                      @db.Uuid
+  user_id                                                               String?                      @db.Uuid
   product_id                                                            String?                      @db.Uuid
   unique_product_id                                                     String?                      @unique @db.VarChar(100)
   approved_version_id                                                   String?                      @db.Uuid
@@ -207,10 +209,11 @@ model engravings {
   engraving_biometrics                                                  engraving_biometrics[]
   engraving_versions_engraving_versions_engraving_idToengravings        engraving_versions[]         @relation("engraving_versions_engraving_idToengravings")
   engraving_versions_engravings_approved_version_idToengraving_versions engraving_versions?          @relation("engravings_approved_version_idToengraving_versions", fields: [approved_version_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  qr_memories                                                           qr_memories                  @relation(fields: [id], references: [engraving_id], onDelete: NoAction, onUpdate: NoAction)
-  warranties                                                            warranties                   @relation(fields: [id], references: [engraving_id], onDelete: NoAction, onUpdate: NoAction, map: "engravings_id_fkey1")
-  orders                                                                orders                       @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  qr_memories                                                           qr_memories?
+  warranties                                                            warranties?
+  orders                                                                orders?                      @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   products                                                              products?                    @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users                                                                 users?                       @relation("engravings_user_idTousers", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   production_tasks                                                      production_tasks[]
   warranty_claims                                                       warranty_claims[]
 
@@ -503,7 +506,7 @@ model qr_memories {
   activated_at               DateTime?               @db.Timestamptz(6)
   created_at                 DateTime?               @db.Timestamptz(6)
   updated_at                 DateTime?               @db.Timestamptz(6)
-  engravings                 engravings?
+  engravings                 engravings?             @relation(fields: [engraving_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   card_themes                card_themes?            @relation(fields: [theme_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   qr_memory_access_logs      qr_memory_access_logs[]
 
@@ -723,6 +726,7 @@ model users {
   biometric_capture_sessions_biometric_capture_sessions_customer_idTousers biometric_capture_sessions[] @relation("biometric_capture_sessions_customer_idTousers")
   biometric_capture_sessions_biometric_capture_sessions_staff_idTousers    biometric_capture_sessions[] @relation("biometric_capture_sessions_staff_idTousers")
   design_drafts                                                            design_drafts[]
+  engravings                                                               engravings[]                 @relation("engravings_user_idTousers")
   engraving_versions                                                       engraving_versions[]
   guest_customers                                                          guest_customers[]
   notifications                                                            notifications[]
@@ -766,7 +770,7 @@ model warranties {
   activated_at    DateTime?         @db.Timestamptz(6)
   status          String?           @db.VarChar(100)
   created_at      DateTime?         @db.Timestamptz(6)
-  engravings      engravings?
+  engravings      engravings?       @relation(fields: [engraving_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   orders          orders            @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   warranty_claims warranty_claims[]
 

@@ -78,7 +78,7 @@ export class AuthService {
             Number(
               this.configService.get<number>(
                 'JWT_REFRESH_TOKEN_EXPIRATION',
-                604800000,
+                604800000000,
               ),
             ),
         ),

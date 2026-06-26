@@ -3,6 +3,9 @@ import { join } from 'node:path';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { CatalogController } from './catalog/catalog.controller';
 import { DesignController } from './design/design.controller';
+import { OrderController } from './order/order.controller';
+import { EngravingController } from './engraving/engraving.controller';
+import { MemoryCardController } from './memory-card/memory-card.controller';
 
 @Module({
   imports: [
@@ -18,6 +21,12 @@ import { DesignController } from './design/design.controller';
       },
     ]),
   ],
-  controllers: [CatalogController, DesignController],
+  controllers: [
+    CatalogController,
+    DesignController,
+    OrderController,
+    EngravingController,
+    MemoryCardController,
+  ],
 })
 export class EcommerceModule {}
