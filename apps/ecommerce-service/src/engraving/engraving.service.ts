@@ -2,18 +2,42 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  HttpException,
+  HttpStatus,
+  Inject,
+  OnModuleInit,
+  Optional,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import type { ClientGrpc } from '@nestjs/microservices';
+import type { Prisma } from '@prisma/client';
 import { PrismaService } from '@app/prisma';
-import { AudioProcessingClient } from './audio-processing.client';
 import { randomUUID, createHash, randomBytes } from 'node:crypto';
+import { Observable, lastValueFrom } from 'rxjs';
+
+interface BiometricGrpcService {
+  processAudio(data: {
+    audioUrl: string;
+    engravingVersionId: string;
+  }): Observable<{ waveformUrl: string; durationMs: number }>;
+}
 
 @Injectable()
-export class EngravingService {
+export class EngravingService implements OnModuleInit {
+  private biometricClient?: BiometricGrpcService;
+
   constructor(
     private readonly prisma: PrismaService,
-    private readonly audioClient: AudioProcessingClient,
+    @Optional()
+    @Inject('BIOMETRIC_SERVICE')
+    private readonly biometricGrpc?: ClientGrpc,
   ) {}
+
+  onModuleInit() {
+    this.biometricClient =
+      this.biometricGrpc?.getService<BiometricGrpcService>(
+        'BiometricService',
+      );
+  }
 
   async createEngraving(userId: string, productId?: string) {
     const engravingId = randomUUID();
@@ -384,10 +408,19 @@ export class EngravingService {
     });
     if (!engravingVersion) return;
 
-    const result = await this.audioClient.processAudio(
-      audioUrl,
-      engravingVersionId,
-    );
+    if (!this.biometricClient) return;
+
+    let result: { waveformUrl: string; durationMs: number };
+    try {
+      result = await lastValueFrom(
+        this.biometricClient.processAudio({
+          audioUrl,
+          engravingVersionId,
+        }),
+      );
+    } catch {
+      return;
+    }
 
     const existing = await this.prisma.engraving_biometrics.findFirst({
       where: {

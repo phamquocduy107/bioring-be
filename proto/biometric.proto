@@ -4,6 +4,7 @@ package biometric;
 
 service BiometricService {
   rpc Ping (PingRequest) returns (PingResponse);
+  rpc ProcessAudio (ProcessAudioRequest) returns (ProcessAudioResponse);
 }
 
 message PingRequest {
@@ -14,4 +15,14 @@ message PingResponse {
   bool pong = 1;
   string receivedAt = 2;
   string data = 3;
+}
+
+message ProcessAudioRequest {
+  string audioUrl = 1;
+  string engravingVersionId = 2;
+}
+
+message ProcessAudioResponse {
+  string waveformUrl = 1;
+  int32 durationMs = 2;
 }

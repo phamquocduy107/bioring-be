@@ -103,6 +103,8 @@ export class MemoryCardService {
             styleConfig: qr.card_themes.style_config
               ? JSON.stringify(qr.card_themes.style_config)
               : '',
+            isActive: qr.card_themes.is_active ?? false,
+            createdAt: qr.card_themes.created_at?.toISOString() ?? '',
           }
         : null,
       createdAt: qr.created_at?.toISOString() ?? '',

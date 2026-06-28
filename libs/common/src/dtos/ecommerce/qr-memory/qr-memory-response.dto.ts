@@ -1,21 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { CardThemeResponse } from '../card-theme/card-theme-response.dto';
 
-export class CardThemeResponse {
-  @ApiProperty()
-  id!: string;
-
-  @ApiProperty()
-  themeCode!: string;
-
-  @ApiProperty()
-  name!: string;
-
-  @ApiPropertyOptional()
-  defaultBgUrl?: string;
-
-  @ApiPropertyOptional()
-  styleConfig?: string;
-}
+export { CardThemeResponse };
 
 export class QrMemoryResponse {
   @ApiProperty()

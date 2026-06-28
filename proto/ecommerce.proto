@@ -42,6 +42,13 @@ service EcommerceService {
   rpc UpdateQrMemory (UpdateQrMemoryRequest) returns (UpdateQrMemoryResponse);
   rpc GetQrMemory (GetQrMemoryRequest) returns (GetQrMemoryResponse);
   rpc ActivateQrMemory (ActivateQrMemoryRequest) returns (ActivateQrMemoryResponse);
+
+  // Card Themes
+  rpc GetCardThemes (GetCardThemesRequest) returns (GetCardThemesResponse);
+  rpc GetCardTheme (GetCardThemeRequest) returns (GetCardThemeResponse);
+  rpc CreateCardTheme (CreateCardThemeRequest) returns (CreateCardThemeResponse);
+  rpc UpdateCardTheme (UpdateCardThemeRequest) returns (UpdateCardThemeResponse);
+  rpc DeleteCardTheme (DeleteCardThemeRequest) returns (DeleteCardThemeResponse);
 }
 
 // ===== Messages =====
@@ -461,6 +468,59 @@ message CardTheme {
   string name = 3;
   string defaultBgUrl = 4;
   string styleConfig = 5;
+  bool isActive = 6;
+  string createdAt = 7;
+}
+
+message GetCardThemesRequest {
+  int32 page = 1;
+  int32 limit = 2;
+}
+
+message GetCardThemesResponse {
+  repeated CardTheme cardThemes = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+}
+
+message GetCardThemeRequest {
+  string id = 1;
+}
+
+message GetCardThemeResponse {
+  CardTheme cardTheme = 1;
+}
+
+message CreateCardThemeRequest {
+  string themeCode = 1;
+  string name = 2;
+  string defaultBgUrl = 3;
+  string styleConfig = 4;
+}
+
+message CreateCardThemeResponse {
+  CardTheme cardTheme = 1;
+}
+
+message UpdateCardThemeRequest {
+  string id = 1;
+  string themeCode = 2;
+  string name = 3;
+  string defaultBgUrl = 4;
+  string styleConfig = 5;
+}
+
+message UpdateCardThemeResponse {
+  CardTheme cardTheme = 1;
+}
+
+message DeleteCardThemeRequest {
+  string id = 1;
+}
+
+message DeleteCardThemeResponse {
+  bool success = 1;
 }
 
 message QrMemory {

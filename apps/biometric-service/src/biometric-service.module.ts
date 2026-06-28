@@ -7,14 +7,11 @@ import {
   LoggingInterceptor,
   TimeoutInterceptor,
 } from '@app/common';
-import { BiometricServiceController } from './biometric-service.controller';
-import { BiometricServiceService } from './biometric-service.service';
+import { AudioModule } from './audio/audio.module';
 
 @Module({
-  imports: [CommonModule],
-  controllers: [BiometricServiceController],
+  imports: [CommonModule, AudioModule],
   providers: [
-    BiometricServiceService,
     {
       provide: APP_FILTER,
       useClass: FitRpcExceptionFilter,

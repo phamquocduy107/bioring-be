@@ -8,3 +8,4 @@ export * from './payment';
 export * from './qr-memory';
 export * from './engraving';
 export * from './design';
+export * from './card-theme';
