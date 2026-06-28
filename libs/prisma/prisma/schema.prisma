@@ -499,6 +499,7 @@ model qr_memories {
   access_pin_hash            String?                 @db.VarChar(255)
   card_title                 String?                 @db.VarChar(255)
   greeting_message           String?
+  recipient_email            String?                 @db.VarChar(255)
   custom_images              Json?
   biometric_display_settings Json?
   is_locked                  Boolean?                @default(false)

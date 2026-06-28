@@ -7,7 +7,7 @@ export class AudioProcessingClient {
 
   constructor(private readonly configService: ConfigService) {
     this.baseUrl = this.configService.get<string>(
-      'AUDIO_PROCESSING_URL',
+      'BIOMETRIC_PROCESSING_URL',
       'http://localhost:5051',
     );
   }

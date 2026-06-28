@@ -9,7 +9,7 @@ from cloudinary_uploader import upload_to_cloudinary
 
 load_dotenv(Path(__file__).parent.parent.parent / '.env')
 
-app = FastAPI(title="Bioring Audio Processing Service")
+app = FastAPI(title="Bioring Biometric Processing Service")
 
 
 class ProcessAudioRequest(BaseModel):
