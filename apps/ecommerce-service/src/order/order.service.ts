@@ -7,6 +7,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '@app/prisma';
 import { PayOSService } from '@app/common/payment/payos.service';
+import { Webhook } from '@payos/node';
 import { randomUUID } from 'node:crypto';
 
 @Injectable()
@@ -398,13 +399,7 @@ export class OrderService {
   async handlePayOSWebhook(input: {
     webhookBody: string;
   }) {
-    const webhook = JSON.parse(input.webhookBody) as {
-      code: string;
-      desc: string;
-      success: boolean;
-      data: Record<string, unknown>;
-      signature: string;
-    };
+    const webhook = JSON.parse(input.webhookBody) as Webhook;
 
     const webhookData = await this.payOS.verifyWebhook({
       code: webhook.code,
