@@ -2,16 +2,18 @@ import os
 import cloudinary
 import cloudinary.uploader
 
-cloudinary.config(
-    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME", ""),
-    api_key=os.getenv("CLOUDINARY_API_KEY", ""),
-    api_secret=os.getenv("CLOUDINARY_API_SECRET", ""),
-)
-
 
 def upload_to_cloudinary(svg_content: str, public_id: str) -> str:
-    if not cloudinary.config().cloud_name:
-        return f"https://cdn.bioring.com/waveforms/{public_id}.svg"
+    cloudinary.config(
+        cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME", ""),
+        api_key=os.getenv("CLOUDINARY_API_KEY", ""),
+        api_secret=os.getenv("CLOUDINARY_API_SECRET", ""),
+    )
+
+    cloud_name = cloudinary.config().cloud_name
+    print(f"[Cloudinary] Config: cloud_name={cloud_name}, api_key={'***' if cloudinary.config().api_key else 'empty'}")
+
+    if not cloud_name:
 
     try:
         result = cloudinary.uploader.upload(

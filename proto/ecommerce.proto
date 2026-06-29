@@ -227,6 +227,7 @@ message UpdateEngravingVersionConfigRequest {
   string previewImageUrl = 8;
   string model3dUrl = 9;
   string productionFileUrl = 10;
+  string audioUrl = 11;
 }
 
 message ResubmitEngravingVersionRequest {
@@ -364,6 +365,8 @@ message EngravingVersion {
   string managerNote = 12;
   string reviewedAt = 13;
   string createdAt = 14;
+  Material selectedMaterial = 15;
+  Gemstone selectedGemstone = 16;
 }
 
 message EngravingBioMetric {
@@ -406,12 +409,7 @@ message InitiatePaymentResponse {
 }
 
 message PayOSWebhookRequest {
-  string orderCode = 1;
-  string transactionId = 2;
-  string paymentCode = 3;
-  string status = 4;
-  double amount = 5;
-  string signature = 6;
+  string webhookBody = 1;
 }
 
 message PayOSWebhookResponse {

@@ -29,6 +29,7 @@ async def health():
 
 @app.post("/process-audio", response_model=ProcessAudioResponse)
 async def process_audio_endpoint(req: ProcessAudioRequest):
+    print(f"[AudioProcessing] Received: engravingVersionId={req.engravingVersionId}, audioUrl={req.audioUrl}")
     if not req.audioUrl:
         raise HTTPException(status_code=400, detail="audioUrl is required")
 
@@ -49,5 +50,5 @@ async def process_audio_endpoint(req: ProcessAudioRequest):
 
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", "5051"))
+    port = int(os.getenv("BIOMETRIC_PROCESSING_PORT", "5051"))
     uvicorn.run(app, host="0.0.0.0", port=port)

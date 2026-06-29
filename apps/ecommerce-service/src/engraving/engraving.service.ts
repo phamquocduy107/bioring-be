@@ -105,6 +105,8 @@ export class EngravingService implements OnModuleInit {
         managerNote: engravingVersion.manager_note ?? '',
         reviewedAt: engravingVersion.reviewed_at?.toISOString() ?? '',
         createdAt: engravingVersion.created_at?.toISOString() ?? '',
+        selectedMaterial: null,
+        selectedGemstone: null,
       },
       qrCode,
     };
@@ -173,7 +175,9 @@ export class EngravingService implements OnModuleInit {
       typeof audioUrl === 'string' &&
       audioUrl.startsWith('http')
     ) {
-      this.triggerAudioProcessing(audioUrl, versionId).catch(() => {});
+      this.triggerAudioProcessing(audioUrl, versionId).catch((err) => {
+        console.error(`[AudioProcessing] Failed for version ${versionId}:`, err);
+      });
     }
 
     return {
@@ -194,6 +198,8 @@ export class EngravingService implements OnModuleInit {
         managerNote: updated.manager_note ?? '',
         reviewedAt: updated.reviewed_at?.toISOString() ?? '',
         createdAt: updated.created_at?.toISOString() ?? '',
+        selectedMaterial: null,
+        selectedGemstone: null,
       },
       orderId: '',
       orderStatus: '',
@@ -266,6 +272,8 @@ export class EngravingService implements OnModuleInit {
         managerNote: updated.manager_note ?? '',
         reviewedAt: updated.reviewed_at?.toISOString() ?? '',
         createdAt: updated.created_at?.toISOString() ?? '',
+        selectedMaterial: null,
+        selectedGemstone: null,
       },
       orderId,
       orderStatus,
@@ -287,7 +295,10 @@ export class EngravingService implements OnModuleInit {
       this.prisma.engravings.findMany({
         where,
         include: {
-          engraving_versions_engraving_versions_engraving_idToengravings: { orderBy: { version_number: 'desc' } },
+          engraving_versions_engraving_versions_engraving_idToengravings: {
+            include: { materials: true, gemstones: true },
+            orderBy: { version_number: 'desc' },
+          },
           engraving_biometrics: true,
           qr_memories: true,
         },
@@ -310,7 +321,10 @@ export class EngravingService implements OnModuleInit {
     const engraving = await this.prisma.engravings.findUnique({
       where: { id },
       include: {
-        engraving_versions_engraving_versions_engraving_idToengravings: { orderBy: { version_number: 'desc' } },
+        engraving_versions_engraving_versions_engraving_idToengravings: {
+          include: { materials: true, gemstones: true },
+          orderBy: { version_number: 'desc' },
+        },
         engraving_biometrics: true,
         qr_memories: true,
       },
@@ -349,6 +363,28 @@ export class EngravingService implements OnModuleInit {
           managerNote: v.manager_note ?? '',
           reviewedAt: v.reviewed_at?.toISOString() ?? '',
           createdAt: v.created_at?.toISOString() ?? '',
+          selectedMaterial: v.materials
+            ? {
+                id: v.materials.id,
+                name: v.materials.name,
+                purity: v.materials.purity ?? '',
+                color: v.materials.color ?? '',
+                currentPricePerGram: Number(v.materials.current_price_per_gram ?? 0),
+              }
+            : null,
+          selectedGemstone: v.gemstones
+            ? {
+                id: v.gemstones.id,
+                type: v.gemstones.type,
+                carat: Number(v.gemstones.carat ?? 0),
+                cut: v.gemstones.cut ?? '',
+                color: v.gemstones.color ?? '',
+                clarity: v.gemstones.clarity ?? '',
+                certificationCode: v.gemstones.certification_code ?? '',
+                price: Number(v.gemstones.price ?? 0),
+                isAvailable: v.gemstones.is_available ?? false,
+              }
+            : null,
         })) ?? [],
       biometrics:
         engraving.engraving_biometrics?.map((b: any) => ({
@@ -394,6 +430,28 @@ export class EngravingService implements OnModuleInit {
             managerNote: latest.manager_note ?? '',
             reviewedAt: latest.reviewed_at?.toISOString() ?? '',
             createdAt: latest.created_at?.toISOString() ?? '',
+            selectedMaterial: latest.materials
+              ? {
+                  id: latest.materials.id,
+                  name: latest.materials.name,
+                  purity: latest.materials.purity ?? '',
+                  color: latest.materials.color ?? '',
+                  currentPricePerGram: Number(latest.materials.current_price_per_gram ?? 0),
+                }
+              : null,
+            selectedGemstone: latest.gemstones
+              ? {
+                  id: latest.gemstones.id,
+                  type: latest.gemstones.type,
+                  carat: Number(latest.gemstones.carat ?? 0),
+                  cut: latest.gemstones.cut ?? '',
+                  color: latest.gemstones.color ?? '',
+                  clarity: latest.gemstones.clarity ?? '',
+                  certificationCode: latest.gemstones.certification_code ?? '',
+                  price: Number(latest.gemstones.price ?? 0),
+                  isAvailable: latest.gemstones.is_available ?? false,
+                }
+              : null,
           }
         : null,
     };
@@ -406,10 +464,17 @@ export class EngravingService implements OnModuleInit {
     const engravingVersion = await this.prisma.engraving_versions.findUnique({
       where: { id: engravingVersionId },
     });
-    if (!engravingVersion) return;
+    if (!engravingVersion) {
+      console.error(`[AudioProcessing] Version ${engravingVersionId} not found`);
+      return;
+    }
 
-    if (!this.biometricClient) return;
+    if (!this.biometricClient) {
+      console.error(`[AudioProcessing] biometricClient not initialized (BIOMETRIC_SERVICE gRPC client missing)`);
+      return;
+    }
 
+    console.log(`[AudioProcessing] Calling gRPC processAudio for version ${engravingVersionId}`);
     let result: { waveformUrl: string; durationMs: number };
     try {
       result = await lastValueFrom(
@@ -418,7 +483,9 @@ export class EngravingService implements OnModuleInit {
           engravingVersionId,
         }),
       );
-    } catch {
+      console.log(`[AudioProcessing] gRPC success: waveformUrl=${result.waveformUrl}, durationMs=${result.durationMs}`);
+    } catch (err) {
+      console.error(`[AudioProcessing] gRPC failed:`, err);
       return;
     }
 
@@ -430,6 +497,7 @@ export class EngravingService implements OnModuleInit {
     });
 
     if (existing) {
+      console.log(`[AudioProcessing] Updating existing SW biometric for engraving ${engravingVersion.engraving_id}`);
       await this.prisma.engraving_biometrics.update({
         where: { id: existing.id },
         data: {
@@ -439,6 +507,7 @@ export class EngravingService implements OnModuleInit {
         },
       });
     } else {
+      console.log(`[AudioProcessing] Creating new SW biometric for engraving ${engravingVersion.engraving_id}`);
       await this.prisma.engraving_biometrics.create({
         data: {
           id: randomUUID(),

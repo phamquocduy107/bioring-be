@@ -50,6 +50,7 @@ interface EcommerceGrpcService {
     previewImageUrl?: string;
     model3dUrl?: string;
     productionFileUrl?: string;
+    audioUrl?: string;
   }): Observable<UpdateConfigResponse>;
   resubmitEngravingVersion(data: {
     engravingVersionId: string;
@@ -149,6 +150,7 @@ export class EngravingController implements OnModuleInit {
         previewImageUrl: body.previewImageUrl,
         model3dUrl: body.model3dUrl,
         productionFileUrl: body.productionFileUrl,
+        audioUrl: body.audioUrl,
       }),
     );
   }

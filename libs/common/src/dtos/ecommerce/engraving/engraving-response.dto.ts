@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { QrMemoryResponse } from '../qr-memory/qr-memory-response.dto';
+import { MaterialResponse, GemstoneResponse } from '../catalog';
 
 export class EngravingVersionResponse {
   @ApiProperty()
@@ -43,6 +44,12 @@ export class EngravingVersionResponse {
 
   @ApiProperty()
   createdAt!: string;
+
+  @ApiPropertyOptional({ type: MaterialResponse })
+  selectedMaterial?: MaterialResponse;
+
+  @ApiPropertyOptional({ type: GemstoneResponse })
+  selectedGemstone?: GemstoneResponse;
 }
 
 export class EngravingBioMetricResponse {

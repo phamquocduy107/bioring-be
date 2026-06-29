@@ -74,4 +74,12 @@ export class UpdateEngravingVersionConfigDto {
   @IsOptional()
   @IsString()
   productionFileUrl?: string;
+
+  @ApiPropertyOptional({
+    description: 'Audio URL to trigger waveform processing',
+    example: 'https://res.cloudinary.com/.../audio.mp3',
+  })
+  @IsOptional()
+  @IsString()
+  audioUrl?: string;
 }

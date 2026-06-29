@@ -177,12 +177,7 @@ interface EcommerceGrpcService {
     qrCode: string;
   }>;
   handlePayOSWebhook(data: {
-    orderCode: string;
-    transactionId: string;
-    paymentCode?: string;
-    status: string;
-    amount: number;
-    signature: string;
+    webhookBody: string;
   }): Observable<{ success: boolean }>;
   assignJeweler(data: {
     orderId: string;
@@ -210,6 +205,35 @@ export class OrderController implements OnModuleInit {
   onModuleInit() {
     this.grpc =
       this.client?.getService<EcommerceGrpcService>('EcommerceService');
+    if (this.grpc) {
+      const proto = Object.getPrototypeOf(this.grpc);
+      const methods = [
+        ...Object.getOwnPropertyNames(proto),
+        ...Object.getOwnPropertyNames(this.grpc),
+      ];
+      console.log('[Gateway] gRPC proxy methods:', [...new Set(methods)]);
+    }
+  }
+
+  private async grpcCall<T>(
+    methodName: string,
+    data: Record<string, unknown>,
+  ): Promise<T> {
+    if (!this.grpc)
+      throw new Error('ECOMMERCE_SERVICE gRPC client not initialized');
+    const grpcAny = this.grpc as unknown as Record<string, Function>;
+    const fn = grpcAny[methodName] ?? grpcAny[`${methodName[0].toUpperCase()}${methodName.slice(1)}`];
+    if (!fn) {
+      const proto = Object.getPrototypeOf(this.grpc);
+      const allMethods = [
+        ...Object.getOwnPropertyNames(proto),
+        ...Object.getOwnPropertyNames(this.grpc),
+      ];
+      throw new Error(
+        `gRPC method "${methodName}" not found. Available: ${[...new Set(allMethods)].join(', ')}`,
+      );
+    }
+    return lastValueFrom(fn(data) as Observable<T>);
   }
 
   private async call<T>(fn: () => Observable<T>): Promise<T> {
@@ -320,25 +344,29 @@ export class OrderController implements OnModuleInit {
   @Public()
   @ApiPayOSWebhookDocs()
   async handlePayOSWebhook(@Body() body: Record<string, unknown>) {
-    const result = await this.call(() =>
-      this.grpc!.handlePayOSWebhook({
-        orderCode: (body.orderCode as string) ?? '',
-        transactionId: (body.transactionId as string) ?? '',
-        paymentCode: (body.paymentCode as string) ?? '',
-        status: (body.status as string) ?? '',
-        amount: (body.amount as number) ?? 0,
-        signature: (body.signature as string) ?? '',
-      }),
-    );
-    const orderCode = body.orderCode as string;
-    if (orderCode && this.eventEmitter) {
-      this.eventEmitter.emit(`payment.update.${orderCode}`, {
-        status: body.status,
-        transactionId: body.transactionId,
-        orderCode,
-      });
+    try {
+      const result = await this.grpcCall<{ success: boolean }>(
+        'handlePayOSWebhook',
+        {
+          webhookBody: JSON.stringify(body),
+        },
+      );
+      if (result?.success) {
+        const data = body.data as Record<string, unknown> | undefined;
+        const orderCode = data?.orderCode;
+        if (orderCode && this.eventEmitter) {
+          this.eventEmitter.emit(`payment.update.${orderCode}`, {
+            status: body.code === '00' ? 'PAID' : 'FAILED',
+            transactionId: data?.reference,
+            orderCode,
+          });
+        }
+      }
+      return result;
+    } catch (error) {
+      console.warn('[Gateway] PayOS webhook error:', (error as Error).message);
+      return { success: false };
     }
-    return result;
   }
 
   @Sse(':orderCode/payments/events')

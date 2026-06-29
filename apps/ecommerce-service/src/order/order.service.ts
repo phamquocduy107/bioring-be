@@ -74,7 +74,7 @@ export class OrderService {
     }
 
     const orderId = randomUUID();
-    const orderCode = `BIORING-${Date.now().toString(36).toUpperCase()}`;
+    const orderCode = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
     const price = await this.calculatePrice(engravings[0]);
 
@@ -343,7 +343,7 @@ export class OrderService {
 
     let amount = 0;
     if (paymentPhase === 'DEPOSIT') {
-      amount = Math.round(Number(order.total_price ?? 0) * 0.3);
+      amount = Math.max(Math.round(Number(order.total_price ?? 0) * 0.3), 3000);
       if (Number(order.paid_amount ?? 0) >= amount) {
         throw new BadRequestException('Deposit already paid');
       }
@@ -354,10 +354,12 @@ export class OrderService {
       }
     }
 
+    const payosOrderCode = Number(`${Date.now()}${Math.floor(Math.random() * 100)}`);
+    console.log(`[PayOS] Creating payment link: orderCode=${payosOrderCode}, amount=${amount}`);
     const payosResult = await this.payOS.createPaymentLink({
-      orderCode: order.order_code,
+      orderCode: payosOrderCode,
       amount,
-      description: `Bioring ${paymentPhase === 'DEPOSIT' ? 'cọc' : 'thanh toán'} - ${order.order_code}`,
+      description: `${paymentPhase === 'DEPOSIT' ? 'Cọc' : 'TT'} ${order.order_code}`,
       returnUrl,
       cancelUrl,
     });
@@ -366,6 +368,7 @@ export class OrderService {
       data: {
         id: randomUUID(),
         order_id: orderId,
+        payment_code: String(payosOrderCode),
         payment_phase: paymentPhase,
         amount,
         method: 'PAYOS',
@@ -392,45 +395,60 @@ export class OrderService {
     };
   }
 
-  async handlePayOSWebhook(data: {
-    orderCode: string;
-    transactionId: string;
-    paymentCode?: string;
-    status: string;
-    amount: number;
-    signature: string;
+  async handlePayOSWebhook(input: {
+    webhookBody: string;
   }) {
-    const valid = this.payOS.verifyWebhook(data);
-    if (!valid) {
-      throw new BadRequestException('Invalid webhook signature');
+    const webhook = JSON.parse(input.webhookBody) as {
+      code: string;
+      desc: string;
+      success: boolean;
+      data: Record<string, unknown>;
+      signature: string;
+    };
+
+    const webhookData = await this.payOS.verifyWebhook({
+      code: webhook.code,
+      desc: webhook.desc,
+      success: webhook.success,
+      data: webhook.data,
+      signature: webhook.signature,
+    });
+
+    if (!webhookData) {
+      console.warn('[PayOS] Invalid webhook signature, ignoring');
+      return { success: false };
+    }
+
+    const orderCode = webhookData.orderCode;
+    const payment = await this.prisma.payments.findFirst({
+      where: { payment_code: String(orderCode) },
+    });
+    if (!payment) {
+      console.warn('[PayOS] Payment not found for orderCode:', orderCode);
+      return { success: false };
     }
 
     const order = await this.prisma.orders.findUnique({
-      where: { order_code: data.orderCode },
+      where: { id: payment.order_id ?? undefined },
     });
-    if (!order) throw new NotFoundException('Order not found');
+    if (!order) {
+      console.warn('[PayOS] Order not found for payment:', payment.id);
+      return { success: false };
+    }
 
-    const payment = await this.prisma.payments.findFirst({
-      where: {
-        order_id: order.id,
-        payos_transaction_id: data.transactionId,
-      },
-    });
-    if (!payment) throw new NotFoundException('Payment not found');
-
-    const isSuccess = data.status === 'PAID';
+    const isSuccess = webhookData.code === '00';
 
     await this.prisma.payments.update({
       where: { id: payment.id },
       data: {
         status: isSuccess ? 'PAID' : 'FAILED',
-        payment_code: data.paymentCode ?? null,
         paid_at: isSuccess ? new Date() : null,
       },
     });
 
     if (isSuccess) {
-      const newPaidAmount = Number(order.paid_amount ?? 0) + data.amount;
+      const amount = webhookData.amount;
+      const newPaidAmount = Number(order.paid_amount ?? 0) + amount;
       const totalPrice = Number(order.total_price ?? 0);
       const remainingAmount = totalPrice - newPaidAmount;
 

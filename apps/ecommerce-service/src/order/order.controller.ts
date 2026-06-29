@@ -61,12 +61,7 @@ export class OrderController {
 
   @GrpcMethod('EcommerceService', 'HandlePayOSWebhook')
   async handlePayOSWebhook(data: {
-    orderCode: string;
-    transactionId: string;
-    paymentCode?: string;
-    status: string;
-    amount: number;
-    signature: string;
+    webhookBody: string;
   }) {
     return this.orderService.handlePayOSWebhook(data);
   }

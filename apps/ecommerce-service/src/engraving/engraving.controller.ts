@@ -23,16 +23,8 @@ export class EngravingController {
     previewImageUrl?: string;
     model3dUrl?: string;
     productionFileUrl?: string;
+    audioUrl?: string;
   }) {
-    let audioUrl: string | undefined;
-    if (data.customizationConfig) {
-      try {
-        const config = JSON.parse(data.customizationConfig) as Record<string, unknown>;
-        const positions = config.engravingPositions as Record<string, unknown> | undefined;
-        audioUrl = (positions?.sw as Record<string, unknown> | undefined)?.['audioUrl'] as string | undefined;
-      } catch {}
-    }
-
     return this.engravingService.updateVersionConfig(
       data.engravingVersionId,
       {
@@ -46,7 +38,7 @@ export class EngravingController {
         model3dUrl: data.model3dUrl,
         productionFileUrl: data.productionFileUrl,
       },
-      audioUrl,
+      data.audioUrl,
     );
   }
 

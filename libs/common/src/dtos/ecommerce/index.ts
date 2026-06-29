@@ -1,4 +1,5 @@
 export * from './catalog-filter.dto';
+export * from './catalog';
 export * from './create-design-draft.dto';
 export * from './create-engraving.dto';
 export * from './update-design-draft.dto';

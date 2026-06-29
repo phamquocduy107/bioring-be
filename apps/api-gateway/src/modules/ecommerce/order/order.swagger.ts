@@ -189,8 +189,7 @@ export function ApiPayOSWebhookDocs() {
       summary: 'PayOS webhook callback',
       description: 'Public endpoint for PayOS to send payment status updates.',
     }),
-    ApiResponse({ status: 200, description: 'Webhook processed' }),
-    ApiResponse({ status: 400, description: 'Invalid signature' }),
+    ApiResponse({ status: 200, description: 'Webhook processed (success: true/false)' }),
   );
 }
 
