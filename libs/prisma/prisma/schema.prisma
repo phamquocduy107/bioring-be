@@ -375,6 +375,8 @@ model payments {
   warranty_claim_id    String?          @db.Uuid
   payos_transaction_id String?          @db.VarChar(255)
   payment_code         String?          @unique @db.VarChar(100)
+  qr_code              String?          @db.VarChar(500)
+  payment_url          String?          @db.VarChar(500)
   amount               Decimal          @db.Decimal(18, 2)
   payment_phase        String?          @db.VarChar(100)
   method               String?          @db.VarChar(100)

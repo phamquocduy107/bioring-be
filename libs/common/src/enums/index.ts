@@ -8,3 +8,4 @@ export * from './capture-route.enum';
 export * from './payment-phase.enum';
 export * from './payment-status.enum';
 export * from './engraving-status.enum';
+export * from './production-task-status.enum';

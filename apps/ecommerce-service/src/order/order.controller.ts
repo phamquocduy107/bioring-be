@@ -92,4 +92,15 @@ export class OrderController {
       data.note,
     );
   }
+
+  @GrpcMethod('EcommerceService', 'GetProductionTasks')
+  async getProductionTasks(data: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    orderId?: string;
+    jewelerId?: string;
+  }) {
+    return this.orderService.getProductionTasks(data);
+  }
 }

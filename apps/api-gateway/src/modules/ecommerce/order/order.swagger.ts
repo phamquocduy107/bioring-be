@@ -260,3 +260,41 @@ export function ApiUpdateProductionStatusDocs() {
     ApiResponse({ status: 404, description: 'Task not found' }),
   );
 }
+
+export function ApiGetProductionTasksDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'Get production tasks (manager)',
+      description:
+        'Paginated list of production tasks, filterable by status, orderId, jewelerId.',
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Production tasks list',
+      schema: {
+        example: {
+          data: [
+            {
+              id: '550e8400-e29b-41d4-a716-446655440020',
+              orderId: '550e8400-e29b-41d4-a716-446655440001',
+              engravingId: '550e8400-e29b-41d4-a716-446655440003',
+              assignedJewelerId: '550e8400-e29b-41d4-a716-446655440030',
+              assignedJewelerName: 'Nguyễn Văn A',
+              status: 'IN_PROGRESS',
+              note: '',
+              startedAt: '2026-06-24T10:00:00.000Z',
+              completedAt: '',
+              createdAt: '2026-06-24T10:00:00.000Z',
+            },
+          ],
+          total: 1,
+          page: 1,
+          limit: 10,
+          lastPage: 1,
+        },
+      },
+    }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+  );
+}

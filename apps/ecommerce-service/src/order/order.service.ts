@@ -355,6 +355,50 @@ export class OrderService {
       }
     }
 
+    // Idempotency: trả lại payment PENDING cũ nếu còn hạn
+    const PAYOS_LINK_TTL_MS = 30 * 60 * 1000; // 30 phút
+    const existing = await this.prisma.payments.findFirst({
+      where: { order_id: orderId, payment_phase: paymentPhase, status: 'PENDING' },
+      orderBy: { created_at: 'desc' },
+    });
+
+    if (existing) {
+      const ageMs = existing.created_at
+        ? Date.now() - existing.created_at.getTime()
+        : Infinity;
+
+      if (ageMs < PAYOS_LINK_TTL_MS && existing.qr_code && existing.payment_url) {
+        console.log(`[PayOS] Reusing existing payment: id=${existing.id}`);
+        return {
+          payment: {
+            id: existing.id,
+            orderId: existing.order_id ?? '',
+            paymentPhase: existing.payment_phase ?? '',
+            amount: Number(existing.amount),
+            method: existing.method ?? '',
+            status: existing.status ?? '',
+            payosTransactionId: existing.payos_transaction_id ?? '',
+            paymentUrl: existing.payment_url ?? '',
+            paidAt: existing.paid_at?.toISOString() ?? '',
+            createdAt: existing.created_at?.toISOString() ?? '',
+          },
+          paymentUrl: existing.payment_url,
+          qrCode: existing.qr_code,
+        };
+      }
+
+      // Hết hạn → cancel trên PayOS + đánh dấu CANCELLED
+      if (existing.payos_transaction_id) {
+        try {
+          await this.payOS.cancelPaymentLink(existing.payos_transaction_id);
+        } catch { /* proceed */ }
+      }
+      await this.prisma.payments.update({
+        where: { id: existing.id },
+        data: { status: 'CANCELLED' },
+      });
+    }
+
     const payosOrderCode = Number(`${Date.now()}${Math.floor(Math.random() * 100)}`);
     console.log(`[PayOS] Creating payment link: orderCode=${payosOrderCode}, amount=${amount}`);
     const payosResult = await this.payOS.createPaymentLink({
@@ -375,6 +419,8 @@ export class OrderService {
         method: 'PAYOS',
         status: 'PENDING',
         payos_transaction_id: payosResult.transactionId,
+        qr_code: payosResult.qrCode,
+        payment_url: payosResult.paymentUrl,
       },
     });
 
@@ -387,7 +433,7 @@ export class OrderService {
         method: payment.method ?? '',
         status: payment.status ?? '',
         payosTransactionId: payment.payos_transaction_id ?? '',
-        paymentUrl: '',
+        paymentUrl: payment.payment_url ?? '',
         paidAt: payment.paid_at?.toISOString() ?? '',
         createdAt: payment.created_at?.toISOString() ?? '',
       },
@@ -501,6 +547,23 @@ export class OrderService {
     return { success: true, orderCode: order.order_code ?? '' };
   }
 
+  private mapTask(task: Record<string, any>): Record<string, any> {
+    return {
+      id: task.id,
+      orderId: task.order_id,
+      engravingId: task.engraving_id,
+      assignedJewelerId: task.assigned_jeweler_id ?? '',
+      assignedJewelerName: task.users?.full_name ?? '',
+      taskName: task.task_name ?? '',
+      taskDescription: task.task_description ?? '',
+      status: task.status ?? '',
+      note: task.note ?? '',
+      startedAt: task.started_at?.toISOString() ?? '',
+      completedAt: task.completed_at?.toISOString() ?? '',
+      createdAt: task.created_at?.toISOString() ?? '',
+    };
+  }
+
   async assignJeweler(orderId: string, jewelerId: string) {
     const order = await this.prisma.orders.findUnique({
       where: { id: orderId },
@@ -530,10 +593,11 @@ export class OrderService {
         order_id: orderId,
         engraving_id: engraving.id,
         assigned_jeweler_id: jewelerId,
-        task_name: `Sản xuất nhẫn - ${order.order_code}`,
+        task_name: `Ring production - ${order.order_code}`,
         status: 'IN_PROGRESS',
         started_at: new Date(),
       },
+      include: { users: { select: { full_name: true } } },
     });
 
     await this.prisma.orders.update({
@@ -541,20 +605,7 @@ export class OrderService {
       data: { status: 'IN_PRODUCTION' },
     });
 
-    return {
-      task: {
-        id: task.id,
-        orderId: task.order_id,
-        engravingId: task.engraving_id,
-        assignedJewelerId: task.assigned_jeweler_id ?? '',
-        assignedJewelerName: jeweler.full_name ?? '',
-        status: task.status ?? '',
-        note: task.note ?? '',
-        startedAt: task.started_at?.toISOString() ?? '',
-        completedAt: task.completed_at?.toISOString() ?? '',
-        createdAt: task.created_at?.toISOString() ?? '',
-      },
-    };
+    return { task: this.mapTask(task) };
   }
 
   async updateProductionStatus(taskId: string, status: string, note: string) {
@@ -591,19 +642,45 @@ export class OrderService {
       }
     }
 
+    const taskWithUser = await this.prisma.production_tasks.findUnique({
+      where: { id: taskId },
+      include: { users: { select: { full_name: true } } },
+    });
+
+    return { task: this.mapTask(taskWithUser ?? updated) };
+  }
+
+  async getProductionTasks(query: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    orderId?: string;
+    jewelerId?: string;
+  }) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const where: Record<string, unknown> = {};
+    if (query.status) where.status = query.status;
+    if (query.orderId) where.order_id = query.orderId;
+    if (query.jewelerId) where.assigned_jeweler_id = query.jewelerId;
+
+    const [data, total] = await Promise.all([
+      this.prisma.production_tasks.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { created_at: 'desc' },
+        include: { users: { select: { full_name: true } } },
+      }),
+      this.prisma.production_tasks.count({ where }),
+    ]);
+
     return {
-      task: {
-        id: updated.id,
-        orderId: updated.order_id,
-        engravingId: updated.engraving_id,
-        assignedJewelerId: updated.assigned_jeweler_id ?? '',
-        assignedJewelerName: '',
-        status: updated.status ?? '',
-        note: updated.note ?? '',
-        startedAt: updated.started_at?.toISOString() ?? '',
-        completedAt: updated.completed_at?.toISOString() ?? '',
-        createdAt: updated.created_at?.toISOString() ?? '',
-      },
+      data: data.map((t) => this.mapTask(t)) ?? [],
+      total,
+      page,
+      limit,
+      lastPage: Math.ceil(total / limit) || 0,
     };
   }
 

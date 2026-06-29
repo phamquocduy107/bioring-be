@@ -34,9 +34,10 @@ service EcommerceService {
   rpc HandlePayOSWebhook (PayOSWebhookRequest) returns (PayOSWebhookResponse);
   rpc CancelPayment (CancelPaymentRequest) returns (CancelPaymentResponse);
 
-  // Production
-  rpc AssignJeweler (AssignJewelerRequest) returns (AssignJewelerResponse);
-  rpc UpdateProductionStatus (UpdateProductionStatusRequest) returns (UpdateProductionStatusResponse);
+// Production
+rpc AssignJeweler (AssignJewelerRequest) returns (AssignJewelerResponse);
+rpc UpdateProductionStatus (UpdateProductionStatusRequest) returns (UpdateProductionStatusResponse);
+rpc GetProductionTasks (GetProductionTasksRequest) returns (GetProductionTasksResponse);
 
   // QR Memory
   rpc UpdateQrMemory (UpdateQrMemoryRequest) returns (UpdateQrMemoryResponse);
@@ -438,6 +439,8 @@ message ProductionTask {
   string startedAt = 8;
   string completedAt = 9;
   string createdAt = 10;
+  string taskName = 11;
+  string taskDescription = 12;
 }
 
 message AssignJewelerRequest {
@@ -457,6 +460,22 @@ message UpdateProductionStatusRequest {
 
 message UpdateProductionStatusResponse {
   ProductionTask task = 1;
+}
+
+message GetProductionTasksRequest {
+  int32 page = 1;
+  int32 limit = 2;
+  string status = 3;
+  string orderId = 4;
+  string jewelerId = 5;
+}
+
+message GetProductionTasksResponse {
+  repeated ProductionTask data = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 lastPage = 5;
 }
 
 // === QR Memory ===

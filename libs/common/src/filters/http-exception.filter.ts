@@ -36,17 +36,22 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
-    let status = HttpStatus.INTERNAL_SERVER_ERROR;
-    let message: string = 'Internal server error';
-
     if (response.headersSent) {
-      this.logger.warn(
-        'Headers already sent, skipping exception filter response.',
-      );
+      this.logger.warn('Headers already sent, skipping exception filter response.');
       return;
     }
 
+    const reqInfo = `${request.method} ${request.url}`;
+    const errInfo =
+      exception instanceof Error
+        ? { name: exception.name, message: exception.message, stack: exception.stack }
+        : exception;
+
+    let status = HttpStatus.INTERNAL_SERVER_ERROR;
+    let message: string = 'Internal server error';
+
     if (exception instanceof HttpException) {
+      this.logger.error(`[${exception.getStatus()}] ${reqInfo} — ${exception.message}`, exception.stack);
       status = exception.getStatus();
       const responseBody = exception.getResponse();
 
@@ -59,12 +64,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
             ? responseBody
             : 'Http Error';
     } else if (this.isGrpcServiceError(exception)) {
-      const err = exception as Record<string, unknown>;
-      const grpcCode = Number(err.code);
-      const grpcDetails = (err.details as string) ?? '';
+      const errG = exception as Record<string, unknown>;
+      const grpcCode = Number(errG.code);
+      const grpcDetails = (errG.details as string) ?? '';
       status =
         this.grpcToHttpStatus[grpcCode] ?? HttpStatus.INTERNAL_SERVER_ERROR;
       message = grpcDetails || 'gRPC Service Error';
+      this.logger.error(`[gRPC ${grpcCode}] ${reqInfo} — ${message}`);
 
       try {
         const parsed = JSON.parse(grpcDetails) as Record<string, unknown>;
@@ -86,11 +92,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
         typeof realError.message === 'string'
           ? realError.message
           : 'Microservice Error';
+      this.logger.error(`[RPC] ${reqInfo} — ${message}`);
     } else if (this.isPrismaNotFoundError(exception)) {
       status = HttpStatus.NOT_FOUND;
       message = 'Resource not found';
+      this.logger.error(`[Prisma NotFound] ${reqInfo} — ${message}`);
     } else {
-      this.logger.error(exception);
+      this.logger.error(`[Unknown] ${reqInfo}`, errInfo);
     }
 
     if (isNaN(status) || typeof status !== 'number') {

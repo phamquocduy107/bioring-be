@@ -33,6 +33,9 @@ import {
   ReviewOrderDto,
   InitiatePaymentDto,
   GetMyOrdersQueryDto,
+  AssignJewelerDto,
+  UpdateProductionStatusDto,
+  GetProductionTasksQueryDto,
 } from '@app/common';
 import type { JwtPayload } from '@app/common';
 import {
@@ -44,6 +47,7 @@ import {
   ApiPayOSWebhookDocs,
   ApiAssignJewelerDocs,
   ApiUpdateProductionStatusDocs,
+  ApiGetProductionTasksDocs,
 } from './order.swagger';
 
 interface EngravingBioMetricResponse {
@@ -127,6 +131,8 @@ interface ProductionTaskResponse {
   engravingId: string;
   assignedJewelerId: string;
   assignedJewelerName: string;
+  taskName: string;
+  taskDescription: string;
   status: string;
   note: string;
   startedAt: string;
@@ -188,6 +194,19 @@ interface EcommerceGrpcService {
     status: string;
     note: string;
   }): Observable<{ task: ProductionTaskResponse }>;
+  getProductionTasks(data: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    orderId?: string;
+    jewelerId?: string;
+  }): Observable<{
+    data: ProductionTaskResponse[];
+    total: number;
+    page: number;
+    limit: number;
+    lastPage: number;
+  }>;
 }
 
 @Controller('api/v1/orders')
@@ -205,14 +224,6 @@ export class OrderController implements OnModuleInit {
   onModuleInit() {
     this.grpc =
       this.client?.getService<EcommerceGrpcService>('EcommerceService');
-    if (this.grpc) {
-      const proto = Object.getPrototypeOf(this.grpc);
-      const methods = [
-        ...Object.getOwnPropertyNames(proto),
-        ...Object.getOwnPropertyNames(this.grpc),
-      ];
-      console.log('[Gateway] gRPC proxy methods:', [...new Set(methods)]);
-    }
   }
 
   private async grpcCall<T>(
@@ -251,6 +262,21 @@ export class OrderController implements OnModuleInit {
         userId: user.sub,
       }),
     );
+  }
+
+  @Get('production-tasks')
+  @Permissions(Permission.OrderWrite)
+  @ApiGetProductionTasksDocs()
+  getProductionTasks(
+    @Query() query: GetProductionTasksQueryDto,
+  ) {
+    return this.grpcCall('getProductionTasks', {
+      page: query.page,
+      limit: query.limit,
+      status: query.status,
+      orderId: query.orderId,
+      jewelerId: query.jewelerId,
+    });
   }
 
   @Get(':id')
@@ -395,7 +421,7 @@ export class OrderController implements OnModuleInit {
   @ApiAssignJewelerDocs()
   assignJeweler(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
-    @Body() body: { jewelerId: string },
+    @Body() body: AssignJewelerDto,
   ) {
     return this.call(() =>
       this.grpc!.assignJeweler({ orderId: id, jewelerId: body.jewelerId }),
@@ -407,7 +433,7 @@ export class OrderController implements OnModuleInit {
   @ApiUpdateProductionStatusDocs()
   updateProductionStatus(
     @Param('taskId', new ParseUUIDPipe({ version: '4' })) taskId: string,
-    @Body() body: { status: string; note?: string },
+    @Body() body: UpdateProductionStatusDto,
   ) {
     return this.call(() =>
       this.grpc!.updateProductionStatus({
@@ -417,4 +443,5 @@ export class OrderController implements OnModuleInit {
       }),
     );
   }
+
 }

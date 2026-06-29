@@ -40,9 +40,8 @@ export class FitRpcExceptionFilter implements RpcExceptionFilter {
   catch(exception: unknown, _host: ArgumentsHost): Observable<never> {
     void _host;
 
-    // HttpException → create plain error with `code` (gRPC status) + `details` (JSON)
-    // @grpc/grpc-js serverErrorToStatus() needs `code` to map to correct gRPC status code
     if (exception instanceof HttpException) {
+      this.logger.error(`[${exception.getStatus()}] ${exception.message}`, exception.stack);
       return throwError(() =>
         this.grpcError(exception.getStatus(), exception.message),
       );
@@ -54,11 +53,13 @@ export class FitRpcExceptionFilter implements RpcExceptionFilter {
       switch (err.code) {
         case 'P2025':
         case 'P2001':
+          this.logger.error(`[Prisma ${err.code}] Resource not found — ${typeof err.message === 'string' ? err.message : ''}`);
           return throwError(() =>
             this.grpcError(HttpStatus.NOT_FOUND, 'Resource not found'),
           );
 
         case 'P2002':
+          this.logger.error(`[Prisma P2002] Unique constraint failed — ${typeof err.message === 'string' ? err.message : ''}`);
           return throwError(() =>
             this.grpcError(
               HttpStatus.CONFLICT,
@@ -114,6 +115,7 @@ export class FitRpcExceptionFilter implements RpcExceptionFilter {
         typeof error === 'string'
           ? { statusCode: HttpStatus.INTERNAL_SERVER_ERROR, message: error }
           : (error as { statusCode: number; message: string });
+      this.logger.error(`[RpcException] ${errorResponse.message}`);
       return throwError(() =>
         this.grpcError(
           errorResponse.statusCode ?? HttpStatus.INTERNAL_SERVER_ERROR,
@@ -122,7 +124,6 @@ export class FitRpcExceptionFilter implements RpcExceptionFilter {
       );
     }
 
-    // Lỗi lạ khác
     this.logger.error(exception);
     return throwError(() =>
       this.grpcError(

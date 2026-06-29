@@ -1,0 +1,7 @@
+export enum ProductionTaskStatus {
+  IN_PROGRESS = 'IN_PROGRESS',
+  COMPLETED = 'COMPLETED',
+  PAUSED = 'PAUSED',
+  FAILED = 'FAILED',
+  CANCELLED = 'CANCELLED',
+}
