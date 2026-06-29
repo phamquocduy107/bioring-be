@@ -9,6 +9,7 @@ import { PrismaService } from '@app/prisma';
 import { PayOSService } from '@app/common/payment/payos.service';
 import { Webhook } from '@payos/node';
 import { randomUUID } from 'node:crypto';
+import { DEFAULT_PAYOS_LINK_TTL_MS } from '@app/common';
 
 @Injectable()
 export class OrderService {
@@ -356,7 +357,7 @@ export class OrderService {
     }
 
     // Idempotency: trả lại payment PENDING cũ nếu còn hạn
-    const PAYOS_LINK_TTL_MS = 30 * 60 * 1000; // 30 phút
+    const PAYOS_LINK_TTL_MS = DEFAULT_PAYOS_LINK_TTL_MS;
     const existing = await this.prisma.payments.findFirst({
       where: { order_id: orderId, payment_phase: paymentPhase, status: 'PENDING' },
       orderBy: { created_at: 'desc' },
