@@ -7,8 +7,22 @@ export class OrderController {
   constructor(private readonly orderService: OrderService) {}
 
   @GrpcMethod('EcommerceService', 'CreateOrder')
-  async createOrder(data: { engravingIds: string[]; userId: string }) {
-    return this.orderService.createOrder(data.engravingIds, data.userId);
+  async createOrder(data: { engravingIds: string[]; userId: string; packageType: string }) {
+    return this.orderService.createOrder(data.engravingIds, data.userId, data.packageType);
+  }
+
+  @GrpcMethod('EcommerceService', 'SubmitOrder')
+  async submitOrder(data: { id: string }) {
+    return this.orderService.submitOrder(data.id);
+  }
+
+  @GrpcMethod('EcommerceService', 'AttachBiometric')
+  async attachBiometric(data: { engravingId: string; biometricType: string; rawFileUrl: string }) {
+    return this.orderService.attachBiometric(
+      data.engravingId,
+      data.biometricType,
+      data.rawFileUrl,
+    );
   }
 
   @GrpcMethod('EcommerceService', 'GetOrder')

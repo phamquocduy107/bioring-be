@@ -9,3 +9,4 @@ export * from './payment-phase.enum';
 export * from './payment-status.enum';
 export * from './engraving-status.enum';
 export * from './production-task-status.enum';
+export * from './package-type.enum';

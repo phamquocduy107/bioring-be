@@ -9,7 +9,7 @@ import { PrismaService } from '@app/prisma';
 import { PayOSService } from '@app/common/payment/payos.service';
 import { Webhook } from '@payos/node';
 import { randomUUID } from 'node:crypto';
-import { DEFAULT_PAYOS_LINK_TTL_MS } from '@app/common';
+import { DEFAULT_PAYOS_LINK_TTL_MS, IOT_FEE_AMOUNT } from '@app/common';
 
 @Injectable()
 export class OrderService {
@@ -18,7 +18,7 @@ export class OrderService {
     private readonly payOS: PayOSService,
   ) {}
 
-  async createOrder(engravingIds: string[], userId: string) {
+  async createOrder(engravingIds: string[], userId: string, packageType: string) {
     if (!engravingIds?.length) {
       throw new BadRequestException('At least one engravingId is required');
     }
@@ -50,22 +50,11 @@ export class OrderService {
       }
     }
 
-    const latestVersion =
-      engravings[0]
-        .engraving_versions_engraving_versions_engraving_idToengravings[0];
+    const captureRoute = packageType === 'SW' ? 'ONLINE' : 'OFFLINE';
+    const initialStatus = captureRoute === 'ONLINE'
+      ? 'AWAITING_SUBMIT'
+      : 'AWAITING_DEPOSIT_1';
 
-    if (!latestVersion) {
-      throw new BadRequestException('Engraving has no versions');
-    }
-
-    const config = latestVersion.customization_config as Record<
-      string,
-      unknown
-    > | null;
-    const selectedBiometrics = (config?.selectedBiometrics as string[]) ?? [];
-    const captureRoute = selectedBiometrics.includes('SW')
-      ? 'ONLINE'
-      : 'OFFLINE';
     let designDraftId: string | null = null;
     if (engravings[0].unique_product_id) {
       const draft = await this.prisma.design_drafts.findUnique({
@@ -88,7 +77,8 @@ export class OrderService {
         design_draft_id: designDraftId,
         capture_route: captureRoute,
         design_source: 'MOBILE',
-        status: 'PENDING_REVIEW',
+        package_type: packageType,
+        status: initialStatus,
         subtotal: price.subtotal,
         service_fee: price.serviceFee,
         extra_fee: price.extraFee,
@@ -320,6 +310,87 @@ export class OrderService {
     throw new BadRequestException('Action must be "approve" or "reject"');
   }
 
+  async submitOrder(id: string) {
+    const order = await this.prisma.orders.findUnique({ where: { id } });
+    if (!order) throw new NotFoundException('Order not found');
+
+    if (!['AWAITING_SUBMIT', 'AWAITING_CAPTURE'].includes(order.status ?? '')) {
+      throw new BadRequestException(
+        'Order must be in AWAITING_SUBMIT or AWAITING_CAPTURE to submit',
+      );
+    }
+
+    const updated = await this.prisma.orders.update({
+      where: { id },
+      data: { status: 'PENDING_REVIEW' },
+    });
+
+    return { order: await this.mapOrder(updated) };
+  }
+
+  async attachBiometric(
+    engravingId: string,
+    biometricType: string,
+    rawFileUrl: string,
+  ) {
+    const engraving = await this.prisma.engravings.findUnique({
+      where: { id: engravingId },
+      include: { orders: true },
+    });
+    if (!engraving) throw new NotFoundException('Engraving not found');
+    if (!engraving.order_id) {
+      throw new BadRequestException('Engraving not linked to an order');
+    }
+
+    if (engraving.orders?.status !== 'AWAITING_CAPTURE') {
+      throw new BadRequestException(
+        'Order must be in AWAITING_CAPTURE status to attach biometrics',
+      );
+    }
+
+    const packageTypes = (engraving.orders.package_type ?? '').split('+');
+    if (!packageTypes.includes(biometricType)) {
+      throw new BadRequestException(
+        `Biometric type ${biometricType} not in package ${engraving.orders.package_type}`,
+      );
+    }
+
+    const processedSvgUrl = await this.processBiometric(biometricType, rawFileUrl, engravingId);
+
+    const requiredChannel = biometricType === 'HB' ? 'MEMORY_CARD' : 'ENGRAVING';
+
+    const biometric = await this.prisma.engraving_biometrics.create({
+      data: {
+        id: randomUUID(),
+        engraving_id: engravingId,
+        biometric_type: biometricType,
+        required_channel: requiredChannel,
+        raw_file_url: rawFileUrl,
+        processed_svg_url: processedSvgUrl,
+        extra_data: {},
+        status: 'CAPTURED',
+      },
+    });
+
+    return { biometric };
+  }
+
+  private async processBiometric(
+    biometricType: string,
+    rawFileUrl: string,
+    engravingVersionId: string,
+  ): Promise<string> {
+    if (biometricType === 'SW') {
+      // TODO: call Python process-audio via BiometricService gRPC
+      return rawFileUrl;
+    }
+    if (biometricType === 'FP') {
+      // TODO: call Python process-fingerprint via BiometricService gRPC
+      return rawFileUrl;
+    }
+    return rawFileUrl;
+  }
+
   async initiatePayment(
     orderId: string,
     paymentPhase: string,
@@ -336,15 +407,17 @@ export class OrderService {
       throw new ForbiddenException('You do not own this order');
     }
 
-    const allowedPhases = ['DEPOSIT', 'REMAINING'];
+    const allowedPhases = ['DEPOSIT_1', 'DEPOSIT_2', 'REMAINING'];
     if (!allowedPhases.includes(paymentPhase)) {
       throw new BadRequestException(
-        'paymentPhase must be DEPOSIT or REMAINING',
+        'paymentPhase must be DEPOSIT_1, DEPOSIT_2, or REMAINING',
       );
     }
 
     let amount = 0;
-    if (paymentPhase === 'DEPOSIT') {
+    if (paymentPhase === 'DEPOSIT_1') {
+      amount = IOT_FEE_AMOUNT;
+    } else if (paymentPhase === 'DEPOSIT_2') {
       amount = Math.max(Math.round(Number(order.total_price ?? 0) * 0.3), 3000);
       if (Number(order.paid_amount ?? 0) >= amount) {
         throw new BadRequestException('Deposit already paid');
@@ -405,7 +478,7 @@ export class OrderService {
     const payosResult = await this.payOS.createPaymentLink({
       orderCode: payosOrderCode,
       amount,
-      description: `${paymentPhase === 'DEPOSIT' ? 'Cọc' : 'TT'} ${order.order_code}`,
+      description: `${paymentPhase === 'DEPOSIT_1' ? 'IoT' : paymentPhase === 'DEPOSIT_2' ? 'Cọc' : 'TT'} ${order.order_code}`,
       returnUrl,
       cancelUrl,
     });
@@ -495,7 +568,9 @@ export class OrderService {
       const remainingAmount = totalPrice - newPaidAmount;
 
       let newStatus = order.status;
-      if (payment.payment_phase === 'DEPOSIT') {
+      if (payment.payment_phase === 'DEPOSIT_1') {
+        newStatus = 'AWAITING_CAPTURE';
+      } else if (payment.payment_phase === 'DEPOSIT_2') {
         newStatus = 'DEPOSIT_PAID';
       } else if (payment.payment_phase === 'REMAINING') {
         newStatus = 'COMPLETED';

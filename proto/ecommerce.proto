@@ -29,6 +29,10 @@ service EcommerceService {
   rpc GetMyOrders (GetMyOrdersRequest) returns (GetMyOrdersResponse);
   rpc ReviewOrder (ReviewOrderRequest) returns (ReviewOrderResponse);
 
+  // Orders — MF-03
+  rpc SubmitOrder (SubmitOrderRequest) returns (SubmitOrderResponse);
+  rpc AttachBiometric (AttachBiometricRequest) returns (AttachBiometricResponse);
+
   // Payments
   rpc InitiatePayment (InitiatePaymentRequest) returns (InitiatePaymentResponse);
   rpc HandlePayOSWebhook (PayOSWebhookRequest) returns (PayOSWebhookResponse);
@@ -297,6 +301,7 @@ message Order {
 message CreateOrderRequest {
   repeated string engravingIds = 1;
   string userId = 2;
+  string packageType = 3;
 }
 
 message CreateOrderResponse {
@@ -334,6 +339,24 @@ message ReviewOrderRequest {
 
 message ReviewOrderResponse {
   Order order = 1;
+}
+
+message SubmitOrderRequest {
+  string id = 1;
+}
+
+message SubmitOrderResponse {
+  Order order = 1;
+}
+
+message AttachBiometricRequest {
+  string engravingId = 1;
+  string biometricType = 2;
+  string rawFileUrl = 3;
+}
+
+message AttachBiometricResponse {
+  EngravingBioMetric biometric = 1;
 }
 
 // === Engraving messages ===

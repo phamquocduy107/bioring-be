@@ -15,7 +15,7 @@ function orderExample() {
     designDraftId: '550e8400-e29b-41d4-a716-446655440002',
     captureRoute: 'ONLINE',
     designSource: 'MOBILE',
-    status: 'PENDING_REVIEW',
+    status: 'AWAITING_SUBMIT',
     subtotal: 12000000,
     serviceFee: 1200000,
     extraFee: 0,
@@ -67,7 +67,7 @@ export function ApiCreateOrderDocs() {
     ApiOperation({
       summary: 'Create order from engravings',
       description:
-        'Creates an order linked to the given engraving IDs. Requires JWT auth. engravingIds must belong to the authenticated user.',
+        'Creates an order linked to the given engraving IDs. packageType xác định initial status: SW → AWAITING_SUBMIT, có FP/HB → AWAITING_DEPOSIT_1. Requires JWT auth. engravingIds must belong to the authenticated user.',
     }),
     ApiResponse({
       status: 201,
@@ -129,7 +129,7 @@ export function ApiReviewOrderDocs() {
     ApiOperation({
       summary: 'Review order (manager)',
       description:
-        'APPROVED → order moves to AWAITING_DEPOSIT, engraving version approved. REJECTED → order moves to REVISION_REQUIRED, new version branched.',
+        'APPROVED → engraving version approved, all approved → order AWAITING_DEPOSIT. REJECTED → version REJECTED + branched, all rejected → order REVISION_REQUIRED.',
     }),
     ApiParam({
       name: 'id',
@@ -154,7 +154,7 @@ export function ApiInitiatePaymentDocs() {
     ApiOperation({
       summary: 'Initiate PayOS payment',
       description:
-        'Creates a payment request via PayOS. paymentPhase = DEPOSIT (30%) or REMAINING.',
+        'Creates a payment request via PayOS. paymentPhase = DEPOSIT_1 (IoT fee), DEPOSIT_2 (30% min 3000), or REMAINING.',
     }),
     ApiResponse({
       status: 201,
@@ -164,7 +164,7 @@ export function ApiInitiatePaymentDocs() {
           payment: {
             id: '550e8400-e29b-41d4-a716-446655440010',
             orderId: '550e8400-e29b-41d4-a716-446655440001',
-            paymentPhase: 'DEPOSIT',
+            paymentPhase: 'DEPOSIT_2',
             amount: 3960000,
             method: 'PAYOS',
             status: 'PENDING',
@@ -190,6 +190,69 @@ export function ApiPayOSWebhookDocs() {
       description: 'Public endpoint for PayOS to send payment status updates.',
     }),
     ApiResponse({ status: 200, description: 'Webhook processed (success: true/false)' }),
+  );
+}
+
+export function ApiSubmitOrderDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'Submit order for review',
+      description:
+        'Moves order from AWAITING_SUBMIT/AWAITING_CAPTURE to PENDING_REVIEW.',
+    }),
+    ApiParam({
+      name: 'id',
+      type: String,
+      format: 'uuid',
+      example: '550e8400-e29b-41d4-a716-446655440001',
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Order submitted',
+      schema: { example: { order: orderExample() } },
+    }),
+    ApiResponse({ status: 400, description: 'Invalid order status' }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+    ApiResponse({ status: 404, description: 'Order not found' }),
+  );
+}
+
+export function ApiAttachBiometricDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'Attach biometric data (staff)',
+      description:
+        'Staff uploads captured biometric file for an engraving. Order must be in AWAITING_CAPTURE status.',
+    }),
+    ApiParam({
+      name: 'id',
+      type: String,
+      format: 'uuid',
+      example: '550e8400-e29b-41d4-a716-446655440003',
+    }),
+    ApiResponse({
+      status: 201,
+      description: 'Biometric attached',
+      schema: {
+        example: {
+          biometric: {
+            id: '550e8400-e29b-41d4-a716-446655440050',
+            engravingId: '550e8400-e29b-41d4-a716-446655440003',
+            biometricType: 'FP',
+            requiredChannel: 'ENGRAVING',
+            rawFileUrl: 'https://res.cloudinary.com/.../fingerprint.png',
+            processedSvgUrl: 'https://res.cloudinary.com/.../fingerprint.svg',
+            extraData: '',
+            status: 'CAPTURED',
+          },
+        },
+      },
+    }),
+    ApiResponse({ status: 400, description: 'Invalid input' }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+    ApiResponse({ status: 404, description: 'Engraving not found' }),
   );
 }
 

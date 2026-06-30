@@ -18,6 +18,7 @@ export class FitRpcExceptionFilter implements RpcExceptionFilter {
     401: 16, // UNAUTHENTICATED
     403: 7, // PERMISSION_DENIED
     404: 5, // NOT_FOUND
+    408: 4, // REQUEST_TIMEOUT → DEADLINE_EXCEEDED
     409: 6, // ALREADY_EXISTS
     429: 8, // RESOURCE_EXHAUSTED
     500: 13, // INTERNAL

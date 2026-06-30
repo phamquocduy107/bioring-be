@@ -24,6 +24,9 @@ import {
   UpdateConfigResponse,
   GetMyEngravingsQueryDto,
   UpdateEngravingVersionConfigDto,
+  AttachBiometricDto,
+  Permission,
+  Permissions,
 } from '@app/common';
 import type { JwtPayload } from '@app/common';
 import {
@@ -32,6 +35,7 @@ import {
   ApiResubmitEngravingVersionDocs,
   ApiGetMyEngravingsDocs,
   ApiGetEngravingDocs,
+  ApiAttachBiometricDocs,
 } from './engraving.swagger';
 
 interface EcommerceGrpcService {
@@ -70,6 +74,11 @@ interface EcommerceGrpcService {
   getEngraving(data: {
     id: string;
   }): Observable<{ engraving: EngravingResponse }>;
+  attachBiometric(data: {
+    engravingId: string;
+    biometricType: string;
+    rawFileUrl: string;
+  }): Observable<{ biometric: EngravingBioMetricResponse }>;
 }
 
 @Controller('api/v1/engravings')
@@ -163,6 +172,22 @@ export class EngravingController implements OnModuleInit {
     return this.call(() =>
       this.grpc!.resubmitEngravingVersion({
         engravingVersionId: versionId,
+      }),
+    );
+  }
+
+  @Post(':id/biometrics')
+  @Permissions(Permission.OrderWrite)
+  @ApiAttachBiometricDocs()
+  attachBiometric(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() body: AttachBiometricDto,
+  ) {
+    return this.call(() =>
+      this.grpc!.attachBiometric({
+        engravingId: id,
+        biometricType: body.biometricType,
+        rawFileUrl: body.rawFileUrl,
       }),
     );
   }

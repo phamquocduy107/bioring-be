@@ -192,6 +192,46 @@ export function ApiGetEngravingDocs() {
       },
     }),
     ApiResponse({ status: 401, description: 'Unauthorized' }),
+    ApiResponse({ status: 404, description: 'Version not found' }),
+  );
+}
+
+export function ApiAttachBiometricDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'Attach biometric data (staff)',
+      description:
+        'Staff uploads captured biometric file for an engraving. ' +
+        'Order must be in AWAITING_CAPTURE status. ' +
+        'SW → triggers audio→waveform processing. FP → triggers fingerprint→SVG processing.',
+    }),
+    ApiParam({
+      name: 'id',
+      type: String,
+      format: 'uuid',
+      example: '550e8400-e29b-41d4-a716-446655440003',
+    }),
+    ApiResponse({
+      status: 201,
+      description: 'Biometric attached successfully.',
+      schema: {
+        example: {
+          biometric: {
+            id: '550e8400-e29b-41d4-a716-446655440050',
+            engravingId: '550e8400-e29b-41d4-a716-446655440003',
+            biometricType: 'FP',
+            requiredChannel: 'ENGRAVING',
+            rawFileUrl: 'https://res.cloudinary.com/.../fingerprint.png',
+            processedSvgUrl: 'https://res.cloudinary.com/.../fingerprint.svg',
+            extraData: '',
+            status: 'CAPTURED',
+          },
+        },
+      },
+    }),
+    ApiResponse({ status: 400, description: 'Invalid input' }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
     ApiResponse({ status: 404, description: 'Engraving not found' }),
   );
 }

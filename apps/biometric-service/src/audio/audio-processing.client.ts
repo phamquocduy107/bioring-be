@@ -17,11 +17,17 @@ export class AudioProcessingClient {
     engravingVersionId: string,
   ): Promise<{ waveformUrl: string; durationMs: number }> {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+
       const response = await fetch(`${this.baseUrl}/process-audio`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ audioUrl, engravingVersionId }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const err = await response.text();

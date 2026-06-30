@@ -14,6 +14,10 @@ def upload_to_cloudinary(svg_content: str, public_id: str) -> str:
     print(f"[Cloudinary] Config: cloud_name={cloud_name}, api_key={'***' if cloudinary.config().api_key else 'empty'}")
 
     if not cloud_name:
+        raise RuntimeError(
+            "Cloudinary not configured: missing CLOUDINARY_CLOUD_NAME. "
+            "Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in .env"
+        )
 
     try:
         result = cloudinary.uploader.upload(

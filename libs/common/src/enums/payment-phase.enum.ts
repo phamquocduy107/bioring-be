@@ -1,5 +1,6 @@
 export enum PaymentPhase {
-  DEPOSIT = 'DEPOSIT',
+  DEPOSIT_1 = 'DEPOSIT_1',
+  DEPOSIT_2 = 'DEPOSIT_2',
   REMAINING = 'REMAINING',
   FULL = 'FULL',
 }

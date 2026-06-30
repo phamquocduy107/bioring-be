@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Param,
   ParseUUIDPipe,
   Body,
@@ -45,6 +46,7 @@ import {
   ApiReviewOrderDocs,
   ApiInitiatePaymentDocs,
   ApiPayOSWebhookDocs,
+  ApiSubmitOrderDocs,
   ApiAssignJewelerDocs,
   ApiUpdateProductionStatusDocs,
   ApiGetProductionTasksDocs,
@@ -148,7 +150,9 @@ interface EcommerceGrpcService {
   createOrder(data: {
     engravingIds: string[];
     userId: string;
+    packageType: string;
   }): Observable<{ order: OrderResponse }>;
+  submitOrder(data: { id: string }): Observable<{ order: OrderResponse }>;
   getOrder(data: { id: string }): Observable<{ order: OrderResponse }>;
   getMyOrders(data: {
     page?: number;
@@ -260,8 +264,17 @@ export class OrderController implements OnModuleInit {
       this.grpc!.createOrder({
         engravingIds: body.engravingIds,
         userId: user.sub,
+        packageType: body.packageType,
       }),
     );
+  }
+
+  @Patch(':id/submit')
+  @ApiSubmitOrderDocs()
+  submitOrder(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+  ) {
+    return this.call(() => this.grpc!.submitOrder({ id }));
   }
 
   @Get('production-tasks')

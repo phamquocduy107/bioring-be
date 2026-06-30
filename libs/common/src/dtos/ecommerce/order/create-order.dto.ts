@@ -1,5 +1,6 @@
-import { IsUUID, IsArray, ArrayNotEmpty } from 'class-validator';
+import { IsUUID, IsArray, ArrayNotEmpty, IsEnum } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { PackageType } from '../../../enums/package-type.enum';
 
 export class CreateOrderDto {
   @ApiProperty({
@@ -11,4 +12,12 @@ export class CreateOrderDto {
   @ArrayNotEmpty()
   @IsUUID('4', { each: true })
   engravingIds!: string[];
+
+  @ApiProperty({
+    description: 'Package type — determines capture route and required biometrics',
+    enum: PackageType,
+    example: 'SW',
+  })
+  @IsEnum(PackageType)
+  packageType!: PackageType;
 }
