@@ -32,7 +32,6 @@ import type { JwtPayload } from '@app/common';
 import {
   ApiCreateEngravingDocs,
   ApiUpdateEngravingVersionConfigDocs,
-  ApiResubmitEngravingVersionDocs,
   ApiGetMyEngravingsDocs,
   ApiGetEngravingDocs,
   ApiAttachBiometricDocs,
@@ -54,10 +53,7 @@ interface EcommerceGrpcService {
     previewImageUrl?: string;
     model3dUrl?: string;
     productionFileUrl?: string;
-    audioUrl?: string;
-  }): Observable<UpdateConfigResponse>;
-  resubmitEngravingVersion(data: {
-    engravingVersionId: string;
+    selectedBiometrics?: string;
   }): Observable<UpdateConfigResponse>;
   getMyEngravings(data: {
     userId: string;
@@ -78,6 +74,7 @@ interface EcommerceGrpcService {
     engravingId: string;
     biometricType: string;
     rawFileUrl: string;
+    extraData?: string;
   }): Observable<{ biometric: EngravingBioMetricResponse }>;
 }
 
@@ -135,9 +132,7 @@ export class EngravingController implements OnModuleInit {
 
   @Get(':id')
   @ApiGetEngravingDocs()
-  getEngraving(
-    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
-  ) {
+  getEngraving(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.call(() => this.grpc!.getEngraving({ id }));
   }
 
@@ -159,19 +154,9 @@ export class EngravingController implements OnModuleInit {
         previewImageUrl: body.previewImageUrl,
         model3dUrl: body.model3dUrl,
         productionFileUrl: body.productionFileUrl,
-        audioUrl: body.audioUrl,
-      }),
-    );
-  }
-
-  @Post('versions/:versionId/resubmit')
-  @ApiResubmitEngravingVersionDocs()
-  resubmit(
-    @Param('versionId', new ParseUUIDPipe({ version: '4' })) versionId: string,
-  ) {
-    return this.call(() =>
-      this.grpc!.resubmitEngravingVersion({
-        engravingVersionId: versionId,
+        selectedBiometrics: body.selectedBiometrics
+          ? JSON.stringify(body.selectedBiometrics)
+          : undefined,
       }),
     );
   }
@@ -188,6 +173,7 @@ export class EngravingController implements OnModuleInit {
         engravingId: id,
         biometricType: body.biometricType,
         rawFileUrl: body.rawFileUrl,
+        extraData: body.extraData,
       }),
     );
   }

@@ -1,5 +1,6 @@
-import { IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsOptional, IsString, IsUUID, IsEnum } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { PackageType } from '../../../enums/package-type.enum';
 
 export class UpdateEngravingVersionConfigDto {
   @ApiPropertyOptional({
@@ -43,9 +44,10 @@ export class UpdateEngravingVersionConfigDto {
   ringShape?: string;
 
   @ApiPropertyOptional({
-    description: 'JSON string of customization config',
+    description:
+      'JSON string of customization config (design data only, no selectedBiometrics)',
     example:
-      '{"engravedType":"sw","selectedBiometrics":["SW"],"engravingPositions":{"sw":{"enabled":true,"status":"captured","position":{"startAngle":45,"width":180}}}}',
+      '{"engravedType":"sw","engravingPositions":{"sw":{"enabled":true,"status":"pending","position":{"startAngle":45,"width":180}}}}',
   })
   @IsOptional()
   @IsString()
@@ -76,10 +78,11 @@ export class UpdateEngravingVersionConfigDto {
   productionFileUrl?: string;
 
   @ApiPropertyOptional({
-    description: 'Audio URL to trigger waveform processing',
-    example: 'https://res.cloudinary.com/.../audio.mp3',
+    description:
+      'Selected biometric package types (comma-separated in column). Blocked if order exists.',
+    example: ['SW', 'FP'],
   })
   @IsOptional()
-  @IsString()
-  audioUrl?: string;
+  @IsEnum(PackageType, { each: true })
+  selectedBiometrics?: PackageType[];
 }

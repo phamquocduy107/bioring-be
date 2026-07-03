@@ -37,21 +37,30 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const request = ctx.getRequest<Request>();
 
     if (response.headersSent) {
-      this.logger.warn('Headers already sent, skipping exception filter response.');
+      this.logger.warn(
+        'Headers already sent, skipping exception filter response.',
+      );
       return;
     }
 
     const reqInfo = `${request.method} ${request.url}`;
     const errInfo =
       exception instanceof Error
-        ? { name: exception.name, message: exception.message, stack: exception.stack }
+        ? {
+            name: exception.name,
+            message: exception.message,
+            stack: exception.stack,
+          }
         : exception;
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message: string = 'Internal server error';
 
     if (exception instanceof HttpException) {
-      this.logger.error(`[${exception.getStatus()}] ${reqInfo} — ${exception.message}`, exception.stack);
+      this.logger.error(
+        `[${exception.getStatus()}] ${reqInfo} — ${exception.message}`,
+        exception.stack,
+      );
       status = exception.getStatus();
       const responseBody = exception.getResponse();
 

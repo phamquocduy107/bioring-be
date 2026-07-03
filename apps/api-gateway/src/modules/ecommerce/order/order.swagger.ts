@@ -27,37 +27,35 @@ function orderExample() {
     createdAt: '2026-06-24T10:00:00.000Z',
     updatedAt: '2026-06-24T10:00:00.000Z',
     payments: [],
-    engravings: [
-      {
-        id: '550e8400-e29b-41d4-a716-446655440003',
-        orderId: '550e8400-e29b-41d4-a716-446655440001',
-        userId: '550e8400-e29b-41d4-a716-446655440000',
-        productId: 'prod-classic-band',
-        uniqueProductId: 'RS-A7B9X2',
-        approvedVersionId: '550e8400-e29b-41d4-a716-446655440004',
-        status: 'ACTIVE',
-        versions: [
-          {
-            id: '550e8400-e29b-41d4-a716-446655440004',
-            engravingId: '550e8400-e29b-41d4-a716-446655440003',
-            versionNumber: 1,
-            selectedMaterialId: 'mat-gold-18k',
-            selectedGemstoneId: 'gmt-diamond-05',
-            ringSize: '7',
-            ringStyle: 'CLASSIC',
-            ringShape: 'ROUND',
-            customizationConfig:
-              '{"engravedType":"sw","selectedBiometrics":["SW"],"engravingPositions":{"sw":{"enabled":true,"status":"pending","position":{"startAngle":45,"width":180}}},"memoryCard":false}',
-            status: 'PENDING',
-            managerId: '',
-            managerNote: '',
-            reviewedAt: '',
-            createdAt: '2026-06-24T10:00:00.000Z',
-          },
-        ],
-        biometrics: [],
-      },
-    ],
+    engraving: {
+      id: '550e8400-e29b-41d4-a716-446655440003',
+      orderId: '550e8400-e29b-41d4-a716-446655440001',
+      userId: '550e8400-e29b-41d4-a716-446655440000',
+      productId: 'prod-classic-band',
+      uniqueProductId: 'RS-A7B9X2',
+      approvedVersionId: '550e8400-e29b-41d4-a716-446655440004',
+      status: 'ACTIVE',
+      versions: [
+        {
+          id: '550e8400-e29b-41d4-a716-446655440004',
+          engravingId: '550e8400-e29b-41d4-a716-446655440003',
+          versionNumber: 1,
+          selectedMaterialId: 'mat-gold-18k',
+          selectedGemstoneId: 'gmt-diamond-05',
+          ringSize: '7',
+          ringStyle: 'CLASSIC',
+          ringShape: 'ROUND',
+          customizationConfig:
+            '{"engravedType":"sw","selectedBiometrics":["SW"],"engravingPositions":{"sw":{"enabled":true,"status":"pending","position":{"startAngle":45,"width":180}}},"memoryCard":false}',
+          status: 'PENDING',
+          managerId: '',
+          managerNote: '',
+          reviewedAt: '',
+          createdAt: '2026-06-24T10:00:00.000Z',
+        },
+      ],
+      biometrics: [],
+    },
   };
 }
 
@@ -65,9 +63,9 @@ export function ApiCreateOrderDocs() {
   return applyDecorators(
     ApiBearerAuth('access-token'),
     ApiOperation({
-      summary: 'Create order from engravings',
+      summary: 'Create order from engraving',
       description:
-        'Creates an order linked to the given engraving IDs. packageType xác định initial status: SW → AWAITING_SUBMIT, có FP/HB → AWAITING_DEPOSIT_1. Requires JWT auth. engravingIds must belong to the authenticated user.',
+        'Creates an order linked to 1 engraving. Server derives packageType from selected_biometrics column. SW → AWAITING_SUBMIT, có FP/HB → AWAITING_DEPOSIT_1. Requires JWT auth. 1 order = 1 engraving.',
     }),
     ApiResponse({
       status: 201,
@@ -129,7 +127,7 @@ export function ApiReviewOrderDocs() {
     ApiOperation({
       summary: 'Review order (manager)',
       description:
-        'APPROVED → engraving version approved, all approved → order AWAITING_DEPOSIT. REJECTED → version REJECTED + branched, all rejected → order REVISION_REQUIRED.',
+        '1 order = 1 engraving. Approve → engraving version approved + qr_memories biometric_display_settings updated + order → AWAITING_DEPOSIT. Reject → version REJECTED + branched + order → REVISION_REQUIRED.',
     }),
     ApiParam({
       name: 'id',
@@ -189,7 +187,10 @@ export function ApiPayOSWebhookDocs() {
       summary: 'PayOS webhook callback',
       description: 'Public endpoint for PayOS to send payment status updates.',
     }),
-    ApiResponse({ status: 200, description: 'Webhook processed (success: true/false)' }),
+    ApiResponse({
+      status: 200,
+      description: 'Webhook processed (success: true/false)',
+    }),
   );
 }
 
@@ -199,7 +200,7 @@ export function ApiSubmitOrderDocs() {
     ApiOperation({
       summary: 'Submit order for review',
       description:
-        'Moves order from AWAITING_SUBMIT/AWAITING_CAPTURE to PENDING_REVIEW.',
+        'Moves order from AWAITING_SUBMIT or REVISION_REQUIRED to PENDING_REVIEW.',
     }),
     ApiParam({
       name: 'id',
@@ -222,9 +223,9 @@ export function ApiAttachBiometricDocs() {
   return applyDecorators(
     ApiBearerAuth('access-token'),
     ApiOperation({
-      summary: 'Attach biometric data (staff)',
+      summary: 'Attach biometric data (unified)',
       description:
-        'Staff uploads captured biometric file for an engraving. Order must be in AWAITING_CAPTURE status.',
+        'Uploads biometric file for an engraving. Order must be in AWAITING_SUBMIT status.',
     }),
     ApiParam({
       name: 'id',

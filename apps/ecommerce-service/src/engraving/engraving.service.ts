@@ -4,40 +4,14 @@ import {
   BadRequestException,
   HttpException,
   HttpStatus,
-  Inject,
-  OnModuleInit,
-  Optional,
 } from '@nestjs/common';
-import type { ClientGrpc } from '@nestjs/microservices';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '@app/prisma';
 import { randomUUID, createHash, randomBytes } from 'node:crypto';
-import { Observable, lastValueFrom } from 'rxjs';
-
-interface BiometricGrpcService {
-  processAudio(data: {
-    audioUrl: string;
-    engravingVersionId: string;
-  }): Observable<{ waveformUrl: string; durationMs: number }>;
-}
 
 @Injectable()
-export class EngravingService implements OnModuleInit {
-  private biometricClient?: BiometricGrpcService;
-
-  constructor(
-    private readonly prisma: PrismaService,
-    @Optional()
-    @Inject('BIOMETRIC_SERVICE')
-    private readonly biometricGrpc?: ClientGrpc,
-  ) {}
-
-  onModuleInit() {
-    this.biometricClient =
-      this.biometricGrpc?.getService<BiometricGrpcService>(
-        'BiometricService',
-      );
-  }
+export class EngravingService {
+  constructor(private readonly prisma: PrismaService) {}
 
   async createEngraving(userId: string, productId?: string) {
     const engravingId = randomUUID();
@@ -79,7 +53,7 @@ export class EngravingService implements OnModuleInit {
     return {
       engraving: {
         id: engraving.id,
-        orderId: engraving.order_id ?? '',
+        orderId: '',
         userId: engraving.user_id ?? '',
         productId: engraving.product_id ?? '',
         uniqueProductId: engraving.unique_product_id ?? '',
@@ -100,6 +74,7 @@ export class EngravingService implements OnModuleInit {
         customizationConfig: engravingVersion.customization_config
           ? JSON.stringify(engravingVersion.customization_config)
           : '',
+        selectedBiometrics: engravingVersion.selected_biometrics ?? '',
         status: engravingVersion.status ?? '',
         managerId: engravingVersion.manager_id ?? '',
         managerNote: engravingVersion.manager_note ?? '',
@@ -124,19 +99,49 @@ export class EngravingService implements OnModuleInit {
       previewImageUrl?: string;
       model3dUrl?: string;
       productionFileUrl?: string;
+      selectedBiometrics?: string;
     },
-    audioUrl?: string,
   ) {
     const version = await this.prisma.engraving_versions.findUnique({
       where: { id: versionId },
+      include: {
+        engravings_engraving_versions_engraving_idToengravings: {
+          include: { order: true },
+        },
+      },
     });
     if (!version) throw new NotFoundException('Engraving version not found');
 
-    const allowedStatuses = ['PENDING', 'REVISION_REQUIRED'];
-    if (!allowedStatuses.includes(version.status ?? '')) {
-      throw new BadRequestException(
-        `Cannot update version in status "${version.status}"`,
-      );
+    const engraving =
+      version.engravings_engraving_versions_engraving_idToengravings;
+    const order = engraving?.order;
+
+    // Ràng buộc theo order status
+    if (order) {
+      const orderStatus = order.status ?? '';
+      if (orderStatus === 'REVISION_REQUIRED') {
+        // REVISION_REQUIRED: cho edit design, block selectedBiometrics
+        if (data.selectedBiometrics !== undefined) {
+          throw new BadRequestException(
+            'Cannot change package after order creation',
+          );
+        }
+      } else {
+        // Có order + không phải REVISION_REQUIRED → block toàn bộ
+        throw new BadRequestException(
+          'Order already exists. Cannot edit after order creation.',
+        );
+      }
+    }
+
+    // Chưa có order: kiểm tra version status
+    if (!order) {
+      const versionStatus = version.status ?? '';
+      if (!['PENDING', 'REVISION_REQUIRED'].includes(versionStatus)) {
+        throw new BadRequestException(
+          `Cannot update version in status "${versionStatus}"`,
+        );
+      }
     }
 
     const updateData: Record<string, unknown> = {};
@@ -159,8 +164,17 @@ export class EngravingService implements OnModuleInit {
           data.customizationConfig,
         ) as Prisma.InputJsonValue;
       } catch {
+        throw new BadRequestException('customizationConfig must be valid JSON');
+      }
+    }
+    if (data.selectedBiometrics !== undefined) {
+      // Parse array string like ["SW","FP"] → "SW,FP"
+      try {
+        const parsed = JSON.parse(data.selectedBiometrics) as string[];
+        updateData.selected_biometrics = parsed.join(',');
+      } catch {
         throw new BadRequestException(
-          'customizationConfig must be valid JSON',
+          'selectedBiometrics must be a valid JSON array of PackageType strings',
         );
       }
     }
@@ -170,16 +184,6 @@ export class EngravingService implements OnModuleInit {
       data: updateData,
     });
 
-    if (
-      audioUrl &&
-      typeof audioUrl === 'string' &&
-      audioUrl.startsWith('http')
-    ) {
-      this.triggerAudioProcessing(audioUrl, versionId).catch((err) => {
-        console.error(`[AudioProcessing] Failed for version ${versionId}:`, err);
-      });
-    }
-
     return {
       version: {
         id: updated.id,
@@ -193,6 +197,7 @@ export class EngravingService implements OnModuleInit {
         customizationConfig: updated.customization_config
           ? JSON.stringify(updated.customization_config)
           : '',
+        selectedBiometrics: updated.selected_biometrics ?? '',
         status: updated.status ?? '',
         managerId: updated.manager_id ?? '',
         managerNote: updated.manager_note ?? '',
@@ -201,82 +206,8 @@ export class EngravingService implements OnModuleInit {
         selectedMaterial: null,
         selectedGemstone: null,
       },
-      orderId: '',
-      orderStatus: '',
-    };
-  }
-
-  async resubmitVersion(versionId: string) {
-    const version = await this.prisma.engraving_versions.findUnique({
-      where: { id: versionId },
-    });
-    if (!version) throw new NotFoundException('Engraving version not found');
-
-    if (version.status !== 'REVISION_REQUIRED') {
-      throw new BadRequestException(
-        `Cannot resubmit version in status "${version.status}"`,
-      );
-    }
-
-    const updated = await this.prisma.engraving_versions.update({
-      where: { id: versionId },
-      data: { status: 'PENDING' },
-    });
-
-    // Sync engraving.status
-    await this.prisma.engravings.update({
-      where: { id: version.engraving_id },
-      data: { status: 'PENDING' },
-    });
-
-    const engraving = await this.prisma.engravings.findUnique({
-      where: { id: version.engraving_id },
-    });
-
-    let orderId = '';
-    let orderStatus = '';
-    if (engraving?.order_id) {
-      // Check if all engravings in order are PENDING before setting order to PENDING_REVIEW
-      const pendingEngravings = await this.prisma.engravings.count({
-        where: { order_id: engraving.order_id, status: 'PENDING' },
-      });
-      const totalEngravings = await this.prisma.engravings.count({
-        where: { order_id: engraving.order_id },
-      });
-
-      if (pendingEngravings === totalEngravings) {
-        await this.prisma.orders.update({
-          where: { id: engraving.order_id },
-          data: { status: 'PENDING_REVIEW' },
-        });
-        orderStatus = 'PENDING_REVIEW';
-      }
-      orderId = engraving.order_id;
-    }
-
-    return {
-      version: {
-        id: updated.id,
-        engravingId: updated.engraving_id,
-        versionNumber: updated.version_number,
-        selectedMaterialId: updated.selected_material_id ?? '',
-        selectedGemstoneId: updated.selected_gemstone_id ?? '',
-        ringSize: updated.ring_size ?? '',
-        ringStyle: updated.ring_style ?? '',
-        ringShape: updated.ring_shape ?? '',
-        customizationConfig: updated.customization_config
-          ? JSON.stringify(updated.customization_config)
-          : '',
-        status: updated.status ?? '',
-        managerId: updated.manager_id ?? '',
-        managerNote: updated.manager_note ?? '',
-        reviewedAt: updated.reviewed_at?.toISOString() ?? '',
-        createdAt: updated.created_at?.toISOString() ?? '',
-        selectedMaterial: null,
-        selectedGemstone: null,
-      },
-      orderId,
-      orderStatus,
+      orderId: order?.id ?? '',
+      orderStatus: order?.status ?? '',
     };
   }
 
@@ -335,57 +266,64 @@ export class EngravingService implements OnModuleInit {
 
   private mapEngraving(engraving: any) {
     const latest =
-      engraving.engraving_versions_engraving_versions_engraving_idToengravings?.[0] ?? ({} as any);
+      engraving
+        .engraving_versions_engraving_versions_engraving_idToengravings?.[0] ??
+      ({} as any);
     const qrMem = engraving.qr_memories?.[0] ?? null;
     return {
       id: engraving.id,
-      orderId: engraving.order_id ?? '',
+      orderId: engraving.order?.id ?? '',
       userId: engraving.user_id ?? '',
       productId: engraving.product_id ?? '',
       uniqueProductId: engraving.unique_product_id ?? '',
       approvedVersionId: engraving.approved_version_id ?? '',
       status: engraving.status ?? '',
       versions:
-        engraving.engraving_versions_engraving_versions_engraving_idToengravings?.map((v: any) => ({
-          id: v.id,
-          engravingId: v.engraving_id,
-          versionNumber: v.version_number,
-          selectedMaterialId: v.selected_material_id ?? '',
-          selectedGemstoneId: v.selected_gemstone_id ?? '',
-          ringSize: v.ring_size ?? '',
-          ringStyle: v.ring_style ?? '',
-          ringShape: v.ring_shape ?? '',
-          customizationConfig: v.customization_config
-            ? JSON.stringify(v.customization_config)
-            : '',
-          status: v.status ?? '',
-          managerId: v.manager_id ?? '',
-          managerNote: v.manager_note ?? '',
-          reviewedAt: v.reviewed_at?.toISOString() ?? '',
-          createdAt: v.created_at?.toISOString() ?? '',
-          selectedMaterial: v.materials
-            ? {
-                id: v.materials.id,
-                name: v.materials.name,
-                purity: v.materials.purity ?? '',
-                color: v.materials.color ?? '',
-                currentPricePerGram: Number(v.materials.current_price_per_gram ?? 0),
-              }
-            : null,
-          selectedGemstone: v.gemstones
-            ? {
-                id: v.gemstones.id,
-                type: v.gemstones.type,
-                carat: Number(v.gemstones.carat ?? 0),
-                cut: v.gemstones.cut ?? '',
-                color: v.gemstones.color ?? '',
-                clarity: v.gemstones.clarity ?? '',
-                certificationCode: v.gemstones.certification_code ?? '',
-                price: Number(v.gemstones.price ?? 0),
-                isAvailable: v.gemstones.is_available ?? false,
-              }
-            : null,
-        })) ?? [],
+        engraving.engraving_versions_engraving_versions_engraving_idToengravings?.map(
+          (v: any) => ({
+            id: v.id,
+            engravingId: v.engraving_id,
+            versionNumber: v.version_number,
+            selectedMaterialId: v.selected_material_id ?? '',
+            selectedGemstoneId: v.selected_gemstone_id ?? '',
+            ringSize: v.ring_size ?? '',
+            ringStyle: v.ring_style ?? '',
+            ringShape: v.ring_shape ?? '',
+            customizationConfig: v.customization_config
+              ? JSON.stringify(v.customization_config)
+              : '',
+            selectedBiometrics: v.selected_biometrics ?? '',
+            status: v.status ?? '',
+            managerId: v.manager_id ?? '',
+            managerNote: v.manager_note ?? '',
+            reviewedAt: v.reviewed_at?.toISOString() ?? '',
+            createdAt: v.created_at?.toISOString() ?? '',
+            selectedMaterial: v.materials
+              ? {
+                  id: v.materials.id,
+                  name: v.materials.name,
+                  purity: v.materials.purity ?? '',
+                  color: v.materials.color ?? '',
+                  currentPricePerGram: Number(
+                    v.materials.current_price_per_gram ?? 0,
+                  ),
+                }
+              : null,
+            selectedGemstone: v.gemstones
+              ? {
+                  id: v.gemstones.id,
+                  type: v.gemstones.type,
+                  carat: Number(v.gemstones.carat ?? 0),
+                  cut: v.gemstones.cut ?? '',
+                  color: v.gemstones.color ?? '',
+                  clarity: v.gemstones.clarity ?? '',
+                  certificationCode: v.gemstones.certification_code ?? '',
+                  price: Number(v.gemstones.price ?? 0),
+                  isAvailable: v.gemstones.is_available ?? false,
+                }
+              : null,
+          }),
+        ) ?? [],
       biometrics:
         engraving.engraving_biometrics?.map((b: any) => ({
           id: b.id,
@@ -425,6 +363,7 @@ export class EngravingService implements OnModuleInit {
             customizationConfig: latest.customization_config
               ? JSON.stringify(latest.customization_config)
               : '',
+            selectedBiometrics: latest.selected_biometrics ?? '',
             status: latest.status ?? '',
             managerId: latest.manager_id ?? '',
             managerNote: latest.manager_note ?? '',
@@ -436,7 +375,9 @@ export class EngravingService implements OnModuleInit {
                   name: latest.materials.name,
                   purity: latest.materials.purity ?? '',
                   color: latest.materials.color ?? '',
-                  currentPricePerGram: Number(latest.materials.current_price_per_gram ?? 0),
+                  currentPricePerGram: Number(
+                    latest.materials.current_price_per_gram ?? 0,
+                  ),
                 }
               : null,
             selectedGemstone: latest.gemstones
@@ -455,70 +396,5 @@ export class EngravingService implements OnModuleInit {
           }
         : null,
     };
-  }
-
-  private async triggerAudioProcessing(
-    audioUrl: string,
-    engravingVersionId: string,
-  ) {
-    const engravingVersion = await this.prisma.engraving_versions.findUnique({
-      where: { id: engravingVersionId },
-    });
-    if (!engravingVersion) {
-      console.error(`[AudioProcessing] Version ${engravingVersionId} not found`);
-      return;
-    }
-
-    if (!this.biometricClient) {
-      console.error(`[AudioProcessing] biometricClient not initialized (BIOMETRIC_SERVICE gRPC client missing)`);
-      return;
-    }
-
-    console.log(`[AudioProcessing] Calling gRPC processAudio for version ${engravingVersionId}`);
-    let result: { waveformUrl: string; durationMs: number };
-    try {
-      result = await lastValueFrom(
-        this.biometricClient.processAudio({
-          audioUrl,
-          engravingVersionId,
-        }),
-      );
-      console.log(`[AudioProcessing] gRPC success: waveformUrl=${result.waveformUrl}, durationMs=${result.durationMs}`);
-    } catch (err) {
-      console.error(`[AudioProcessing] gRPC failed:`, err);
-      return;
-    }
-
-    const existing = await this.prisma.engraving_biometrics.findFirst({
-      where: {
-        engraving_id: engravingVersion.engraving_id,
-        biometric_type: 'SW',
-      },
-    });
-
-    if (existing) {
-      console.log(`[AudioProcessing] Updating existing SW biometric for engraving ${engravingVersion.engraving_id}`);
-      await this.prisma.engraving_biometrics.update({
-        where: { id: existing.id },
-        data: {
-          raw_file_url: audioUrl,
-          processed_svg_url: result.waveformUrl,
-          status: 'CAPTURED',
-        },
-      });
-    } else {
-      console.log(`[AudioProcessing] Creating new SW biometric for engraving ${engravingVersion.engraving_id}`);
-      await this.prisma.engraving_biometrics.create({
-        data: {
-          id: randomUUID(),
-          engraving_id: engravingVersion.engraving_id,
-          biometric_type: 'SW',
-          required_channel: 'ENGRAVING',
-          raw_file_url: audioUrl,
-          processed_svg_url: result.waveformUrl,
-          status: 'CAPTURED',
-        },
-      });
-    }
   }
 }

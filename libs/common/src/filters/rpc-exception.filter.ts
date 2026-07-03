@@ -42,7 +42,10 @@ export class FitRpcExceptionFilter implements RpcExceptionFilter {
     void _host;
 
     if (exception instanceof HttpException) {
-      this.logger.error(`[${exception.getStatus()}] ${exception.message}`, exception.stack);
+      this.logger.error(
+        `[${exception.getStatus()}] ${exception.message}`,
+        exception.stack,
+      );
       return throwError(() =>
         this.grpcError(exception.getStatus(), exception.message),
       );
@@ -54,13 +57,17 @@ export class FitRpcExceptionFilter implements RpcExceptionFilter {
       switch (err.code) {
         case 'P2025':
         case 'P2001':
-          this.logger.error(`[Prisma ${err.code}] Resource not found — ${typeof err.message === 'string' ? err.message : ''}`);
+          this.logger.error(
+            `[Prisma ${err.code}] Resource not found — ${typeof err.message === 'string' ? err.message : ''}`,
+          );
           return throwError(() =>
             this.grpcError(HttpStatus.NOT_FOUND, 'Resource not found'),
           );
 
         case 'P2002':
-          this.logger.error(`[Prisma P2002] Unique constraint failed — ${typeof err.message === 'string' ? err.message : ''}`);
+          this.logger.error(
+            `[Prisma P2002] Unique constraint failed — ${typeof err.message === 'string' ? err.message : ''}`,
+          );
           return throwError(() =>
             this.grpcError(
               HttpStatus.CONFLICT,

@@ -98,7 +98,12 @@ interface EcommerceGrpcService {
     guestSessionId: string;
     page: number;
     limit: number;
-  }): Observable<{ drafts: DesignDraftResponse[]; total: number; page: number; limit: number }>;
+  }): Observable<{
+    drafts: DesignDraftResponse[];
+    total: number;
+    page: number;
+    limit: number;
+  }>;
   updateDesignDraft(
     data: UpdateDesignDraftDto & { id: string; guestSessionId: string },
   ): Observable<{ draft: DesignDraftResponse }>;
@@ -155,10 +160,7 @@ export class DesignController implements OnModuleInit {
   @Get('drafts')
   @Public()
   @ApiGetMyDraftsDocs()
-  async getMyDrafts(
-    @Req() req: Request,
-    @Query() query: GetMyDraftsQueryDto,
-  ) {
+  async getMyDrafts(@Req() req: Request, @Query() query: GetMyDraftsQueryDto) {
     const guestSessionId =
       (req.cookies as Record<string, string> | undefined)?.guest_session_id ??
       '';
@@ -169,7 +171,12 @@ export class DesignController implements OnModuleInit {
         limit: query.limit ?? 10,
       }),
     );
-    return { drafts: result?.drafts ?? [], total: result?.total ?? 0, page: result?.page ?? 1, limit: result?.limit ?? 10 };
+    return {
+      drafts: result?.drafts ?? [],
+      total: result?.total ?? 0,
+      page: result?.page ?? 1,
+      limit: result?.limit ?? 10,
+    };
   }
 
   @Put('drafts/:id')

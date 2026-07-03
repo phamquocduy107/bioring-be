@@ -1,9 +1,9 @@
-import { IsArray, IsIn, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsIn, IsOptional, IsString } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ReviewOrderDto {
   @ApiProperty({
-    description: 'Action',
+    description: 'Action — 1 order = 1 engraving, approve/reject trực tiếp',
     example: 'approve',
     enum: ['approve', 'reject'],
   })
@@ -17,13 +17,4 @@ export class ReviewOrderDto {
   @IsOptional()
   @IsString()
   note?: string;
-
-  @ApiPropertyOptional({
-    description: 'Engraving IDs to review (empty = all engravings)',
-    example: ['uuid1', 'uuid2'],
-  })
-  @IsOptional()
-  @IsArray()
-  @IsUUID('4', { each: true })
-  engravingIds?: string[];
 }

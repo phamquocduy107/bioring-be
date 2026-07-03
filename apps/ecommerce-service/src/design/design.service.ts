@@ -295,7 +295,7 @@ export class DesignService {
       draft: await this.includeRelations(result.updated),
       engraving: {
         id: result.engraving.id,
-        orderId: result.engraving.order_id ?? '',
+        orderId: '',
         userId: result.engraving.user_id ?? '',
         productId: result.engraving.product_id ?? '',
         uniqueProductId: result.engraving.unique_product_id ?? '',

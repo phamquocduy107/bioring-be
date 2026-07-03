@@ -124,7 +124,7 @@ interface OrderResponse {
   createdAt: string;
   updatedAt: string;
   payments: PaymentResponse[];
-  engravings: EngravingResponse[];
+  engraving: EngravingResponse | null;
 }
 
 interface ProductionTaskResponse {
@@ -148,9 +148,8 @@ interface EcommerceGrpcService {
     customizationConfig: string;
   }): Observable<{ version: EngravingVersionResponse }>;
   createOrder(data: {
-    engravingIds: string[];
+    engravingId: string;
     userId: string;
-    packageType: string;
   }): Observable<{ order: OrderResponse }>;
   submitOrder(data: { id: string }): Observable<{ order: OrderResponse }>;
   getOrder(data: { id: string }): Observable<{ order: OrderResponse }>;
@@ -173,7 +172,6 @@ interface EcommerceGrpcService {
     action: string;
     note: string;
     managerId: string;
-    engravingIds: string[];
   }): Observable<{ order: OrderResponse }>;
   initiatePayment(data: {
     orderId: string;
@@ -237,7 +235,9 @@ export class OrderController implements OnModuleInit {
     if (!this.grpc)
       throw new Error('ECOMMERCE_SERVICE gRPC client not initialized');
     const grpcAny = this.grpc as unknown as Record<string, Function>;
-    const fn = grpcAny[methodName] ?? grpcAny[`${methodName[0].toUpperCase()}${methodName.slice(1)}`];
+    const fn =
+      grpcAny[methodName] ??
+      grpcAny[`${methodName[0].toUpperCase()}${methodName.slice(1)}`];
     if (!fn) {
       const proto = Object.getPrototypeOf(this.grpc);
       const allMethods = [
@@ -262,27 +262,22 @@ export class OrderController implements OnModuleInit {
   createOrder(@Body() body: CreateOrderDto, @CurrentUser() user: JwtPayload) {
     return this.call(() =>
       this.grpc!.createOrder({
-        engravingIds: body.engravingIds,
+        engravingId: body.engravingId,
         userId: user.sub,
-        packageType: body.packageType,
       }),
     );
   }
 
   @Patch(':id/submit')
   @ApiSubmitOrderDocs()
-  submitOrder(
-    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
-  ) {
+  submitOrder(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.call(() => this.grpc!.submitOrder({ id }));
   }
 
   @Get('production-tasks')
   @Permissions(Permission.OrderWrite)
   @ApiGetProductionTasksDocs()
-  getProductionTasks(
-    @Query() query: GetProductionTasksQueryDto,
-  ) {
+  getProductionTasks(@Query() query: GetProductionTasksQueryDto) {
     return this.grpcCall('getProductionTasks', {
       page: query.page,
       limit: query.limit,
@@ -333,7 +328,6 @@ export class OrderController implements OnModuleInit {
         action: body.action,
         note: body.note ?? '',
         managerId: user.sub,
-        engravingIds: body.engravingIds ?? [],
       }),
     );
   }
@@ -456,5 +450,4 @@ export class OrderController implements OnModuleInit {
       }),
     );
   }
-
 }

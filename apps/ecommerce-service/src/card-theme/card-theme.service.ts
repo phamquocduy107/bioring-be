@@ -135,9 +135,7 @@ export class CardThemeService {
       themeCode: theme.theme_code,
       name: theme.name,
       defaultBgUrl: theme.default_bg_url ?? '',
-      styleConfig: theme.style_config
-        ? JSON.stringify(theme.style_config)
-        : '',
+      styleConfig: theme.style_config ? JSON.stringify(theme.style_config) : '',
       isActive: theme.is_active ?? false,
       createdAt: theme.created_at?.toISOString() ?? '',
     };

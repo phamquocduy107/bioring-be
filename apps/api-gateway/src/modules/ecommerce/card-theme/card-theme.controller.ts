@@ -32,10 +32,7 @@ interface CardThemeResponse {
 }
 
 interface EcommerceGrpcService {
-  getCardThemes(data: {
-    page?: number;
-    limit?: number;
-  }): Observable<{
+  getCardThemes(data: { page?: number; limit?: number }): Observable<{
     cardThemes: CardThemeResponse[];
     total: number;
     page: number;
@@ -57,9 +54,7 @@ interface EcommerceGrpcService {
     defaultBgUrl?: string;
     styleConfig?: string;
   }): Observable<{ cardTheme: CardThemeResponse }>;
-  deleteCardTheme(data: {
-    id: string;
-  }): Observable<{ success: boolean }>;
+  deleteCardTheme(data: { id: string }): Observable<{ success: boolean }>;
 }
 
 @Controller('api/v1/card-themes')
@@ -94,9 +89,7 @@ export class CardThemeController implements OnModuleInit {
   }
 
   @Get(':id')
-  async getById(
-    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
-  ) {
+  async getById(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.call(() => this.grpc!.getCardTheme({ id }));
   }
 
@@ -132,9 +125,7 @@ export class CardThemeController implements OnModuleInit {
 
   @Delete(':id')
   @Permissions(Permission.DesignWrite)
-  async delete(
-    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
-  ) {
+  async delete(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.call(() => this.grpc!.deleteCardTheme({ id }));
   }
 }

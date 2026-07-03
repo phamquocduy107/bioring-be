@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '@app/prisma';
 import { createHash } from 'node:crypto';
@@ -22,6 +26,19 @@ export class MemoryCardService {
       biometricDisplaySettings?: string;
     },
   ) {
+    const engraving = await this.prisma.engravings.findUnique({
+      where: { id: engravingId },
+      include: { order: true },
+    });
+    if (engraving?.order) {
+      const orderStatus = engraving.order.status ?? '';
+      if (orderStatus !== 'REVISION_REQUIRED') {
+        throw new BadRequestException(
+          'Cannot edit memory card after order creation (except in REVISION_REQUIRED)',
+        );
+      }
+    }
+
     const qrMemory = await this.prisma.qr_memories.findUnique({
       where: { engraving_id: engravingId },
     });
@@ -32,12 +49,13 @@ export class MemoryCardService {
     if (data.cardTitle !== undefined) updateData.card_title = data.cardTitle;
     if (data.greetingMessage !== undefined)
       updateData.greeting_message = data.greetingMessage;
-    if (data.cardThemeId !== undefined)
-      updateData.theme_id = data.cardThemeId;
+    if (data.cardThemeId !== undefined) updateData.theme_id = data.cardThemeId;
     if (data.customImages !== undefined)
       updateData.custom_images = JSON.parse(data.customImages);
     if (data.biometricDisplaySettings !== undefined)
-      updateData.biometric_display_settings = JSON.parse(data.biometricDisplaySettings);
+      updateData.biometric_display_settings = JSON.parse(
+        data.biometricDisplaySettings,
+      );
 
     const updated = await this.prisma.qr_memories.update({
       where: { engraving_id: engravingId },
@@ -86,9 +104,7 @@ export class MemoryCardService {
       cardTitle: qr.card_title ?? '',
       greetingMessage: qr.greeting_message ?? '',
       recipientEmail: '',
-      customImages: qr.custom_images
-        ? JSON.stringify(qr.custom_images)
-        : '',
+      customImages: qr.custom_images ? JSON.stringify(qr.custom_images) : '',
       biometricDisplaySettings: qr.biometric_display_settings
         ? JSON.stringify(qr.biometric_display_settings)
         : '',

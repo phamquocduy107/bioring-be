@@ -7,8 +7,8 @@ export class OrderController {
   constructor(private readonly orderService: OrderService) {}
 
   @GrpcMethod('EcommerceService', 'CreateOrder')
-  async createOrder(data: { engravingIds: string[]; userId: string; packageType: string }) {
-    return this.orderService.createOrder(data.engravingIds, data.userId, data.packageType);
+  async createOrder(data: { engravingId: string; userId: string }) {
+    return this.orderService.createOrder(data.engravingId, data.userId);
   }
 
   @GrpcMethod('EcommerceService', 'SubmitOrder')
@@ -17,11 +17,17 @@ export class OrderController {
   }
 
   @GrpcMethod('EcommerceService', 'AttachBiometric')
-  async attachBiometric(data: { engravingId: string; biometricType: string; rawFileUrl: string }) {
+  async attachBiometric(data: {
+    engravingId: string;
+    biometricType: string;
+    rawFileUrl: string;
+    extraData?: string;
+  }) {
     return this.orderService.attachBiometric(
       data.engravingId,
       data.biometricType,
       data.rawFileUrl,
+      data.extraData,
     );
   }
 
@@ -45,14 +51,12 @@ export class OrderController {
     action: string;
     note: string;
     managerId: string;
-    engravingIds?: string[];
   }) {
     return this.orderService.reviewOrder(
       data.id,
       data.action,
       data.note,
       data.managerId,
-      data.engravingIds ?? [],
     );
   }
 
@@ -74,9 +78,7 @@ export class OrderController {
   }
 
   @GrpcMethod('EcommerceService', 'HandlePayOSWebhook')
-  async handlePayOSWebhook(data: {
-    webhookBody: string;
-  }) {
+  async handlePayOSWebhook(data: { webhookBody: string }) {
     return this.orderService.handlePayOSWebhook(data);
   }
 

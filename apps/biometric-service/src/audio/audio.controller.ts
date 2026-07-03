@@ -9,10 +9,10 @@ export class AudioController {
 
   @SkipTimeout()
   @GrpcMethod('BiometricService', 'ProcessAudio')
-  async processAudio(data: {
-    audioUrl: string;
-    engravingVersionId: string;
-  }) {
-    return this.audioService.processAudio(data.audioUrl, data.engravingVersionId);
+  async processAudio(data: { audioUrl: string; engravingVersionId: string }) {
+    return this.audioService.processAudio(
+      data.audioUrl,
+      data.engravingVersionId,
+    );
   }
 }

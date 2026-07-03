@@ -20,7 +20,9 @@ export class ProductionTaskResponse {
   @ApiPropertyOptional({ example: 'Ring production - ORD-001' })
   taskName?: string;
 
-  @ApiPropertyOptional({ example: 'Production of custom ring with SW engraving' })
+  @ApiPropertyOptional({
+    example: 'Production of custom ring with SW engraving',
+  })
   taskDescription?: string;
 
   @ApiProperty({ example: 'IN_PROGRESS' })

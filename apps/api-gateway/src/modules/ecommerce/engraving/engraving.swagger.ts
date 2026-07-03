@@ -18,6 +18,7 @@ const engravingVersionExample = {
   ringStyle: '',
   ringShape: '',
   customizationConfig: '',
+  selectedBiometrics: '',
   status: 'PENDING',
   managerId: '',
   managerNote: '',
@@ -77,7 +78,7 @@ export function ApiUpdateEngravingVersionConfigDocs() {
       summary: 'Update engraving version config (incremental save)',
       description:
         'Saves/updates customizationConfig for an engraving version. ' +
-        'Gửi kèm audioUrl để trigger xử lý waveform (Python service). ' +
+        'Gửi kèm selectedBiometrics để chọn gói (VD: ["SW","FP"]). ' +
         'Đây là save tạm, không đẩy đi duyệt. Dùng POST /resubmit để gửi duyệt.',
     }),
     ApiParam({
@@ -140,8 +141,18 @@ export function ApiGetMyEngravingsDocs() {
     }),
     ApiQuery({ name: 'page', type: Number, required: false, example: 1 }),
     ApiQuery({ name: 'limit', type: Number, required: false, example: 10 }),
-    ApiQuery({ name: 'status', type: String, required: false, example: 'PENDING' }),
-    ApiQuery({ name: 'orderId', type: String, required: false, format: 'uuid' }),
+    ApiQuery({
+      name: 'status',
+      type: String,
+      required: false,
+      example: 'PENDING',
+    }),
+    ApiQuery({
+      name: 'orderId',
+      type: String,
+      required: false,
+      format: 'uuid',
+    }),
     ApiResponse({
       status: 200,
       description: 'Paginated list of engravings.',
@@ -200,11 +211,12 @@ export function ApiAttachBiometricDocs() {
   return applyDecorators(
     ApiBearerAuth('access-token'),
     ApiOperation({
-      summary: 'Attach biometric data (staff)',
+      summary: 'Attach biometric data (unified)',
       description:
-        'Staff uploads captured biometric file for an engraving. ' +
-        'Order must be in AWAITING_CAPTURE status. ' +
-        'SW → triggers audio→waveform processing. FP → triggers fingerprint→SVG processing.',
+        'Uploads biometric file for an engraving. ' +
+        'Order must be in AWAITING_SUBMIT status. ' +
+        'SW → audio (rawFileUrl = full recording, extraData = {"startMs":0,"endMs":1000}). ' +
+        'FP/HB → fingerprint/hand biometric. Works for both MF-02 and MF-03.',
     }),
     ApiParam({
       name: 'id',
@@ -233,50 +245,5 @@ export function ApiAttachBiometricDocs() {
     ApiResponse({ status: 400, description: 'Invalid input' }),
     ApiResponse({ status: 401, description: 'Unauthorized' }),
     ApiResponse({ status: 404, description: 'Engraving not found' }),
-  );
-}
-
-export function ApiResubmitEngravingVersionDocs() {
-  return applyDecorators(
-    ApiBearerAuth('access-token'),
-    ApiOperation({
-      summary: 'Resubmit engraving version for manager review',
-      description:
-        'Gửi duyệt version đang ở trạng thái REVISION_REQUIRED. ' +
-        'Chuyển version → PENDING và order → PENDING_REVIEW để manager duyệt lại.',
-    }),
-    ApiParam({
-      name: 'versionId',
-      type: String,
-      format: 'uuid',
-      example: '550e8400-e29b-41d4-a716-446655440004',
-    }),
-    ApiResponse({
-      status: 200,
-      description:
-        'Version resubmitted. orderId + orderStatus trả về nếu tìm thấy order.',
-      schema: {
-        example: {
-          version: {
-            ...engravingVersionExample,
-            versionNumber: 2,
-            selectedMaterialId: 'a1111111-1111-4111-8111-111111111111',
-            selectedGemstoneId: 'b1111111-1111-4111-8111-111111111111',
-            ringSize: '7',
-            ringStyle: 'CLASSIC',
-            ringShape: 'ROUND',
-            customizationConfig: customConfigExample,
-          },
-          orderId: '550e8400-e29b-41d4-a716-446655440001',
-          orderStatus: 'PENDING_REVIEW',
-        },
-      },
-    }),
-    ApiResponse({
-      status: 400,
-      description: 'Version không phải REVISION_REQUIRED',
-    }),
-    ApiResponse({ status: 401, description: 'Unauthorized' }),
-    ApiResponse({ status: 404, description: 'Version not found' }),
   );
 }

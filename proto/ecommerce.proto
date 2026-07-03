@@ -232,7 +232,7 @@ message UpdateEngravingVersionConfigRequest {
   string previewImageUrl = 8;
   string model3dUrl = 9;
   string productionFileUrl = 10;
-  string audioUrl = 11;
+  string selectedBiometrics = 12;
 }
 
 message ResubmitEngravingVersionRequest {
@@ -295,13 +295,12 @@ message Order {
   string updatedAt = 17;
   DesignDraft designDraft = 18;
   repeated Payment payments = 19;
-  repeated Engraving engravings = 20;
+  Engraving engraving = 20;
 }
 
 message CreateOrderRequest {
-  repeated string engravingIds = 1;
+  string engravingId = 1;
   string userId = 2;
-  string packageType = 3;
 }
 
 message CreateOrderResponse {
@@ -334,7 +333,6 @@ message ReviewOrderRequest {
   string action = 2;
   string note = 3;
   string managerId = 4;
-  repeated string engravingIds = 5;  // empty = all engravings
 }
 
 message ReviewOrderResponse {
@@ -353,6 +351,7 @@ message AttachBiometricRequest {
   string engravingId = 1;
   string biometricType = 2;
   string rawFileUrl = 3;
+  string extraData = 4;
 }
 
 message AttachBiometricResponse {
@@ -384,13 +383,14 @@ message EngravingVersion {
   string ringStyle = 7;
   string ringShape = 8;
   string customizationConfig = 9;
-  string status = 10;
-  string managerId = 11;
-  string managerNote = 12;
-  string reviewedAt = 13;
-  string createdAt = 14;
-  Material selectedMaterial = 15;
-  Gemstone selectedGemstone = 16;
+  string selectedBiometrics = 10;
+  string status = 11;
+  string managerId = 12;
+  string managerNote = 13;
+  string reviewedAt = 14;
+  string createdAt = 15;
+  Material selectedMaterial = 16;
+  Gemstone selectedGemstone = 17;
 }
 
 message EngravingBioMetric {

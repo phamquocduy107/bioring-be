@@ -1,4 +1,4 @@
-import { IsIn, IsString } from 'class-validator';
+import { IsIn, IsOptional, IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class AttachBiometricDto {
@@ -16,4 +16,14 @@ export class AttachBiometricDto {
   })
   @IsString()
   rawFileUrl!: string;
+
+  @ApiProperty({
+    description:
+      'Optional JSON string with extra data. For SW audio: {"startMs":0,"endMs":1000} defines the segment to engrave.',
+    example: '{"startMs":0,"endMs":1000}',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  extraData?: string;
 }

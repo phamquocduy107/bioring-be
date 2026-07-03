@@ -29,7 +29,9 @@ export class PayOSService {
         returnUrl: params.returnUrl,
         cancelUrl: params.cancelUrl,
       });
-      console.log(`[PayOS] createPaymentLink success: orderCode=${params.orderCode}, paymentLinkId=${result.paymentLinkId}`);
+      console.log(
+        `[PayOS] createPaymentLink success: orderCode=${params.orderCode}, paymentLinkId=${result.paymentLinkId}`,
+      );
 
       return {
         paymentUrl: result.checkoutUrl,
@@ -37,16 +39,20 @@ export class PayOSService {
         qrCode: result.qrCode,
       };
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Unknown PayOS error';
+      const msg =
+        error instanceof Error ? error.message : 'Unknown PayOS error';
       console.error(`[PayOS] createPaymentLink failed: ${msg}`);
-      throw new HttpException(`PayOS createPaymentLink error: ${msg}`, HttpStatus.BAD_GATEWAY);
+      throw new HttpException(
+        `PayOS createPaymentLink error: ${msg}`,
+        HttpStatus.BAD_GATEWAY,
+      );
     }
   }
 
   async verifyWebhook(webhook: Webhook): Promise<WebhookData | null> {
     try {
       const data = await this.payOS.webhooks.verify(webhook);
-      return data as unknown as WebhookData;
+      return data;
     } catch {
       return null;
     }
@@ -55,11 +61,17 @@ export class PayOSService {
   async cancelPaymentLink(transactionId: string): Promise<void> {
     try {
       await this.payOS.paymentRequests.cancel(transactionId);
-      console.log(`[PayOS] cancelPaymentLink success: transactionId=${transactionId}`);
+      console.log(
+        `[PayOS] cancelPaymentLink success: transactionId=${transactionId}`,
+      );
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Unknown PayOS error';
+      const msg =
+        error instanceof Error ? error.message : 'Unknown PayOS error';
       console.error(`[PayOS] cancelPaymentLink failed: ${msg}`);
-      throw new HttpException(`PayOS cancel error: ${msg}`, HttpStatus.BAD_GATEWAY);
+      throw new HttpException(
+        `PayOS cancel error: ${msg}`,
+        HttpStatus.BAD_GATEWAY,
+      );
     }
   }
 
@@ -68,9 +80,13 @@ export class PayOSService {
       const result = await this.payOS.paymentRequests.get(Number(orderCode));
       return { status: result.status };
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Unknown PayOS error';
+      const msg =
+        error instanceof Error ? error.message : 'Unknown PayOS error';
       console.error(`[PayOS] getTransactionStatus failed: ${msg}`);
-      throw new HttpException(`PayOS getTransactionStatus error: ${msg}`, HttpStatus.BAD_GATEWAY);
+      throw new HttpException(
+        `PayOS getTransactionStatus error: ${msg}`,
+        HttpStatus.BAD_GATEWAY,
+      );
     }
   }
 }

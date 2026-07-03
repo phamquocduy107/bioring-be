@@ -18,47 +18,47 @@ export class OrderService {
     private readonly payOS: PayOSService,
   ) {}
 
-  async createOrder(engravingIds: string[], userId: string, packageType: string) {
-    if (!engravingIds?.length) {
-      throw new BadRequestException('At least one engravingId is required');
-    }
-
-    const engravings = await this.prisma.engravings.findMany({
-      where: { id: { in: engravingIds } },
+  async createOrder(engravingId: string, userId: string) {
+    const engraving = await this.prisma.engravings.findUnique({
+      where: { id: engravingId },
       include: {
         engraving_versions_engraving_versions_engraving_idToengravings: {
           orderBy: { version_number: 'desc' },
           take: 1,
         },
+        order: true,
       },
     });
 
-    if (engravings.length !== engravingIds.length) {
-      throw new NotFoundException('One or more engravings not found');
+    if (!engraving) throw new NotFoundException('Engraving not found');
+    if (engraving.user_id !== userId) {
+      throw new ForbiddenException('Engraving does not belong to this user');
+    }
+    if (engraving.order) {
+      throw new BadRequestException('Engraving already has an order');
     }
 
-    for (const e of engravings) {
-      if (e.user_id !== userId) {
-        throw new ForbiddenException(
-          `Engraving ${e.id} does not belong to this user (userId: ${userId})`,
-        );
-      }
-      if (e.order_id) {
-        throw new BadRequestException(
-          `Engraving ${e.id} is already linked to an order`,
-        );
-      }
+    // Derive packageType từ selected_biometrics
+    const version =
+      engraving
+        .engraving_versions_engraving_versions_engraving_idToengravings[0];
+    const selected =
+      version?.selected_biometrics?.split(',').filter(Boolean) ?? [];
+    if (selected.length === 0) {
+      throw new BadRequestException(
+        'No biometrics selected. Please set selectedBiometrics via PATCH config first.',
+      );
     }
+    const packageType = selected.join('_'); // ["SW","FP"] → "SW_FP"
 
     const captureRoute = packageType === 'SW' ? 'ONLINE' : 'OFFLINE';
-    const initialStatus = captureRoute === 'ONLINE'
-      ? 'AWAITING_SUBMIT'
-      : 'AWAITING_DEPOSIT_1';
+    const initialStatus =
+      captureRoute === 'ONLINE' ? 'AWAITING_SUBMIT' : 'AWAITING_DEPOSIT_1';
 
     let designDraftId: string | null = null;
-    if (engravings[0].unique_product_id) {
+    if (engraving.unique_product_id) {
       const draft = await this.prisma.design_drafts.findUnique({
-        where: { design_code: engravings[0].unique_product_id },
+        where: { design_code: engraving.unique_product_id },
         select: { id: true },
       });
       designDraftId = draft?.id ?? null;
@@ -67,12 +67,13 @@ export class OrderService {
     const orderId = randomUUID();
     const orderCode = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
-    const price = await this.calculatePrice(engravings[0]);
+    const price = await this.calculatePrice(engraving);
 
     const order = await this.prisma.orders.create({
       data: {
         id: orderId,
         order_code: orderCode,
+        engraving_id: engravingId,
         user_id: userId,
         design_draft_id: designDraftId,
         capture_route: captureRoute,
@@ -89,11 +90,6 @@ export class OrderService {
       },
     });
 
-    await this.prisma.engravings.updateMany({
-      where: { id: { in: engravingIds } },
-      data: { order_id: orderId },
-    });
-
     return { order: await this.mapOrder(order) };
   }
 
@@ -101,7 +97,7 @@ export class OrderService {
     const order = await this.prisma.orders.findUnique({
       where: { id },
       include: {
-        engravings: {
+        engraving: {
           include: {
             engraving_versions_engraving_versions_engraving_idToengravings: {
               orderBy: { version_number: 'desc' },
@@ -147,12 +143,11 @@ export class OrderService {
     action: string,
     note: string,
     managerId: string,
-    engravingIds?: string[],
   ) {
     const order = await this.prisma.orders.findUnique({
       where: { id },
       include: {
-        engravings: {
+        engraving: {
           include: {
             engraving_versions_engraving_versions_engraving_idToengravings: {
               orderBy: { version_number: 'desc' },
@@ -168,140 +163,106 @@ export class OrderService {
       throw new BadRequestException('Order must be in PENDING_REVIEW status');
     }
 
-    // Determine target engravings: if engravingIds provided and non-empty, filter; else all
-    const targetEngravings =
-      engravingIds && engravingIds.length > 0
-        ? order.engravings.filter((e) => engravingIds.includes(e.id))
-        : order.engravings;
+    const engraving = order.engraving;
+    if (!engraving) throw new BadRequestException('Order has no engraving');
 
-    if (targetEngravings.length === 0) {
-      throw new BadRequestException('No matching engravings found for review');
-    }
+    const latest =
+      engraving
+        .engraving_versions_engraving_versions_engraving_idToengravings[0];
 
     if (action === 'approve') {
-      for (const engraving of targetEngravings) {
-        const latest =
-          engraving
-            .engraving_versions_engraving_versions_engraving_idToengravings[0];
-        if (latest && latest.status !== 'APPROVED') {
-          await this.prisma.engraving_versions.update({
-            where: { id: latest.id },
-            data: {
-              status: 'APPROVED',
-              manager_id: managerId,
-              reviewed_at: new Date(),
-            },
-          });
-          await this.prisma.engravings.update({
-            where: { id: engraving.id },
-            data: { approved_version_id: latest.id, status: 'APPROVED' },
-          });
-        }
+      if (latest && latest.status !== 'APPROVED') {
+        await this.prisma.engraving_versions.update({
+          where: { id: latest.id },
+          data: {
+            status: 'APPROVED',
+            manager_id: managerId,
+            reviewed_at: new Date(),
+          },
+        });
+        await this.prisma.engravings.update({
+          where: { id: engraving.id },
+          data: { approved_version_id: latest.id, status: 'APPROVED' },
+        });
       }
 
       // Update qr_memories with biometric display settings
-      for (const engraving of targetEngravings) {
-        const biometrics = await this.prisma.engraving_biometrics.findMany({
-          where: { engraving_id: engraving.id },
-        });
-        if (biometrics.length > 0) {
-          const displaySettings: Record<string, unknown> = {};
-          for (const b of biometrics) {
-            displaySettings[b.biometric_type] = {
-              processedSvgUrl: b.processed_svg_url,
-              rawFileUrl: b.raw_file_url,
-              extraData: b.extra_data,
-            };
-          }
-          await this.prisma.qr_memories.updateMany({
-            where: { engraving_id: engraving.id },
-            data: {
-              biometric_display_settings:
-                displaySettings as Prisma.InputJsonValue,
-            },
-          });
-        }
-      }
-
-      // Check if all engravings in order are APPROVED
-      const allEngravings = await this.prisma.engravings.findMany({
-        where: { order_id: id },
+      const biometrics = await this.prisma.engraving_biometrics.findMany({
+        where: { engraving_id: engraving.id },
       });
-      const allApproved = allEngravings.every((e) => e.status === 'APPROVED');
-
-      const updateData: Record<string, unknown> = {
-        approved_by_manager_id: managerId,
-      };
-      if (note) updateData.note = note;
-      if (allApproved) {
-        updateData.status = 'AWAITING_DEPOSIT';
+      if (biometrics.length > 0) {
+        const displaySettings: Record<string, unknown> = {};
+        for (const b of biometrics) {
+          displaySettings[b.biometric_type] = {
+            processedSvgUrl: b.processed_svg_url,
+            rawFileUrl: b.raw_file_url,
+            extraData: b.extra_data,
+          };
+        }
+        await this.prisma.qr_memories.updateMany({
+          where: { engraving_id: engraving.id },
+          data: {
+            biometric_display_settings:
+              displaySettings as Prisma.InputJsonValue,
+          },
+        });
       }
 
       const updated = await this.prisma.orders.update({
         where: { id },
-        data: updateData,
+        data: {
+          status: 'AWAITING_DEPOSIT',
+          approved_by_manager_id: managerId,
+          ...(note ? { note } : {}),
+        },
       });
 
       return { order: await this.mapOrder(updated) };
     }
 
     if (action === 'reject') {
-      for (const engraving of targetEngravings) {
-        const latest =
-          engraving
-            .engraving_versions_engraving_versions_engraving_idToengravings[0];
-        if (latest) {
-          await this.prisma.engraving_versions.update({
-            where: { id: latest.id },
-            data: {
-              status: 'REJECTED',
-              manager_id: managerId,
-              manager_note: note || null,
-              reviewed_at: new Date(),
-            },
-          });
+      if (latest) {
+        await this.prisma.engraving_versions.update({
+          where: { id: latest.id },
+          data: {
+            status: 'REJECTED',
+            manager_id: managerId,
+            manager_note: note || null,
+            reviewed_at: new Date(),
+          },
+        });
 
-          await this.prisma.engravings.update({
-            where: { id: engraving.id },
-            data: { status: 'REJECTED' },
-          });
+        await this.prisma.engravings.update({
+          where: { id: engraving.id },
+          data: { status: 'REJECTED' },
+        });
 
-          const newVersionId = randomUUID();
-          await this.prisma.engraving_versions.create({
-            data: {
-              id: newVersionId,
-              engraving_id: engraving.id,
-              version_number: latest.version_number + 1,
-              selected_material_id: latest.selected_material_id,
-              selected_gemstone_id: latest.selected_gemstone_id,
-              ring_size: latest.ring_size,
-              ring_style: latest.ring_style,
-              ring_shape: latest.ring_shape,
-              customization_config:
-                latest.customization_config as Prisma.InputJsonValue,
-              status: 'PENDING',
-            },
-          });
-        }
-      }
-
-      // Check if ALL engravings are now REJECTED
-      const allEngravings = await this.prisma.engravings.findMany({
-        where: { order_id: id },
-      });
-      const allRejected = allEngravings.every((e) => e.status === 'REJECTED');
-
-      const updateData: Record<string, unknown> = {
-        approved_by_manager_id: managerId,
-      };
-      if (note) updateData.note = note;
-      if (allRejected) {
-        updateData.status = 'REVISION_REQUIRED';
+        const newVersionId = randomUUID();
+        await this.prisma.engraving_versions.create({
+          data: {
+            id: newVersionId,
+            engraving_id: engraving.id,
+            version_number: latest.version_number + 1,
+            selected_material_id: latest.selected_material_id,
+            selected_gemstone_id: latest.selected_gemstone_id,
+            ring_size: latest.ring_size,
+            ring_style: latest.ring_style,
+            ring_shape: latest.ring_shape,
+            customization_config:
+              latest.customization_config as Prisma.InputJsonValue,
+            selected_biometrics: latest.selected_biometrics,
+            status: 'PENDING',
+          },
+        });
       }
 
       const updated = await this.prisma.orders.update({
         where: { id },
-        data: updateData,
+        data: {
+          status: 'REVISION_REQUIRED',
+          approved_by_manager_id: managerId,
+          ...(note ? { note } : {}),
+        },
       });
 
       return { order: await this.mapOrder(updated) };
@@ -314,9 +275,11 @@ export class OrderService {
     const order = await this.prisma.orders.findUnique({ where: { id } });
     if (!order) throw new NotFoundException('Order not found');
 
-    if (!['AWAITING_SUBMIT', 'AWAITING_CAPTURE'].includes(order.status ?? '')) {
+    if (
+      !['AWAITING_SUBMIT', 'REVISION_REQUIRED'].includes(order.status ?? '')
+    ) {
       throw new BadRequestException(
-        'Order must be in AWAITING_SUBMIT or AWAITING_CAPTURE to submit',
+        'Order must be in AWAITING_SUBMIT or REVISION_REQUIRED to submit',
       );
     }
 
@@ -332,32 +295,47 @@ export class OrderService {
     engravingId: string,
     biometricType: string,
     rawFileUrl: string,
+    extraData?: string,
   ) {
     const engraving = await this.prisma.engravings.findUnique({
       where: { id: engravingId },
-      include: { orders: true },
+      include: { order: true },
     });
     if (!engraving) throw new NotFoundException('Engraving not found');
-    if (!engraving.order_id) {
+    if (!engraving.order) {
       throw new BadRequestException('Engraving not linked to an order');
     }
 
-    if (engraving.orders?.status !== 'AWAITING_CAPTURE') {
+    if (engraving.order.status !== 'AWAITING_SUBMIT') {
       throw new BadRequestException(
-        'Order must be in AWAITING_CAPTURE status to attach biometrics',
+        'Order must be in AWAITING_SUBMIT status to attach biometrics',
       );
     }
 
-    const packageTypes = (engraving.orders.package_type ?? '').split('+');
+    const packageTypes = (engraving.order.package_type ?? '').split('_');
     if (!packageTypes.includes(biometricType)) {
       throw new BadRequestException(
-        `Biometric type ${biometricType} not in package ${engraving.orders.package_type}`,
+        `Biometric type ${biometricType} not in package ${engraving.order.package_type}`,
       );
     }
 
-    const processedSvgUrl = await this.processBiometric(biometricType, rawFileUrl, engravingId);
+    const processedSvgUrl = await this.processBiometric(
+      biometricType,
+      rawFileUrl,
+      engravingId,
+    );
 
-    const requiredChannel = biometricType === 'HB' ? 'MEMORY_CARD' : 'ENGRAVING';
+    const requiredChannel =
+      biometricType === 'HB' ? 'MEMORY_CARD' : 'ENGRAVING';
+
+    let extraDataJson: Record<string, unknown> = {};
+    if (extraData) {
+      try {
+        extraDataJson = JSON.parse(extraData) as Record<string, unknown>;
+      } catch {
+        throw new BadRequestException('extraData must be valid JSON');
+      }
+    }
 
     const biometric = await this.prisma.engraving_biometrics.create({
       data: {
@@ -367,7 +345,7 @@ export class OrderService {
         required_channel: requiredChannel,
         raw_file_url: rawFileUrl,
         processed_svg_url: processedSvgUrl,
-        extra_data: {},
+        extra_data: extraDataJson as Prisma.InputJsonValue,
         status: 'CAPTURED',
       },
     });
@@ -380,15 +358,50 @@ export class OrderService {
     rawFileUrl: string,
     engravingVersionId: string,
   ): Promise<string> {
+    const baseUrl =
+      process.env.BIOMETRIC_PROCESSING_URL ?? 'http://localhost:5051';
+
     if (biometricType === 'SW') {
-      // TODO: call Python process-audio via BiometricService gRPC
-      return rawFileUrl;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      try {
+        const res = await fetch(`${baseUrl}/process-audio`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ audioUrl: rawFileUrl, engravingVersionId }),
+          signal: controller.signal,
+        });
+        if (!res.ok) {
+          throw new Error(`Audio processing failed: ${await res.text()}`);
+        }
+        const data = (await res.json()) as { waveformUrl: string };
+        return data.waveformUrl;
+      } finally {
+        clearTimeout(timeoutId);
+      }
     }
+
     if (biometricType === 'FP') {
-      // TODO: call Python process-fingerprint via BiometricService gRPC
-      return rawFileUrl;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      try {
+        const res = await fetch(`${baseUrl}/process-fingerprint`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageUrl: rawFileUrl, engravingVersionId }),
+          signal: controller.signal,
+        });
+        if (!res.ok) {
+          throw new Error(`Fingerprint processing failed: ${await res.text()}`);
+        }
+        const data = (await res.json()) as { processedSvgUrl: string };
+        return data.processedSvgUrl;
+      } finally {
+        clearTimeout(timeoutId);
+      }
     }
-    return rawFileUrl;
+
+    return rawFileUrl; // HB — no processing needed
   }
 
   async initiatePayment(
@@ -432,7 +445,11 @@ export class OrderService {
     // Idempotency: trả lại payment PENDING cũ nếu còn hạn
     const PAYOS_LINK_TTL_MS = DEFAULT_PAYOS_LINK_TTL_MS;
     const existing = await this.prisma.payments.findFirst({
-      where: { order_id: orderId, payment_phase: paymentPhase, status: 'PENDING' },
+      where: {
+        order_id: orderId,
+        payment_phase: paymentPhase,
+        status: 'PENDING',
+      },
       orderBy: { created_at: 'desc' },
     });
 
@@ -441,7 +458,11 @@ export class OrderService {
         ? Date.now() - existing.created_at.getTime()
         : Infinity;
 
-      if (ageMs < PAYOS_LINK_TTL_MS && existing.qr_code && existing.payment_url) {
+      if (
+        ageMs < PAYOS_LINK_TTL_MS &&
+        existing.qr_code &&
+        existing.payment_url
+      ) {
         console.log(`[PayOS] Reusing existing payment: id=${existing.id}`);
         return {
           payment: {
@@ -465,7 +486,9 @@ export class OrderService {
       if (existing.payos_transaction_id) {
         try {
           await this.payOS.cancelPaymentLink(existing.payos_transaction_id);
-        } catch { /* proceed */ }
+        } catch {
+          /* proceed */
+        }
       }
       await this.prisma.payments.update({
         where: { id: existing.id },
@@ -473,8 +496,12 @@ export class OrderService {
       });
     }
 
-    const payosOrderCode = Number(`${Date.now()}${Math.floor(Math.random() * 100)}`);
-    console.log(`[PayOS] Creating payment link: orderCode=${payosOrderCode}, amount=${amount}`);
+    const payosOrderCode = Number(
+      `${Date.now()}${Math.floor(Math.random() * 100)}`,
+    );
+    console.log(
+      `[PayOS] Creating payment link: orderCode=${payosOrderCode}, amount=${amount}`,
+    );
     const payosResult = await this.payOS.createPaymentLink({
       orderCode: payosOrderCode,
       amount,
@@ -516,9 +543,7 @@ export class OrderService {
     };
   }
 
-  async handlePayOSWebhook(input: {
-    webhookBody: string;
-  }) {
+  async handlePayOSWebhook(input: { webhookBody: string }) {
     const webhook = JSON.parse(input.webhookBody) as Webhook;
 
     const webhookData = await this.payOS.verifyWebhook({
@@ -569,7 +594,7 @@ export class OrderService {
 
       let newStatus = order.status;
       if (payment.payment_phase === 'DEPOSIT_1') {
-        newStatus = 'AWAITING_CAPTURE';
+        newStatus = 'AWAITING_SUBMIT';
       } else if (payment.payment_phase === 'DEPOSIT_2') {
         newStatus = 'DEPOSIT_PAID';
       } else if (payment.payment_phase === 'REMAINING') {
@@ -643,6 +668,7 @@ export class OrderService {
   async assignJeweler(orderId: string, jewelerId: string) {
     const order = await this.prisma.orders.findUnique({
       where: { id: orderId },
+      include: { engraving: true },
     });
     if (!order) throw new NotFoundException('Order not found');
 
@@ -657,9 +683,7 @@ export class OrderService {
     });
     if (!jeweler) throw new NotFoundException('Jeweler not found');
 
-    const engraving = await this.prisma.engravings.findFirst({
-      where: { order_id: orderId },
-    });
+    const engraving = order.engraving;
     if (!engraving) throw new NotFoundException('No engraving for order');
 
     const taskId = randomUUID();
@@ -847,7 +871,6 @@ export class OrderService {
         paidAt: p.paid_at?.toISOString() ?? '',
         createdAt: p.created_at?.toISOString() ?? '',
       })),
-      engravings: [],
     };
   }
 
@@ -880,9 +903,8 @@ export class OrderService {
       paid_at: Date | null;
       created_at: Date | null;
     }>;
-    engravings?: Array<{
+    engraving?: {
       id: string;
-      order_id?: string | null;
       user_id?: string | null;
       product_id?: string | null;
       unique_product_id?: string | null;
@@ -898,6 +920,7 @@ export class OrderService {
         ring_style?: string | null;
         ring_shape?: string | null;
         customization_config?: unknown;
+        selected_biometrics?: string | null;
         status?: string | null;
         manager_id?: string | null;
         manager_note?: string | null;
@@ -914,51 +937,56 @@ export class OrderService {
         extra_data?: unknown;
         status?: string | null;
       }>;
-    }>;
+    } | null;
   }) {
     const base = await this.mapOrder(order);
 
+    const e = order.engraving;
     return {
       ...base,
-      engravings: (order.engravings ?? []).map((e) => ({
-        id: e.id,
-        orderId: e.order_id ?? '',
-        userId: e.user_id ?? '',
-        productId: e.product_id ?? '',
-        uniqueProductId: e.unique_product_id ?? '',
-        approvedVersionId: e.approved_version_id ?? '',
-        status: e.status ?? '',
-        versions: (
-          e.engraving_versions_engraving_versions_engraving_idToengravings ?? []
-        ).map((v) => ({
-          id: v.id,
-          engravingId: v.engraving_id,
-          versionNumber: v.version_number,
-          selectedMaterialId: v.selected_material_id ?? '',
-          selectedGemstoneId: v.selected_gemstone_id ?? '',
-          ringSize: v.ring_size ?? '',
-          ringStyle: v.ring_style ?? '',
-          ringShape: v.ring_shape ?? '',
-          customizationConfig: v.customization_config
-            ? JSON.stringify(v.customization_config)
-            : '',
-          status: v.status ?? '',
-          managerId: v.manager_id ?? '',
-          managerNote: v.manager_note ?? '',
-          reviewedAt: v.reviewed_at?.toISOString() ?? '',
-          createdAt: v.created_at?.toISOString() ?? '',
-        })),
-        biometrics: (e.engraving_biometrics ?? []).map((b) => ({
-          id: b.id,
-          engravingId: b.engraving_id,
-          biometricType: b.biometric_type,
-          requiredChannel: b.required_channel,
-          rawFileUrl: b.raw_file_url ?? '',
-          processedSvgUrl: b.processed_svg_url ?? '',
-          extraData: b.extra_data ? JSON.stringify(b.extra_data) : '',
-          status: b.status ?? '',
-        })),
-      })),
+      engraving: e
+        ? {
+            id: e.id,
+            orderId: order.id,
+            userId: e.user_id ?? '',
+            productId: e.product_id ?? '',
+            uniqueProductId: e.unique_product_id ?? '',
+            approvedVersionId: e.approved_version_id ?? '',
+            status: e.status ?? '',
+            versions: (
+              e.engraving_versions_engraving_versions_engraving_idToengravings ??
+              []
+            ).map((v) => ({
+              id: v.id,
+              engravingId: v.engraving_id,
+              versionNumber: v.version_number,
+              selectedMaterialId: v.selected_material_id ?? '',
+              selectedGemstoneId: v.selected_gemstone_id ?? '',
+              ringSize: v.ring_size ?? '',
+              ringStyle: v.ring_style ?? '',
+              ringShape: v.ring_shape ?? '',
+              customizationConfig: v.customization_config
+                ? JSON.stringify(v.customization_config)
+                : '',
+              selectedBiometrics: v.selected_biometrics ?? '',
+              status: v.status ?? '',
+              managerId: v.manager_id ?? '',
+              managerNote: v.manager_note ?? '',
+              reviewedAt: v.reviewed_at?.toISOString() ?? '',
+              createdAt: v.created_at?.toISOString() ?? '',
+            })),
+            biometrics: (e.engraving_biometrics ?? []).map((b) => ({
+              id: b.id,
+              engravingId: b.engraving_id,
+              biometricType: b.biometric_type,
+              requiredChannel: b.required_channel,
+              rawFileUrl: b.raw_file_url ?? '',
+              processedSvgUrl: b.processed_svg_url ?? '',
+              extraData: b.extra_data ? JSON.stringify(b.extra_data) : '',
+              status: b.status ?? '',
+            })),
+          }
+        : null,
     };
   }
 }

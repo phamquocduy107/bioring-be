@@ -23,28 +23,20 @@ export class EngravingController {
     previewImageUrl?: string;
     model3dUrl?: string;
     productionFileUrl?: string;
-    audioUrl?: string;
+    selectedBiometrics?: string;
   }) {
-    return this.engravingService.updateVersionConfig(
-      data.engravingVersionId,
-      {
-        customizationConfig: data.customizationConfig,
-        selectedMaterialId: data.selectedMaterialId,
-        selectedGemstoneId: data.selectedGemstoneId,
-        ringSize: data.ringSize,
-        ringStyle: data.ringStyle,
-        ringShape: data.ringShape,
-        previewImageUrl: data.previewImageUrl,
-        model3dUrl: data.model3dUrl,
-        productionFileUrl: data.productionFileUrl,
-      },
-      data.audioUrl,
-    );
-  }
-
-  @GrpcMethod('EcommerceService', 'ResubmitEngravingVersion')
-  async resubmitVersion(data: { engravingVersionId: string }) {
-    return this.engravingService.resubmitVersion(data.engravingVersionId);
+    return this.engravingService.updateVersionConfig(data.engravingVersionId, {
+      customizationConfig: data.customizationConfig,
+      selectedMaterialId: data.selectedMaterialId,
+      selectedGemstoneId: data.selectedGemstoneId,
+      ringSize: data.ringSize,
+      ringStyle: data.ringStyle,
+      ringShape: data.ringShape,
+      previewImageUrl: data.previewImageUrl,
+      model3dUrl: data.model3dUrl,
+      productionFileUrl: data.productionFileUrl,
+      selectedBiometrics: data.selectedBiometrics,
+    });
   }
 
   @GrpcMethod('EcommerceService', 'GetMyEngravings')
