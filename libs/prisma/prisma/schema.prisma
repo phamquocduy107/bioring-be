@@ -197,6 +197,7 @@ model engraving_versions {
 model engravings {
   id                                                                    String                       @id @db.Uuid
   user_id                                                               String?                      @db.Uuid
+  guest_customer_id                                                     String?                      @db.Uuid
   product_id                                                            String?                      @db.Uuid
   unique_product_id                                                     String?                      @unique @db.VarChar(100)
   approved_version_id                                                   String?                      @db.Uuid

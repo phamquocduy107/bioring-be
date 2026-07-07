@@ -79,7 +79,7 @@ export function ApiUpdateEngravingVersionConfigDocs() {
       description:
         'Saves/updates customizationConfig for an engraving version. ' +
         'Gửi kèm selectedBiometrics để chọn gói (VD: ["SW","FP"]). ' +
-        'Đây là save tạm, không đẩy đi duyệt. Dùng POST /resubmit để gửi duyệt.',
+        'Đây là save tạm, không đẩy đi duyệt. Dùng PATCH /orders/:id/submit để gửi duyệt.',
     }),
     ApiParam({
       name: 'versionId',

@@ -5,6 +5,7 @@ import {
   ApiQuery,
   ApiResponse,
   ApiBearerAuth,
+  ApiBody,
 } from '@nestjs/swagger';
 
 function orderExample() {
@@ -360,5 +361,221 @@ export function ApiGetProductionTasksDocs() {
       },
     }),
     ApiResponse({ status: 401, description: 'Unauthorized' }),
+  );
+}
+
+// ===== MF-05: Delivery, Pickup & QR Memory =====
+
+const deliveryExample = {
+  id: '550e8400-e29b-41d4-a716-446655440060',
+  orderId: '550e8400-e29b-41d4-a716-446655440001',
+  deliveryMethod: 'DELIVERY',
+  status: 'PENDING',
+  trackingCode: '',
+  trackingUrl: '',
+  recipientName: 'Nguyen Van A',
+  recipientPhone: '0909123456',
+  shippingAddressText: '123 đường ABC',
+  estimatedDeliveryAt: '',
+  deliveredAt: '',
+  createdAt: '2026-07-03T10:00:00.000Z',
+};
+
+const warrantyExample = {
+  id: '550e8400-e29b-41d4-a716-446655440070',
+  engravingId: '550e8400-e29b-41d4-a716-446655440003',
+  orderId: '550e8400-e29b-41d4-a716-446655440001',
+  warrantyCode: 'WAR-BIORING-A7B9X2',
+  warrantyType: 'STANDARD',
+  issueDate: '2026-07-03T10:00:00.000Z',
+  expiryDate: '2027-07-03T10:00:00.000Z',
+  activatedAt: '2026-07-03T10:00:00.000Z',
+  status: 'ACTIVE',
+  warrantyScope: '{"description":"1 năm bảo hành chính hãng","coverage":["manufacturing_defect"]}',
+};
+
+export function ApiQcAcceptOrderDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'QC accept order (manager)',
+      description:
+        'Manager accepts/rejects product after production. PASS → READY_FOR_DELIVERY, FAIL → IN_PRODUCTION (reset task). Luôn ghi qa_checks record.',
+    }),
+    ApiParam({
+      name: 'id',
+      type: String,
+      format: 'uuid',
+      example: '550e8400-e29b-41d4-a716-446655440001',
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'QC result processed',
+      schema: { example: { order: orderExample() } },
+    }),
+    ApiResponse({ status: 400, description: 'Invalid input / wrong status' }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+    ApiResponse({ status: 404, description: 'Order not found' }),
+  );
+}
+
+export function ApiInitiateDeliveryDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'Initiate delivery (manager)',
+      description:
+        'Creates shipment record. PICKUP → READY_FOR_PICKUP, DELIVERY → vẫn READY_FOR_DELIVERY (chờ staff start). Yêu cầu remainingAmount = 0.',
+    }),
+    ApiParam({
+      name: 'id',
+      type: String,
+      format: 'uuid',
+      example: '550e8400-e29b-41d4-a716-446655440001',
+    }),
+    ApiResponse({
+      status: 201,
+      description: 'Delivery initiated',
+      schema: { example: deliveryExample },
+    }),
+    ApiResponse({ status: 400, description: 'Invalid input / wrong status' }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+    ApiResponse({ status: 404, description: 'Order not found' }),
+  );
+}
+
+export function ApiUpdateShipmentStatusDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'Update shipment status (staff)',
+      description:
+        'SHIPPING (chỉ DELIVERY): start delivery → order SHIPPING. DELIVERED: confirm nhận → tự động warranty + unlock QR + COMPLETED.',
+    }),
+    ApiParam({
+      name: 'id',
+      type: String,
+      format: 'uuid',
+      example: '550e8400-e29b-41d4-a716-446655440001',
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Shipment status updated',
+      schema: { example: { order: orderExample() } },
+    }),
+    ApiResponse({ status: 400, description: 'Invalid transition' }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+    ApiResponse({ status: 404, description: 'Order or shipment not found' }),
+  );
+}
+
+export function ApiGetDeliveryInfoDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'Get delivery info',
+      description: 'Returns shipment details for an order.',
+    }),
+    ApiParam({
+      name: 'id',
+      type: String,
+      format: 'uuid',
+      example: '550e8400-e29b-41d4-a716-446655440001',
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Delivery info',
+      schema: { example: deliveryExample },
+    }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+    ApiResponse({ status: 404, description: 'Not found' }),
+  );
+}
+
+export function ApiGetWarrantyInfoDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'Get warranty info',
+      description: 'Returns warranty details for an order.',
+    }),
+    ApiParam({
+      name: 'id',
+      type: String,
+      format: 'uuid',
+      example: '550e8400-e29b-41d4-a716-446655440001',
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Warranty info',
+      schema: { example: { warranty: warrantyExample } },
+    }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+    ApiResponse({ status: 404, description: 'Not found' }),
+  );
+}
+
+export function ApiGetProductionInfoDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'Get production & QC info',
+      description:
+        'Returns production task + latest QA check for an order.',
+    }),
+    ApiParam({
+      name: 'id',
+      type: String,
+      format: 'uuid',
+      example: '550e8400-e29b-41d4-a716-446655440001',
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Production info',
+      schema: {
+        example: {
+          task: {
+            id: '550e8400-e29b-41d4-a716-446655440020',
+            orderId: '550e8400-e29b-41d4-a716-446655440001',
+            engravingId: '550e8400-e29b-41d4-a716-446655440003',
+            assignedJewelerId: '550e8400-e29b-41d4-a716-446655440030',
+            assignedJewelerName: 'Nguyễn Văn A',
+            status: 'COMPLETED',
+            note: '',
+            startedAt: '2026-06-24T10:00:00.000Z',
+            completedAt: '2026-06-24T11:30:00.000Z',
+            createdAt: '2026-06-24T10:00:00.000Z',
+          },
+          qaCheck: {
+            id: '550e8400-e29b-41d4-a716-446655440080',
+            orderId: '550e8400-e29b-41d4-a716-446655440001',
+            result: 'PASS',
+            checklist: '{"engraving":true,"material":true,"size":true}',
+            proofImages: ['https://cloudinary.com/img1.jpg'],
+            note: 'Sản phẩm đạt yêu cầu',
+            checkedAt: '2026-07-03T10:00:00.000Z',
+            checkedByManagerId: '550e8400-e29b-41d4-a716-446655440090',
+          },
+        },
+      },
+    }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+    ApiResponse({ status: 404, description: 'Not found' }),
+  );
+}
+
+export function ApiLookupOrderDocs() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Lookup order by code (public)',
+      description:
+        'Public endpoint for walk-in guests to check order status using order_code.',
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Order found',
+      schema: { example: { order: orderExample() } },
+    }),
+    ApiResponse({ status: 404, description: 'Order not found' }),
   );
 }

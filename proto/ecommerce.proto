@@ -54,6 +54,26 @@ rpc GetProductionTasks (GetProductionTasksRequest) returns (GetProductionTasksRe
   rpc CreateCardTheme (CreateCardThemeRequest) returns (CreateCardThemeResponse);
   rpc UpdateCardTheme (UpdateCardThemeRequest) returns (UpdateCardThemeResponse);
   rpc DeleteCardTheme (DeleteCardThemeRequest) returns (DeleteCardThemeResponse);
+
+  // MF-05: Delivery, Pickup & QR Memory
+  rpc QcAcceptOrder (QcAcceptOrderRequest) returns (GetOrderResponse);
+  rpc InitiateDelivery (InitiateDeliveryRequest) returns (DeliveryResponse);
+  rpc UpdateShipmentStatus (UpdateShipmentStatusRequest) returns (GetOrderResponse);
+  rpc GetDeliveryInfo (GetDeliveryInfoRequest) returns (DeliveryResponse);
+  rpc GetWarrantyInfo (GetWarrantyInfoRequest) returns (WarrantyResponse);
+  rpc GetProductionInfo (GetProductionInfoRequest) returns (GetProductionInfoResponse);
+  rpc LookupOrder (OrderLookupRequest) returns (GetOrderResponse);
+
+  // Guest (MF-04: Walk-in)
+  rpc CreateGuestSession (CreateGuestSessionRequest) returns (CreateGuestSessionResponse);
+  rpc CreateGuestOrder (CreateGuestOrderRequest) returns (CreateGuestOrderResponse);
+  rpc GetGuestSession (GetGuestSessionRequest) returns (GetGuestSessionResponse);
+  rpc GuestSubmitOrder (GuestSubmitOrderRequest) returns (GuestSubmitOrderResponse);
+  rpc GuestUpdateEngravingConfig (GuestUpdateEngravingConfigRequest) returns (GuestUpdateEngravingConfigResponse);
+  rpc GuestUpdateQrMemory (GuestUpdateQrMemoryRequest) returns (GuestUpdateQrMemoryResponse);
+  rpc GuestGetOrder (GuestGetOrderRequest) returns (GetOrderResponse);
+  rpc GuestInitiatePayment (GuestInitiatePaymentRequest) returns (GuestInitiatePaymentResponse);
+  rpc GuestSetShippingInfo (GuestSetShippingInfoRequest) returns (GuestSetShippingInfoResponse);
 }
 
 // ===== Messages =====
@@ -599,3 +619,211 @@ message ActivateQrMemoryRequest {
 }
 
 message ActivateQrMemoryResponse { QrMemory qrMemory = 1; }
+
+// === MF-05: Delivery, Pickup & QR Memory ===
+message QcAcceptOrderRequest {
+  string orderId = 1;
+  string result = 2;        // PASS | FAIL
+  string checklist = 3;     // JSON
+  repeated string proofImages = 4;
+  string note = 5;
+  string managerId = 6;
+}
+
+message InitiateDeliveryRequest {
+  string orderId = 1;
+  string deliveryMethod = 2;  // PICKUP | DELIVERY
+  string recipientName = 3;
+  string recipientPhone = 4;
+  string addressId = 5;
+  string shippingAddressText = 6;
+  string assignedDeliveryStaffId = 7;
+  string managerId = 8;
+}
+
+message DeliveryResponse {
+  string id = 1;
+  string orderId = 2;
+  string deliveryMethod = 3;
+  string status = 4;
+  string trackingCode = 5;
+  string trackingUrl = 6;
+  string recipientName = 7;
+  string recipientPhone = 8;
+  string shippingAddressText = 9;
+  string estimatedDeliveryAt = 10;
+  string deliveredAt = 11;
+  string createdAt = 12;
+}
+
+message UpdateShipmentStatusRequest {
+  string orderId = 1;
+  string status = 2;          // SHIPPING | DELIVERED
+  string receiverName = 3;
+  string receiverPhone = 4;
+  string identityNote = 5;
+  string proofImageUrl = 6;
+  string trackingCode = 7;
+  string staffId = 8;
+}
+
+message GetDeliveryInfoRequest { string orderId = 1; }
+
+message GetWarrantyInfoRequest { string orderId = 1; }
+
+message WarrantyResponse {
+  string id = 1;
+  string engravingId = 2;
+  string orderId = 3;
+  string warrantyCode = 4;
+  string warrantyType = 5;
+  string issueDate = 6;
+  string expiryDate = 7;
+  string activatedAt = 8;
+  string status = 9;
+  string warrantyScope = 10;
+}
+
+message GetProductionInfoRequest { string orderId = 1; }
+
+message GetProductionInfoResponse {
+  ProductionTask task = 1;
+  QaCheck qaCheck = 2;
+}
+
+message QaCheck {
+  string id = 1;
+  string orderId = 2;
+  string result = 3;
+  string checklist = 4;
+  repeated string proofImages = 5;
+  string note = 6;
+  string checkedAt = 7;
+  string checkedByManagerId = 8;
+}
+
+message OrderLookupRequest { string orderCode = 1; }
+
+// === MF-04: Guest (Walk-in) ===
+message GuestCustomer {
+  string id = 1;
+  string guestCode = 2;
+  string fullName = 3;
+  string phone = 4;
+  string email = 5;
+  string note = 6;
+  string createdAt = 7;
+}
+
+message CreateGuestSessionRequest {
+  string fullName = 1;
+  string phone = 2;
+  string email = 3;
+  string note = 4;
+  string staffId = 5;
+}
+
+message CreateGuestSessionResponse {
+  GuestCustomer guest = 1;
+}
+
+message CreateGuestOrderRequest {
+  string guestCustomerId = 1;
+  string productId = 2;
+  string staffId = 3;
+}
+
+message CreateGuestOrderResponse {
+  Order order = 1;
+  Engraving engraving = 2;
+  EngravingVersion version = 3;
+}
+
+message GetGuestSessionRequest {
+  string guestCode = 1;
+}
+
+message GetGuestSessionResponse {
+  GuestCustomer guest = 1;
+  Order order = 2;
+}
+
+message GuestSubmitOrderRequest {
+  string orderId = 1;
+  string guestCode = 2;
+}
+
+message GuestSubmitOrderResponse {
+  Order order = 1;
+  bool isResubmit = 2;
+}
+
+message GuestUpdateEngravingConfigRequest {
+  string engravingVersionId = 1;
+  string guestCode = 2;
+  string selectedMaterialId = 3;
+  string selectedGemstoneId = 4;
+  string ringSize = 5;
+  string ringStyle = 6;
+  string ringShape = 7;
+  string customizationConfig = 8;
+  string selectedBiometrics = 9;
+}
+
+message GuestUpdateEngravingConfigResponse {
+  EngravingVersion version = 1;
+}
+
+message GuestUpdateQrMemoryRequest {
+  string engravingId = 1;
+  string guestCode = 2;
+  string cardTitle = 3;
+  string greetingMessage = 4;
+  string recipientEmail = 5;
+  string cardThemeId = 6;
+  string customImages = 7;
+  string biometricDisplaySettings = 8;
+}
+
+message GuestUpdateQrMemoryResponse {
+  QrMemory qrMemory = 1;
+}
+
+message GuestGetOrderRequest {
+  string orderId = 1;
+  string guestCode = 2;
+}
+
+message GuestInitiatePaymentRequest {
+  string orderId = 1;
+  string guestCode = 2;
+  string paymentPhase = 3;
+  string returnUrl = 4;
+  string cancelUrl = 5;
+}
+
+message GuestInitiatePaymentResponse {
+  Payment payment = 1;
+  string paymentUrl = 2;
+}
+
+// MF-04 Guest Shipping Info — guest chọn delivery method + nhập địa chỉ trên tablet
+message GuestSetShippingInfoRequest {
+  string orderId = 1;
+  string guestCode = 2;
+  string deliveryMethod = 3;  // PICKUP | DELIVERY
+  string recipientName = 4;
+  string recipientPhone = 5;
+  string addressId = 6;         // optional, nếu có address trong system
+  string shippingAddressText = 7;  // địa chỉ text nếu không có addressId
+}
+
+message GuestSetShippingInfoResponse {
+  string id = 1;
+  string orderId = 2;
+  string deliveryMethod = 3;
+  string status = 4;           // luôn PENDING
+  string recipientName = 5;
+  string recipientPhone = 6;
+  string shippingAddressText = 7;
+}

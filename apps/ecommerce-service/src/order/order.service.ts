@@ -283,6 +283,17 @@ export class OrderService {
       );
     }
 
+    // Nếu resubmit từ REVISION_REQUIRED, reset engraving status
+    if (order.status === 'REVISION_REQUIRED') {
+      await this.prisma.engravings.updateMany({
+        where: {
+          order: { id: id },
+          status: 'REJECTED',
+        },
+        data: { status: 'PENDING' },
+      });
+    }
+
     const updated = await this.prisma.orders.update({
       where: { id },
       data: { status: 'PENDING_REVIEW' },
@@ -419,16 +430,27 @@ export class OrderService {
     if (order.user_id && order.user_id !== userId) {
       throw new ForbiddenException('You do not own this order');
     }
+    if (!order.user_id && !order.guest_customer_id) {
+      throw new ForbiddenException('Order has no identifiable owner');
+    }
 
-    const allowedPhases = ['DEPOSIT_1', 'DEPOSIT_2', 'REMAINING'];
+    const allowedPhases = ['DEPOSIT_1', 'DEPOSIT_2', 'REMAINING', 'FULL'];
     if (!allowedPhases.includes(paymentPhase)) {
       throw new BadRequestException(
-        'paymentPhase must be DEPOSIT_1, DEPOSIT_2, or REMAINING',
+        'paymentPhase must be DEPOSIT_1, DEPOSIT_2, REMAINING, or FULL',
       );
     }
 
     let amount = 0;
-    if (paymentPhase === 'DEPOSIT_1') {
+    if (paymentPhase === 'FULL') {
+      if (!order.guest_customer_id) {
+        throw new BadRequestException(
+          'FULL payment is only available for walk-in guests',
+        );
+      }
+      amount = Number(order.total_price ?? 0);
+      if (amount <= 0) throw new BadRequestException('Invalid total price');
+    } else if (paymentPhase === 'DEPOSIT_1') {
       amount = IOT_FEE_AMOUNT;
     } else if (paymentPhase === 'DEPOSIT_2') {
       amount = Math.max(Math.round(Number(order.total_price ?? 0) * 0.3), 3000);
@@ -598,7 +620,9 @@ export class OrderService {
       } else if (payment.payment_phase === 'DEPOSIT_2') {
         newStatus = 'DEPOSIT_PAID';
       } else if (payment.payment_phase === 'REMAINING') {
-        newStatus = 'COMPLETED';
+        newStatus = 'READY_FOR_DELIVERY';
+      } else if (payment.payment_phase === 'FULL') {
+        newStatus = 'DEPOSIT_PAID';
       }
 
       await this.prisma.orders.update({
@@ -724,22 +748,10 @@ export class OrderService {
     });
 
     if (status === 'COMPLETED') {
-      const order = await this.prisma.orders.findUnique({
+      await this.prisma.orders.update({
         where: { id: task.order_id },
+        data: { status: 'PENDING_QC' },
       });
-
-      const remainingAmount = Number(order?.remaining_amount ?? 0);
-      if (remainingAmount > 0) {
-        await this.prisma.orders.update({
-          where: { id: task.order_id },
-          data: { status: 'AWAITING_REMAINING' },
-        });
-      } else {
-        await this.prisma.orders.update({
-          where: { id: task.order_id },
-          data: { status: 'COMPLETED' },
-        });
-      }
     }
 
     const taskWithUser = await this.prisma.production_tasks.findUnique({
@@ -781,6 +793,421 @@ export class OrderService {
       page,
       limit,
       lastPage: Math.ceil(total / limit) || 0,
+    };
+  }
+
+  // ===== MF-05: Delivery, Pickup & QR Memory =====
+
+  async qcAcceptOrder(
+    orderId: string,
+    result: string,
+    checklist: string | undefined,
+    proofImages: string[] | undefined,
+    note: string | undefined,
+    managerId: string,
+  ) {
+    const order = await this.prisma.orders.findUnique({
+      where: { id: orderId },
+      include: {
+        engraving: true,
+        production_tasks: {
+          where: { status: 'COMPLETED' },
+          orderBy: { completed_at: 'desc' },
+          take: 1,
+        },
+      },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+
+    if (order.status !== 'IN_PRODUCTION') {
+      throw new BadRequestException('Order must be IN_PRODUCTION for QC');
+    }
+
+    const completedTask = order.production_tasks?.[0];
+    if (!completedTask?.completed_at) {
+      throw new BadRequestException(
+        'Production task must be completed before QC',
+      );
+    }
+
+    // Luôn ghi lại qa_checks
+    let checklistJson: Record<string, unknown> | undefined;
+    if (checklist) {
+      try {
+        checklistJson = JSON.parse(checklist) as Record<string, unknown>;
+      } catch {
+        throw new BadRequestException('checklist must be valid JSON');
+      }
+    }
+
+    await this.prisma.qa_checks.create({
+      data: {
+        id: randomUUID(),
+        order_id: orderId,
+        production_task_id: completedTask.id,
+        checked_by_id: managerId,
+        result,
+        checklist: checklistJson as Prisma.InputJsonValue,
+        proof_images: proofImages as Prisma.InputJsonValue,
+        note: note ?? null,
+        checked_at: new Date(),
+      },
+    });
+
+    if (result === 'PASS') {
+      const remaining = Number(order.remaining_amount ?? 0);
+      const nextStatus =
+        remaining > 0 ? 'AWAITING_REMAINING' : 'READY_FOR_DELIVERY';
+
+      const updated = await this.prisma.orders.update({
+        where: { id: orderId },
+        data: { status: nextStatus },
+      });
+      return { order: await this.mapOrder(updated) };
+    }
+
+    // FAIL → quay lại sản xuất
+    await this.prisma.production_tasks.update({
+      where: { id: completedTask.id },
+      data: { status: 'IN_PROGRESS', completed_at: null, note: note ?? null },
+    });
+
+    const updated = await this.prisma.orders.update({
+      where: { id: orderId },
+      data: { status: 'IN_PRODUCTION' },
+    });
+    return { order: await this.mapOrder(updated) };
+  }
+
+  async initiateDelivery(data: {
+    orderId: string;
+    deliveryMethod: string;
+    recipientName: string;
+    recipientPhone: string;
+    addressId?: string;
+    shippingAddressText?: string;
+    assignedDeliveryStaffId?: string;
+    managerId: string;
+  }) {
+    const order = await this.prisma.orders.findUnique({
+      where: { id: data.orderId },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+
+    if (order.status !== 'READY_FOR_DELIVERY') {
+      throw new BadRequestException(
+        'Order must be READY_FOR_DELIVERY to initiate delivery',
+      );
+    }
+
+    // Check remaining amount
+    const remaining = Number(order.remaining_amount ?? 0);
+    if (remaining > 0) {
+      throw new BadRequestException(
+        `Order still has remaining payment of ${remaining}. Please complete payment first.`,
+      );
+    }
+
+    // Check shipment — nếu đã có (guest flow MF-04), chỉ update order status
+    const existing = await this.prisma.shipments.findFirst({
+      where: { order_id: data.orderId },
+    });
+
+    if (existing) {
+      if (existing.status !== 'PENDING') {
+        throw new BadRequestException(
+          'Shipment already in progress for this order',
+        );
+      }
+
+      let newStatus = 'READY_FOR_DELIVERY';
+      if (existing.delivery_method === 'PICKUP') {
+        newStatus = 'READY_FOR_PICKUP';
+      }
+
+      await this.prisma.orders.update({
+        where: { id: data.orderId },
+        data: { status: newStatus },
+      });
+
+      return this.mapShipment(existing);
+    }
+
+    // Tạo shipment mới (MF-02/03 flow)
+
+    const shipmentId = randomUUID();
+    const shipment = await this.prisma.shipments.create({
+      data: {
+        id: shipmentId,
+        order_id: data.orderId,
+        delivery_method: data.deliveryMethod,
+        status: 'PENDING',
+        recipient_name: data.recipientName,
+        recipient_phone: data.recipientPhone,
+        address_id: data.addressId ?? null,
+        shipping_address_text: data.shippingAddressText ?? null,
+        assigned_delivery_staff_id: data.assignedDeliveryStaffId ?? null,
+      },
+    });
+
+    let newStatus = 'READY_FOR_DELIVERY';
+    if (data.deliveryMethod === 'PICKUP') {
+      newStatus = 'READY_FOR_PICKUP';
+    }
+
+    await this.prisma.orders.update({
+      where: { id: data.orderId },
+      data: { status: newStatus },
+    });
+
+    return this.mapShipment(shipment);
+  }
+
+  async updateShipmentStatus(data: {
+    orderId: string;
+    status: string;
+    receiverName?: string;
+    receiverPhone?: string;
+    identityNote?: string;
+    proofImageUrl?: string;
+    trackingCode?: string;
+    staffId: string;
+  }) {
+    const order = await this.prisma.orders.findUnique({
+      where: { id: data.orderId },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+
+    const shipment = await this.prisma.shipments.findFirst({
+      where: { order_id: data.orderId },
+    });
+    if (!shipment) {
+      throw new BadRequestException('No shipment found for this order');
+    }
+
+    const deliveryMethod = shipment.delivery_method;
+
+    if (data.status === 'SHIPPING') {
+      if (deliveryMethod !== 'DELIVERY') {
+        throw new BadRequestException(
+          'Only DELIVERY shipments can be set to SHIPPING',
+        );
+      }
+      if (order.status !== 'READY_FOR_DELIVERY') {
+        throw new BadRequestException(
+          'Order must be READY_FOR_DELIVERY to start shipping',
+        );
+      }
+
+      await this.prisma.shipments.update({
+        where: { id: shipment.id },
+        data: { status: 'SHIPPING' },
+      });
+      const updated = await this.prisma.orders.update({
+        where: { id: data.orderId },
+        data: { status: 'SHIPPING' },
+      });
+      return { order: await this.mapOrder(updated) };
+    }
+
+    if (data.status === 'DELIVERED') {
+      if (deliveryMethod === 'PICKUP') {
+        if (order.status !== 'READY_FOR_PICKUP') {
+          throw new BadRequestException(
+            'Order must be READY_FOR_PICKUP to confirm delivery',
+          );
+        }
+        await this.prisma.pickup_records.create({
+          data: {
+            id: randomUUID(),
+            order_id: data.orderId,
+            store_staff_id: data.staffId,
+            receiver_name: data.receiverName,
+            receiver_phone: data.receiverPhone,
+            identity_note: data.identityNote,
+            proof_image_url: data.proofImageUrl,
+            picked_up_at: new Date(),
+          },
+        });
+      } else {
+        // DELIVERY
+        if (order.status !== 'SHIPPING') {
+          throw new BadRequestException(
+            'Order must be SHIPPING to confirm delivery',
+          );
+        }
+        await this.prisma.shipments.update({
+          where: { id: shipment.id },
+          data: {
+            status: 'DELIVERED',
+            tracking_code: data.trackingCode,
+            delivered_at: new Date(),
+          },
+        });
+      }
+
+      // Ghi nhận trạng thái DELIVERED trước khi complete
+      await this.prisma.orders.update({
+        where: { id: data.orderId },
+        data: { status: 'DELIVERED' },
+      });
+
+      // Auto-complete: warranty + unlock QR + COMPLETED
+      return this.completeOrder(data.orderId);
+    }
+
+    throw new BadRequestException('Status must be SHIPPING or DELIVERED');
+  }
+
+  private async completeOrder(orderId: string) {
+    const order = await this.prisma.orders.findUnique({
+      where: { id: orderId },
+      include: { engraving: true },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    if (!order.engraving) throw new BadRequestException('Order has no engraving');
+
+    // 1. Activate warranty
+    await this.prisma.warranties.create({
+      data: {
+        id: randomUUID(),
+        engraving_id: order.engraving.id,
+        order_id: orderId,
+        warranty_code: `WAR-${order.order_code}`,
+        warranty_type: 'STANDARD',
+        issue_format: 'DIGITAL',
+        warranty_scope: {
+          description: '1 năm bảo hành chính hãng',
+          coverage: ['manufacturing_defect'],
+        } as Prisma.InputJsonValue,
+        issue_date: new Date(),
+        expiry_date: new Date(
+          Date.now() + 365 * 24 * 60 * 60 * 1000,
+        ),
+        activated_at: new Date(),
+        status: 'ACTIVE',
+      },
+    });
+
+    // 2. Unlock qr_memories
+    await this.prisma.qr_memories.updateMany({
+      where: { engraving_id: order.engraving.id, is_locked: true },
+      data: { is_locked: false },
+    });
+
+    // 3. Set status to COMPLETED + DELIVERED
+    const updated = await this.prisma.orders.update({
+      where: { id: orderId },
+      data: {
+        status: 'COMPLETED',
+      },
+    });
+
+    return { order: await this.mapOrder(updated) };
+  }
+
+  async getDeliveryInfo(orderId: string) {
+    const shipment = await this.prisma.shipments.findFirst({
+      where: { order_id: orderId },
+      include: { users: true },
+    });
+    if (!shipment) throw new NotFoundException('No delivery info found');
+
+    return this.mapShipment(shipment);
+  }
+
+  async getWarrantyInfo(orderId: string) {
+    const order = await this.prisma.orders.findUnique({
+      where: { id: orderId },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+
+    const warranty = await this.prisma.warranties.findFirst({
+      where: { order_id: orderId },
+    });
+    if (!warranty) throw new NotFoundException('No warranty found for this order');
+
+    return {
+      warranty: {
+        id: warranty.id,
+        engravingId: warranty.engraving_id,
+        orderId: warranty.order_id,
+        warrantyCode: warranty.warranty_code ?? '',
+        warrantyType: warranty.warranty_type ?? '',
+        issueDate: warranty.issue_date?.toISOString() ?? '',
+        expiryDate: warranty.expiry_date?.toISOString() ?? '',
+        activatedAt: warranty.activated_at?.toISOString() ?? '',
+        status: warranty.status ?? '',
+        warrantyScope: warranty.warranty_scope
+          ? JSON.stringify(warranty.warranty_scope)
+          : '',
+      },
+    };
+  }
+
+  async getProductionInfo(orderId: string) {
+    const order = await this.prisma.orders.findUnique({
+      where: { id: orderId },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+
+    const task = await this.prisma.production_tasks.findFirst({
+      where: { order_id: orderId },
+      include: { users: { select: { full_name: true } } },
+      orderBy: { created_at: 'desc' },
+    });
+
+    const qaCheck = await this.prisma.qa_checks.findFirst({
+      where: { order_id: orderId },
+      orderBy: { checked_at: 'desc' },
+    });
+
+    return {
+      task: task ? this.mapTask(task) : null,
+      qaCheck: qaCheck
+        ? {
+            id: qaCheck.id,
+            orderId: qaCheck.order_id,
+            result: qaCheck.result ?? '',
+            checklist: qaCheck.checklist
+              ? JSON.stringify(qaCheck.checklist)
+              : '',
+            proofImages: Array.isArray(qaCheck.proof_images)
+              ? (qaCheck.proof_images as string[])
+              : [],
+            note: qaCheck.note ?? '',
+            checkedAt: qaCheck.checked_at?.toISOString() ?? '',
+            checkedByManagerId: qaCheck.checked_by_id ?? '',
+          }
+        : null,
+    };
+  }
+
+  async lookupOrder(orderCode: string) {
+    const order = await this.prisma.orders.findUnique({
+      where: { order_code: orderCode },
+      include: { payments: true },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+
+    return { order: await this.mapOrder(order) };
+  }
+
+  private mapShipment(shipment: Record<string, any>) {
+    return {
+      id: shipment.id,
+      orderId: shipment.order_id,
+      deliveryMethod: shipment.delivery_method ?? '',
+      status: shipment.status ?? '',
+      trackingCode: shipment.tracking_code ?? '',
+      trackingUrl: shipment.tracking_url ?? '',
+      recipientName: shipment.recipient_name ?? '',
+      recipientPhone: shipment.recipient_phone ?? '',
+      shippingAddressText: shipment.shipping_address_text ?? '',
+      estimatedDeliveryAt:
+        shipment.estimated_delivery_at?.toISOString() ?? '',
+      deliveredAt: shipment.delivered_at?.toISOString() ?? '',
+      createdAt: shipment.created_at?.toISOString() ?? '',
     };
   }
 

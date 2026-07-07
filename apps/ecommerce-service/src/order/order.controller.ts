@@ -119,4 +119,73 @@ export class OrderController {
   }) {
     return this.orderService.getProductionTasks(data);
   }
+
+  // ===== MF-05: Delivery, Pickup & QR Memory =====
+
+  @GrpcMethod('EcommerceService', 'QcAcceptOrder')
+  async qcAcceptOrder(data: {
+    orderId: string;
+    result: string;
+    checklist?: string;
+    proofImages?: string[];
+    note?: string;
+    managerId: string;
+  }) {
+    return this.orderService.qcAcceptOrder(
+      data.orderId,
+      data.result,
+      data.checklist,
+      data.proofImages,
+      data.note,
+      data.managerId,
+    );
+  }
+
+  @GrpcMethod('EcommerceService', 'InitiateDelivery')
+  async initiateDelivery(data: {
+    orderId: string;
+    deliveryMethod: string;
+    recipientName: string;
+    recipientPhone: string;
+    addressId?: string;
+    shippingAddressText?: string;
+    assignedDeliveryStaffId?: string;
+    managerId: string;
+  }) {
+    return this.orderService.initiateDelivery(data);
+  }
+
+  @GrpcMethod('EcommerceService', 'UpdateShipmentStatus')
+  async updateShipmentStatus(data: {
+    orderId: string;
+    status: string;
+    receiverName?: string;
+    receiverPhone?: string;
+    identityNote?: string;
+    proofImageUrl?: string;
+    trackingCode?: string;
+    staffId: string;
+  }) {
+    return this.orderService.updateShipmentStatus(data);
+  }
+
+  @GrpcMethod('EcommerceService', 'GetDeliveryInfo')
+  async getDeliveryInfo(data: { orderId: string }) {
+    return this.orderService.getDeliveryInfo(data.orderId);
+  }
+
+  @GrpcMethod('EcommerceService', 'GetWarrantyInfo')
+  async getWarrantyInfo(data: { orderId: string }) {
+    return this.orderService.getWarrantyInfo(data.orderId);
+  }
+
+  @GrpcMethod('EcommerceService', 'GetProductionInfo')
+  async getProductionInfo(data: { orderId: string }) {
+    return this.orderService.getProductionInfo(data.orderId);
+  }
+
+  @GrpcMethod('EcommerceService', 'LookupOrder')
+  async lookupOrder(data: { orderCode: string }) {
+    return this.orderService.lookupOrder(data.orderCode);
+  }
 }

@@ -118,18 +118,23 @@ export class EngravingService {
 
     // Ràng buộc theo order status
     if (order) {
-      const orderStatus = order.status ?? '';
-      if (orderStatus === 'REVISION_REQUIRED') {
-        // REVISION_REQUIRED: cho edit design, block selectedBiometrics
-        if (data.selectedBiometrics !== undefined) {
-          throw new BadRequestException(
-            'Cannot change package after order creation',
-          );
-        }
-      } else {
-        // Có order + không phải REVISION_REQUIRED → block toàn bộ
+      // Có order → block đổi package (selectedBiometrics) vĩnh viễn
+      if (data.selectedBiometrics !== undefined) {
         throw new BadRequestException(
-          'Order already exists. Cannot edit after order creation.',
+          'Cannot change package after order creation',
+        );
+      }
+
+      const orderStatus = order.status ?? '';
+      // Cho edit nếu chưa submit hoặc đang REVISION_REQUIRED
+      const editableStatuses = [
+        'AWAITING_SUBMIT',
+        'AWAITING_DEPOSIT_1',
+        'REVISION_REQUIRED',
+      ];
+      if (!editableStatuses.includes(orderStatus)) {
+        throw new BadRequestException(
+          'Cannot edit after order has been submitted',
         );
       }
     }

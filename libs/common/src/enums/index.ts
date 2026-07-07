@@ -10,3 +10,4 @@ export * from './payment-status.enum';
 export * from './engraving-status.enum';
 export * from './production-task-status.enum';
 export * from './package-type.enum';
+export * from './shipment-status.enum';

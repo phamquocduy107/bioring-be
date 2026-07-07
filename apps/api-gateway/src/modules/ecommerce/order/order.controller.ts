@@ -37,6 +37,10 @@ import {
   AssignJewelerDto,
   UpdateProductionStatusDto,
   GetProductionTasksQueryDto,
+  QcAcceptOrderDto,
+  InitiateDeliveryDto,
+  UpdateShipmentStatusDto,
+  OrderLookupDto,
 } from '@app/common';
 import type { JwtPayload } from '@app/common';
 import {
@@ -50,6 +54,13 @@ import {
   ApiAssignJewelerDocs,
   ApiUpdateProductionStatusDocs,
   ApiGetProductionTasksDocs,
+  ApiQcAcceptOrderDocs,
+  ApiInitiateDeliveryDocs,
+  ApiUpdateShipmentStatusDocs,
+  ApiGetDeliveryInfoDocs,
+  ApiGetWarrantyInfoDocs,
+  ApiGetProductionInfoDocs,
+  ApiLookupOrderDocs,
 } from './order.swagger';
 
 interface EngravingBioMetricResponse {
@@ -142,6 +153,50 @@ interface ProductionTaskResponse {
   createdAt: string;
 }
 
+interface DeliveryResponse {
+  id: string;
+  orderId: string;
+  deliveryMethod: string;
+  status: string;
+  trackingCode: string;
+  trackingUrl: string;
+  recipientName: string;
+  recipientPhone: string;
+  shippingAddressText: string;
+  estimatedDeliveryAt: string;
+  deliveredAt: string;
+  createdAt: string;
+}
+
+interface WarrantyInfoResponse {
+  id: string;
+  engravingId: string;
+  orderId: string;
+  warrantyCode: string;
+  warrantyType: string;
+  issueDate: string;
+  expiryDate: string;
+  activatedAt: string;
+  status: string;
+  warrantyScope: string;
+}
+
+interface QaCheckResponse {
+  id: string;
+  orderId: string;
+  result: string;
+  checklist: string;
+  proofImages: string[];
+  note: string;
+  checkedAt: string;
+  checkedByManagerId: string;
+}
+
+interface ProductionInfoResponse {
+  task: ProductionTaskResponse | null;
+  qaCheck: QaCheckResponse | null;
+}
+
 interface EcommerceGrpcService {
   updateEngravingVersionConfig(data: {
     engravingVersionId: string;
@@ -209,6 +264,38 @@ interface EcommerceGrpcService {
     limit: number;
     lastPage: number;
   }>;
+  qcAcceptOrder(data: {
+    orderId: string;
+    result: string;
+    checklist?: string;
+    proofImages?: string[];
+    note?: string;
+    managerId: string;
+  }): Observable<{ order: OrderResponse }>;
+  initiateDelivery(data: {
+    orderId: string;
+    deliveryMethod: string;
+    recipientName: string;
+    recipientPhone: string;
+    addressId?: string;
+    shippingAddressText?: string;
+    assignedDeliveryStaffId?: string;
+    managerId: string;
+  }): Observable<DeliveryResponse>;
+  updateShipmentStatus(data: {
+    orderId: string;
+    status: string;
+    receiverName?: string;
+    receiverPhone?: string;
+    identityNote?: string;
+    proofImageUrl?: string;
+    trackingCode?: string;
+    staffId: string;
+  }): Observable<{ order: OrderResponse }>;
+  getDeliveryInfo(data: { orderId: string }): Observable<DeliveryResponse>;
+  getWarrantyInfo(data: { orderId: string }): Observable<{ warranty: WarrantyInfoResponse }>;
+  getProductionInfo(data: { orderId: string }): Observable<ProductionInfoResponse>;
+  lookupOrder(data: { orderCode: string }): Observable<{ order: OrderResponse }>;
 }
 
 @Controller('api/v1/orders')
@@ -450,4 +537,104 @@ export class OrderController implements OnModuleInit {
       }),
     );
   }
+
+  // ===== MF-05: Delivery, Pickup & QR Memory =====
+
+  @Put(':id/qc-accept')
+  @Permissions(Permission.OrderWrite)
+  @ApiQcAcceptOrderDocs()
+  qcAcceptOrder(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() body: QcAcceptOrderDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.call(() =>
+      this.grpc!.qcAcceptOrder({
+        orderId: id,
+        result: body.result,
+        checklist: body.checklist,
+        proofImages: body.proofImages,
+        note: body.note,
+        managerId: user.sub,
+      }),
+    );
+  }
+
+  @Post(':id/delivery')
+  @Permissions(Permission.OrderWrite)
+  @ApiInitiateDeliveryDocs()
+  initiateDelivery(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() body: InitiateDeliveryDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.call(() =>
+      this.grpc!.initiateDelivery({
+        orderId: id,
+        deliveryMethod: body.deliveryMethod,
+        recipientName: body.recipientName,
+        recipientPhone: body.recipientPhone,
+        addressId: body.addressId,
+        shippingAddressText: body.shippingAddressText,
+        assignedDeliveryStaffId: body.assignedDeliveryStaffId,
+        managerId: user.sub,
+      }),
+    );
+  }
+
+  @Put(':id/shipment/status')
+  @Permissions(Permission.OrderWrite)
+  @ApiUpdateShipmentStatusDocs()
+  updateShipmentStatus(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() body: UpdateShipmentStatusDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.call(() =>
+      this.grpc!.updateShipmentStatus({
+        orderId: id,
+        status: body.status,
+        receiverName: body.receiverName,
+        receiverPhone: body.receiverPhone,
+        identityNote: body.identityNote,
+        proofImageUrl: body.proofImageUrl,
+        trackingCode: body.trackingCode,
+        staffId: user.sub,
+      }),
+    );
+  }
+
+  @Get(':id/delivery')
+  @ApiGetDeliveryInfoDocs()
+  getDeliveryInfo(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+  ) {
+    return this.call(() => this.grpc!.getDeliveryInfo({ orderId: id }));
+  }
+
+  @Get(':id/warranty')
+  @ApiGetWarrantyInfoDocs()
+  getWarrantyInfo(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+  ) {
+    return this.call(() => this.grpc!.getWarrantyInfo({ orderId: id }));
+  }
+
+  @Get(':id/production')
+  @ApiGetProductionInfoDocs()
+  getProductionInfo(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+  ) {
+    return this.call(() => this.grpc!.getProductionInfo({ orderId: id }));
+  }
+
+  @Post('lookup')
+  @Public()
+  @ApiLookupOrderDocs()
+  lookupOrder(@Body() body: OrderLookupDto) {
+    return this.call(() =>
+      this.grpc!.lookupOrder({ orderCode: body.orderCode }),
+    );
+  }
 }
+

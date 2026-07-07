@@ -11,3 +11,5 @@ export * from './engraving';
 export * from './design';
 export * from './card-theme';
 export * from './production-task';
+export * from './delivery';
+export * from './guest';

@@ -7,6 +7,8 @@ import { OrderController } from './order/order.controller';
 import { EngravingController } from './engraving/engraving.controller';
 import { MemoryCardController } from './memory-card/memory-card.controller';
 import { CardThemeController } from './card-theme/card-theme.controller';
+import { GuestController } from './guest/guest.controller';
+import { GuestTabletController } from './guest/guest-tablet.controller';
 
 @Module({
   imports: [
@@ -29,6 +31,8 @@ import { CardThemeController } from './card-theme/card-theme.controller';
     EngravingController,
     MemoryCardController,
     CardThemeController,
+    GuestController,
+    GuestTabletController,
   ],
 })
 export class EcommerceModule {}

@@ -14,6 +14,7 @@ import { OrderModule } from './order/order.module';
 import { EngravingModule } from './engraving/engraving.module';
 import { MemoryCardModule } from './memory-card/memory-card.module';
 import { CardThemeModule } from './card-theme/card-theme.module';
+import { GuestModule } from './guest/guest.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { CardThemeModule } from './card-theme/card-theme.module';
     EngravingModule,
     MemoryCardModule,
     CardThemeModule,
+    GuestModule,
   ],
   providers: [
     {
