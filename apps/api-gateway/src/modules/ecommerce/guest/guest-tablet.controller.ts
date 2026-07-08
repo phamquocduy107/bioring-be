@@ -25,14 +25,117 @@ import {
   ApiGuestSetShippingInfoDocs,
 } from './guest-tablet.swagger';
 
+interface GuestSessionResponse {
+  guest: {
+    id: string;
+    guestCode: string;
+    fullName: string;
+    phone: string;
+    email: string;
+    note: string;
+    createdAt: string;
+  };
+  order: unknown;
+}
+
+interface VersionUpdateResponse {
+  version: {
+    id: string;
+    engravingId: string;
+    versionNumber: number;
+    selectedMaterialId: string;
+    selectedGemstoneId: string;
+    ringSize: string;
+    ringStyle: string;
+    ringShape: string;
+    customizationConfig: string;
+    selectedBiometrics: string;
+    status: string;
+    createdAt: string;
+  };
+}
+
+interface SubmitOrderResponse {
+  order: {
+    id: string;
+    orderCode: string;
+    status: string;
+    userId: string;
+    guestCustomerId: string;
+    designSource: string;
+    totalPrice: number;
+    paidAmount: number;
+    remainingAmount: number;
+    createdAt: string;
+  };
+  isResubmit: boolean;
+}
+
+interface PaymentResponse {
+  payment: {
+    id: string;
+    orderId: string;
+    paymentPhase: string;
+    amount: number;
+    method: string;
+    status: string;
+    payosTransactionId: string;
+    paymentUrl: string;
+    paidAt: string;
+    createdAt: string;
+  };
+  paymentUrl: string;
+}
+
+interface QrMemoryResponse {
+  qrMemory: {
+    id: string;
+    engravingId: string;
+    qrCode: string;
+    cardTitle: string;
+    greetingMessage: string;
+    recipientEmail: string;
+    biometricDisplaySettings: string;
+    isLocked: boolean;
+    createdAt: string;
+    updatedAt: string;
+  };
+}
+
+interface ShippingInfoResponse {
+  id: string;
+  orderId: string;
+  deliveryMethod: string;
+  status: string;
+  recipientName: string;
+  recipientPhone: string;
+  shippingAddressText: string;
+}
+
 interface EcommerceGrpcService {
-  getGuestSession(data: { guestCode: string }): Observable<any>;
-  guestUpdateEngravingConfig(data: any): Observable<any>;
-  guestSubmitOrder(data: { orderId: string; guestCode: string }): Observable<any>;
-  guestGetOrder(data: { orderId: string; guestCode: string }): Observable<any>;
-  guestInitiatePayment(data: any): Observable<any>;
-  guestUpdateQrMemory(data: any): Observable<any>;
-  guestSetShippingInfo(data: any): Observable<any>;
+  getGuestSession(data: {
+    guestCode: string;
+  }): Observable<GuestSessionResponse>;
+  guestUpdateEngravingConfig(
+    data: Record<string, unknown>,
+  ): Observable<VersionUpdateResponse>;
+  guestSubmitOrder(data: {
+    orderId: string;
+    guestCode: string;
+  }): Observable<SubmitOrderResponse>;
+  guestGetOrder(data: {
+    orderId: string;
+    guestCode: string;
+  }): Observable<unknown>;
+  guestInitiatePayment(
+    data: Record<string, unknown>,
+  ): Observable<PaymentResponse>;
+  guestUpdateQrMemory(
+    data: Record<string, unknown>,
+  ): Observable<QrMemoryResponse>;
+  guestSetShippingInfo(
+    data: Record<string, unknown>,
+  ): Observable<ShippingInfoResponse>;
 }
 
 @Controller('api/v1/guest-tablet')
@@ -69,7 +172,7 @@ export class GuestTabletController implements OnModuleInit {
   async updateConfig(
     @Param('versionId', new ParseUUIDPipe({ version: '4' })) versionId: string,
     @Query('guestCode') guestCode: string,
-    @Body() body: any,
+    @Body() body: Record<string, unknown>,
   ) {
     return this.call(() =>
       this.grpc!.guestUpdateEngravingConfig({
@@ -87,9 +190,7 @@ export class GuestTabletController implements OnModuleInit {
     @Param('orderId', new ParseUUIDPipe({ version: '4' })) orderId: string,
     @Body('guestCode') guestCode: string,
   ) {
-    return this.call(() =>
-      this.grpc!.guestSubmitOrder({ orderId, guestCode }),
-    );
+    return this.call(() => this.grpc!.guestSubmitOrder({ orderId, guestCode }));
   }
 
   @Get('orders/:orderId')
@@ -99,9 +200,7 @@ export class GuestTabletController implements OnModuleInit {
     @Param('orderId', new ParseUUIDPipe({ version: '4' })) orderId: string,
     @Query('guestCode') guestCode: string,
   ) {
-    return this.call(() =>
-      this.grpc!.guestGetOrder({ orderId, guestCode }),
-    );
+    return this.call(() => this.grpc!.guestGetOrder({ orderId, guestCode }));
   }
 
   @Post('orders/:orderId/payments')
@@ -126,7 +225,8 @@ export class GuestTabletController implements OnModuleInit {
   @Public()
   @ApiGuestUpdateQrMemoryDocs()
   async updateQrMemory(
-    @Param('engravingId', new ParseUUIDPipe({ version: '4' })) engravingId: string,
+    @Param('engravingId', new ParseUUIDPipe({ version: '4' }))
+    engravingId: string,
     @Body()
     body: {
       guestCode: string;

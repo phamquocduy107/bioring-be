@@ -11,6 +11,37 @@ import { Webhook } from '@payos/node';
 import { randomUUID } from 'node:crypto';
 import { DEFAULT_PAYOS_LINK_TTL_MS, IOT_FEE_AMOUNT } from '@app/common';
 
+// === Internal record types ===
+interface TaskRecord {
+  id: string;
+  order_id: string;
+  engraving_id: string;
+  assigned_jeweler_id: string | null;
+  task_name: string | null;
+  task_description: string | null;
+  status: string | null;
+  note: string | null;
+  started_at: Date | null;
+  completed_at: Date | null;
+  created_at: Date | null;
+  users?: { full_name: string | null } | null;
+}
+
+interface ShipmentRecord {
+  id: string;
+  order_id: string;
+  delivery_method: string | null;
+  status: string | null;
+  tracking_code: string | null;
+  tracking_url: string | null;
+  recipient_name: string | null;
+  recipient_phone: string | null;
+  shipping_address_text: string | null;
+  estimated_delivery_at: Date | null;
+  delivered_at: Date | null;
+  created_at: Date | null;
+}
+
 @Injectable()
 export class OrderService {
   constructor(
@@ -672,7 +703,7 @@ export class OrderService {
     return { success: true, orderCode: order.order_code ?? '' };
   }
 
-  private mapTask(task: Record<string, any>): Record<string, any> {
+  private mapTask(task: TaskRecord) {
     return {
       id: task.id,
       orderId: task.order_id,
@@ -1065,7 +1096,8 @@ export class OrderService {
       include: { engraving: true },
     });
     if (!order) throw new NotFoundException('Order not found');
-    if (!order.engraving) throw new BadRequestException('Order has no engraving');
+    if (!order.engraving)
+      throw new BadRequestException('Order has no engraving');
 
     // 1. Activate warranty
     await this.prisma.warranties.create({
@@ -1081,9 +1113,7 @@ export class OrderService {
           coverage: ['manufacturing_defect'],
         } as Prisma.InputJsonValue,
         issue_date: new Date(),
-        expiry_date: new Date(
-          Date.now() + 365 * 24 * 60 * 60 * 1000,
-        ),
+        expiry_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
         activated_at: new Date(),
         status: 'ACTIVE',
       },
@@ -1125,7 +1155,8 @@ export class OrderService {
     const warranty = await this.prisma.warranties.findFirst({
       where: { order_id: orderId },
     });
-    if (!warranty) throw new NotFoundException('No warranty found for this order');
+    if (!warranty)
+      throw new NotFoundException('No warranty found for this order');
 
     return {
       warranty: {
@@ -1193,7 +1224,7 @@ export class OrderService {
     return { order: await this.mapOrder(order) };
   }
 
-  private mapShipment(shipment: Record<string, any>) {
+  private mapShipment(shipment: ShipmentRecord) {
     return {
       id: shipment.id,
       orderId: shipment.order_id,
@@ -1204,8 +1235,7 @@ export class OrderService {
       recipientName: shipment.recipient_name ?? '',
       recipientPhone: shipment.recipient_phone ?? '',
       shippingAddressText: shipment.shipping_address_text ?? '',
-      estimatedDeliveryAt:
-        shipment.estimated_delivery_at?.toISOString() ?? '',
+      estimatedDeliveryAt: shipment.estimated_delivery_at?.toISOString() ?? '',
       deliveredAt: shipment.delivered_at?.toISOString() ?? '',
       createdAt: shipment.created_at?.toISOString() ?? '',
     };

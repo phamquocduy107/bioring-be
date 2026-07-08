@@ -287,7 +287,10 @@ export function ApiGuestSetShippingInfoDocs() {
         },
       },
     }),
-    ApiResponse({ status: 400, description: 'Invalid delivery method or already set' }),
+    ApiResponse({
+      status: 400,
+      description: 'Invalid delivery method or already set',
+    }),
     ApiResponse({ status: 403, description: 'Invalid guest code' }),
   );
 }

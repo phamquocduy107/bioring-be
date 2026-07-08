@@ -6,7 +6,10 @@ export class CreateGuestOrderDto {
   @IsUUID('4')
   guestCustomerId!: string;
 
-  @ApiPropertyOptional({ description: 'Product ID (nếu chọn mẫu ngay)', format: 'uuid' })
+  @ApiPropertyOptional({
+    description: 'Product ID (nếu chọn mẫu ngay)',
+    format: 'uuid',
+  })
   @IsOptional()
   @IsUUID('4')
   productId?: string;

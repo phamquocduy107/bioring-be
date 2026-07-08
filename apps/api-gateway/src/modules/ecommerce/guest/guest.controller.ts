@@ -31,6 +31,41 @@ interface GuestCustomerResponse {
   createdAt: string;
 }
 
+interface GuestOrderResponse {
+  order: {
+    id: string;
+    orderCode: string;
+    userId: string;
+    guestCustomerId: string;
+    designSource: string;
+    status: string;
+    totalPrice: number;
+    paidAmount: number;
+    remainingAmount: number;
+    createdAt: string;
+  };
+  engraving: {
+    id: string;
+    userId: string;
+    productId: string;
+    status: string;
+  };
+  version: {
+    id: string;
+    engravingId: string;
+    versionNumber: number;
+    selectedMaterialId: string;
+    selectedGemstoneId: string;
+    ringSize: string;
+    ringStyle: string;
+    ringShape: string;
+    customizationConfig: string;
+    selectedBiometrics: string;
+    status: string;
+    createdAt: string;
+  };
+}
+
 interface EcommerceGrpcService {
   createGuestSession(data: {
     fullName: string;
@@ -43,7 +78,7 @@ interface EcommerceGrpcService {
     guestCustomerId: string;
     productId?: string;
     staffId: string;
-  }): Observable<any>;
+  }): Observable<GuestOrderResponse>;
 }
 
 @Controller('api/v1/guest')

@@ -9,6 +9,59 @@ import { OrderService } from '../order/order.service';
 import { MemoryCardService } from '../memory-card/memory-card.service';
 import { randomUUID, createHash, randomBytes } from 'node:crypto';
 
+// === Internal record interfaces (snake_case from Prisma) ===
+
+interface GuestRecord {
+  id: string;
+  guest_code: string | null;
+  full_name: string | null;
+  phone: string | null;
+  email: string | null;
+  note: string | null;
+  created_at: Date | null;
+}
+
+interface EngravingRecord {
+  id: string;
+  user_id: string | null;
+  product_id: string | null;
+  status: string | null;
+}
+
+interface EngravingWithProductId {
+  product_id?: string | null;
+}
+
+interface OrderSummaryRecord {
+  id: string;
+  order_code: string;
+  user_id: string | null;
+  guest_customer_id: string | null;
+  design_source: string | null;
+  status: string | null;
+  total_price: unknown;
+  paid_amount: unknown;
+  remaining_amount: unknown;
+  created_at: Date | null;
+}
+
+interface VersionRecord {
+  id: string;
+  engraving_id: string;
+  version_number: number;
+  selected_material_id: string | null;
+  selected_gemstone_id: string | null;
+  ring_size: string | null;
+  ring_style: string | null;
+  ring_shape: string | null;
+  customization_config: unknown;
+  selected_biometrics: string | null;
+  status: string | null;
+  created_at: Date | null;
+}
+
+// === Service ===
+
 @Injectable()
 export class GuestService {
   constructor(
@@ -27,7 +80,7 @@ export class GuestService {
     staffId: string;
   }) {
     const guestCode = await this.generateGuestCode();
-    const guest = await this.prisma.guest_customers.create({
+    const guest = (await this.prisma.guest_customers.create({
       data: {
         id: randomUUID(),
         guest_code: guestCode,
@@ -36,7 +89,7 @@ export class GuestService {
         email: data.email,
         note: data.note,
       },
-    });
+    })) as unknown as GuestRecord;
     return { guest: this.mapGuest(guest) };
   }
 
@@ -50,23 +103,23 @@ export class GuestService {
     });
     if (!guest) throw new NotFoundException('Guest not found');
 
-    const engraving = await this.prisma.engravings.create({
+    const engraving = (await this.prisma.engravings.create({
       data: {
         id: randomUUID(),
         user_id: data.staffId,
         product_id: data.productId,
         status: 'PENDING',
       },
-    });
+    })) as unknown as EngravingRecord;
 
-    const version = await this.prisma.engraving_versions.create({
+    const version = (await this.prisma.engraving_versions.create({
       data: {
         id: randomUUID(),
         engraving_id: engraving.id,
         version_number: 1,
         status: 'PENDING',
       },
-    });
+    })) as unknown as VersionRecord;
 
     const qrCode = randomBytes(6).toString('hex');
     const accessPinHash = createHash('sha256').update('123456').digest('hex');
@@ -85,7 +138,7 @@ export class GuestService {
     const serviceFee = Math.round(subtotal * 0.1);
     const totalPrice = subtotal + serviceFee;
 
-    const order = await this.prisma.orders.create({
+    const order = (await this.prisma.orders.create({
       data: {
         id: randomUUID(),
         order_code: `${Date.now()}${Math.floor(Math.random() * 1000)}`,
@@ -101,7 +154,7 @@ export class GuestService {
         paid_amount: 0,
         remaining_amount: totalPrice,
       },
-    });
+    })) as unknown as OrderSummaryRecord;
 
     return {
       order: this.mapOrderSummary(order),
@@ -113,9 +166,9 @@ export class GuestService {
   // =========== GUEST TABLET ===========
 
   async getGuestSession(guestCode: string) {
-    const guest = await this.prisma.guest_customers.findUnique({
+    const guest = (await this.prisma.guest_customers.findUnique({
       where: { guest_code: guestCode },
-    });
+    })) as unknown as GuestRecord | null;
     if (!guest) throw new NotFoundException('Guest not found');
 
     const order = await this.prisma.orders.findFirst({
@@ -138,25 +191,29 @@ export class GuestService {
       orderBy: { created_at: 'desc' },
     });
 
+    const orderResult = order
+      ? await this.orderService.getOrder(order.id).then((r) => r.order)
+      : null;
+
     return {
       guest: this.mapGuest(guest),
-      order: order ? await this.orderService.getOrder(order.id).then((r) => r.order) : null,
+      order: orderResult,
     };
   }
 
   async guestSubmitOrder(orderId: string, guestCode: string) {
     await this.validateGuestOwnership(guestCode, { orderId });
 
-    const order = await this.prisma.orders.findUnique({
+    const order = (await this.prisma.orders.findUnique({
       where: { id: orderId },
-    });
+    })) as unknown as OrderSummaryRecord | null;
     if (!order) throw new NotFoundException('Order not found');
 
     if (order.status === 'AWAITING_SUBMIT') {
-      const updated = await this.prisma.orders.update({
+      const updated = (await this.prisma.orders.update({
         where: { id: orderId },
         data: { status: 'PENDING_REVIEW' },
-      });
+      })) as unknown as OrderSummaryRecord;
       return { order: this.mapOrderSummary(updated), isResubmit: false };
     }
 
@@ -172,10 +229,10 @@ export class GuestService {
         }),
       ]);
 
-      const updated = await this.prisma.orders.findUnique({
+      const updated = (await this.prisma.orders.findUnique({
         where: { id: orderId },
-      });
-      return { order: this.mapOrderSummary(updated!), isResubmit: true };
+      })) as unknown as OrderSummaryRecord;
+      return { order: this.mapOrderSummary(updated), isResubmit: true };
     }
 
     throw new BadRequestException(
@@ -186,7 +243,15 @@ export class GuestService {
   async guestUpdateEngravingConfig(
     engravingVersionId: string,
     guestCode: string,
-    data: Record<string, any>,
+    data: {
+      selectedMaterialId?: string;
+      selectedGemstoneId?: string;
+      ringSize?: string;
+      ringStyle?: string;
+      ringShape?: string;
+      customizationConfig?: string;
+      selectedBiometrics?: string;
+    },
   ) {
     await this.validateGuestOwnership(guestCode, { engravingVersionId });
 
@@ -195,7 +260,7 @@ export class GuestService {
     });
     if (!version) throw new NotFoundException('Version not found');
 
-    const updateData: Record<string, any> = {};
+    const updateData: Record<string, unknown> = {};
     if (data.selectedMaterialId !== undefined)
       updateData.selected_material_id = data.selectedMaterialId;
     if (data.selectedGemstoneId !== undefined)
@@ -208,10 +273,10 @@ export class GuestService {
     if (data.selectedBiometrics !== undefined)
       updateData.selected_biometrics = data.selectedBiometrics;
 
-    const updated = await this.prisma.engraving_versions.update({
+    const updated = (await this.prisma.engraving_versions.update({
       where: { id: engravingVersionId },
       data: updateData,
-    });
+    })) as unknown as VersionRecord;
 
     return { version: this.mapVersion(updated) };
   }
@@ -266,10 +331,11 @@ export class GuestService {
     await this.validateGuestOwnership(guestCode, { orderId });
 
     if (!['PICKUP', 'DELIVERY'].includes(data.deliveryMethod)) {
-      throw new BadRequestException('deliveryMethod must be PICKUP or DELIVERY');
+      throw new BadRequestException(
+        'deliveryMethod must be PICKUP or DELIVERY',
+      );
     }
 
-    // Kiểm tra đã có shipment chưa
     const existing = await this.prisma.shipments.findFirst({
       where: { order_id: orderId },
     });
@@ -311,9 +377,9 @@ export class GuestService {
       orderId?: string;
     },
   ) {
-    const guest = await this.prisma.guest_customers.findUnique({
+    const guest = (await this.prisma.guest_customers.findUnique({
       where: { guest_code: guestCode },
-    });
+    })) as unknown as GuestRecord | null;
     if (!guest) throw new NotFoundException('Invalid guest code');
 
     if (target.engravingVersionId) {
@@ -371,7 +437,9 @@ export class GuestService {
     return code;
   }
 
-  private async calculateSubtotal(engraving: any): Promise<number> {
+  private async calculateSubtotal(
+    engraving: EngravingWithProductId,
+  ): Promise<number> {
     if (!engraving.product_id) return 0;
     const product = await this.prisma.products.findUnique({
       where: { id: engraving.product_id },
@@ -379,43 +447,43 @@ export class GuestService {
     return Number(product?.base_price ?? 0);
   }
 
-  private mapGuest(guest: any) {
+  private mapGuest(guest: GuestRecord) {
     return {
       id: guest.id,
-      guestCode: guest.guest_code,
-      fullName: guest.full_name,
-      phone: guest.phone,
-      email: guest.email,
-      note: guest.note,
-      createdAt: guest.created_at?.toISOString(),
+      guestCode: guest.guest_code ?? '',
+      fullName: guest.full_name ?? '',
+      phone: guest.phone ?? '',
+      email: guest.email ?? '',
+      note: guest.note ?? '',
+      createdAt: guest.created_at?.toISOString() ?? '',
     };
   }
 
-  private mapOrderSummary(order: any) {
+  private mapOrderSummary(order: OrderSummaryRecord) {
     return {
       id: order.id,
       orderCode: order.order_code,
       userId: order.user_id ?? '',
       guestCustomerId: order.guest_customer_id ?? '',
-      designSource: order.design_source,
-      status: order.status,
+      designSource: order.design_source ?? '',
+      status: order.status ?? '',
       totalPrice: Number(order.total_price ?? 0),
       paidAmount: Number(order.paid_amount ?? 0),
       remainingAmount: Number(order.remaining_amount ?? 0),
-      createdAt: order.created_at?.toISOString(),
+      createdAt: order.created_at?.toISOString() ?? '',
     };
   }
 
-  private mapEngraving(engraving: any) {
+  private mapEngraving(engraving: EngravingRecord) {
     return {
       id: engraving.id,
       userId: engraving.user_id ?? '',
       productId: engraving.product_id ?? '',
-      status: engraving.status,
+      status: engraving.status ?? '',
     };
   }
 
-  private mapVersion(version: any) {
+  private mapVersion(version: VersionRecord) {
     return {
       id: version.id,
       engravingId: version.engraving_id,
@@ -431,7 +499,7 @@ export class GuestService {
           : JSON.stringify(version.customization_config),
       selectedBiometrics: version.selected_biometrics ?? '',
       status: version.status ?? '',
-      createdAt: version.created_at?.toISOString(),
+      createdAt: version.created_at?.toISOString() ?? '',
     };
   }
 }

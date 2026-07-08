@@ -9,6 +9,87 @@ import type { Prisma } from '@prisma/client';
 import { PrismaService } from '@app/prisma';
 import { randomUUID, createHash, randomBytes } from 'node:crypto';
 
+// === Internal record types ===
+interface EngravingRecord {
+  id: string;
+  user_id: string | null;
+  product_id: string | null;
+  unique_product_id: string | null;
+  approved_version_id: string | null;
+  status: string | null;
+  created_at: Date | null;
+  updated_at: Date | null;
+  order?: { id: string; guest_customer_id?: string | null } | null;
+  engraving_versions_engraving_versions_engraving_idToengravings?: EngravingVersionRecord[];
+  engraving_biometrics?: EngravingBiometricRecord[];
+  qr_memories?: QrMemoryRecord[];
+}
+
+interface EngravingVersionRecord {
+  id: string;
+  engraving_id: string;
+  version_number: number;
+  selected_material_id: string | null;
+  selected_gemstone_id: string | null;
+  ring_size: string | null;
+  ring_style: string | null;
+  ring_shape: string | null;
+  customization_config: unknown;
+  selected_biometrics: string | null;
+  status: string | null;
+  manager_id: string | null;
+  manager_note: string | null;
+  reviewed_at: Date | null;
+  created_at: Date | null;
+  materials?: MaterialRecord | null;
+  gemstones?: GemstoneRecord | null;
+}
+
+interface EngravingBiometricRecord {
+  id: string;
+  engraving_id: string;
+  biometric_type: string;
+  required_channel: string;
+  raw_file_url: string | null;
+  processed_svg_url: string | null;
+  extra_data: unknown;
+  status: string | null;
+}
+
+interface QrMemoryRecord {
+  id: string;
+  engraving_id: string;
+  qr_code: string | null;
+  card_title: string | null;
+  greeting_message: string | null;
+  recipient_email: string | null;
+  biometric_display_settings: unknown;
+  access_pin_hash: string | null;
+  is_locked: boolean | null;
+  created_at: Date | null;
+  updated_at: Date | null;
+}
+
+interface MaterialRecord {
+  id: string;
+  name: string;
+  purity: string | null;
+  color: string | null;
+  current_price_per_gram: unknown;
+}
+
+interface GemstoneRecord {
+  id: string;
+  type: string;
+  carat: unknown;
+  cut: string | null;
+  color: string | null;
+  clarity: string | null;
+  certification_code: string | null;
+  price: unknown;
+  is_available: boolean | null;
+}
+
 @Injectable()
 export class EngravingService {
   constructor(private readonly prisma: PrismaService) {}
@@ -269,11 +350,11 @@ export class EngravingService {
     return { engraving: this.mapEngraving(engraving) };
   }
 
-  private mapEngraving(engraving: any) {
+  private mapEngraving(engraving: EngravingRecord) {
     const latest =
       engraving
         .engraving_versions_engraving_versions_engraving_idToengravings?.[0] ??
-      ({} as any);
+      ({} as EngravingVersionRecord);
     const qrMem = engraving.qr_memories?.[0] ?? null;
     return {
       id: engraving.id,
@@ -285,7 +366,7 @@ export class EngravingService {
       status: engraving.status ?? '',
       versions:
         engraving.engraving_versions_engraving_versions_engraving_idToengravings?.map(
-          (v: any) => ({
+          (v: EngravingVersionRecord) => ({
             id: v.id,
             engravingId: v.engraving_id,
             versionNumber: v.version_number,
@@ -330,7 +411,7 @@ export class EngravingService {
           }),
         ) ?? [],
       biometrics:
-        engraving.engraving_biometrics?.map((b: any) => ({
+        engraving.engraving_biometrics?.map((b: EngravingBiometricRecord) => ({
           id: b.id,
           engravingId: b.engraving_id,
           biometricType: b.biometric_type,
