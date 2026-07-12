@@ -293,9 +293,26 @@ interface EcommerceGrpcService {
     staffId: string;
   }): Observable<{ order: OrderResponse }>;
   getDeliveryInfo(data: { orderId: string }): Observable<DeliveryResponse>;
-  getWarrantyInfo(data: { orderId: string }): Observable<{ warranty: WarrantyInfoResponse }>;
-  getProductionInfo(data: { orderId: string }): Observable<ProductionInfoResponse>;
-  lookupOrder(data: { orderCode: string }): Observable<{ order: OrderResponse }>;
+  getWarrantyInfo(data: {
+    orderId: string;
+  }): Observable<{ warranty: WarrantyInfoResponse }>;
+  getProductionInfo(data: {
+    orderId: string;
+  }): Observable<ProductionInfoResponse>;
+  lookupOrder(data: {
+    orderCode: string;
+  }): Observable<{ order: OrderResponse }>;
+  cancelOrder(data: {
+    id: string;
+    reason: string;
+  }): Observable<{ order: OrderResponse }>;
+  manualPayment(data: {
+    orderId: string;
+    paymentPhase: string;
+    amount: number;
+    receivedBy: string;
+  }): Observable<unknown>;
+  getPaymentStatus(data: { orderId: string }): Observable<unknown>;
 }
 
 @Controller('api/v1/orders')
@@ -628,6 +645,32 @@ export class OrderController implements OnModuleInit {
     return this.call(() => this.grpc!.getProductionInfo({ orderId: id }));
   }
 
+  @Get(':id/payment-status')
+  @Permissions(Permission.OrderWrite)
+  getPaymentStatus(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+  ) {
+    return this.call(() => this.grpc!.getPaymentStatus({ orderId: id }));
+  }
+
+  @Post(':id/payments/manual')
+  @Permissions(Permission.OrderWrite)
+  manualPayment(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body()
+    body: { paymentPhase: string; amount: number },
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.call(() =>
+      this.grpc!.manualPayment({
+        orderId: id,
+        paymentPhase: body.paymentPhase,
+        amount: body.amount,
+        receivedBy: user.sub,
+      }),
+    );
+  }
+
   @Post('lookup')
   @Public()
   @ApiLookupOrderDocs()
@@ -636,5 +679,15 @@ export class OrderController implements OnModuleInit {
       this.grpc!.lookupOrder({ orderCode: body.orderCode }),
     );
   }
-}
 
+  @Patch(':id/cancel')
+  @Permissions(Permission.OrderWrite)
+  cancelOrder(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body('reason') reason: string,
+  ) {
+    return this.call(() =>
+      this.grpc!.cancelOrder({ id, reason: reason ?? '' }),
+    );
+  }
+}

@@ -37,6 +37,11 @@ service EcommerceService {
   rpc InitiatePayment (InitiatePaymentRequest) returns (InitiatePaymentResponse);
   rpc HandlePayOSWebhook (PayOSWebhookRequest) returns (PayOSWebhookResponse);
   rpc CancelPayment (CancelPaymentRequest) returns (CancelPaymentResponse);
+  rpc CancelOrder (CancelOrderRequest) returns (GetOrderResponse);
+
+  // Manual payment (POS)
+  rpc ManualPayment (ManualPaymentRequest) returns (ManualPaymentResponse);
+  rpc GetPaymentStatus (GetPaymentStatusRequest) returns (GetPaymentStatusResponse);
 
 // Production
 rpc AssignJeweler (AssignJewelerRequest) returns (AssignJewelerResponse);
@@ -74,6 +79,21 @@ rpc GetProductionTasks (GetProductionTasksRequest) returns (GetProductionTasksRe
   rpc GuestGetOrder (GuestGetOrderRequest) returns (GetOrderResponse);
   rpc GuestInitiatePayment (GuestInitiatePaymentRequest) returns (GuestInitiatePaymentResponse);
   rpc GuestSetShippingInfo (GuestSetShippingInfoRequest) returns (GuestSetShippingInfoResponse);
+
+  // Capture Session (P4)
+  rpc CreateCaptureSession (CreateCaptureSessionRequest) returns (CreateCaptureSessionResponse);
+  rpc CompleteCaptureSession (CompleteCaptureSessionRequest) returns (CreateCaptureSessionResponse);
+  rpc GetCaptureSessions (GetCaptureSessionsRequest) returns (GetCaptureSessionsResponse);
+  rpc GetCaptureSession (GetCaptureSessionRequest) returns (CreateCaptureSessionResponse);
+
+  // Admin Dashboard (P5)
+  rpc GetDashboardSummary (Empty) returns (DashboardSummaryResponse);
+  rpc GetOrdersByStatus (Empty) returns (OrdersByStatusResponse);
+  rpc GetRevenueTimeline (RevenueTimelineRequest) returns (RevenueTimelineResponse);
+  rpc GetTopProducts (TopProductsRequest) returns (TopProductsResponse);
+
+  // Customer lookup (Staff Dashboard)
+  rpc LookupCustomer (LookupCustomerRequest) returns (LookupCustomerResponse);
 }
 
 // ===== Messages =====
@@ -470,6 +490,72 @@ message CancelPaymentResponse {
   string orderCode = 2;
 }
 
+// === Manual Payment (POS) ===
+message ManualPaymentRequest {
+  string orderId = 1;
+  string paymentPhase = 2;
+  double amount = 3;
+  string receivedBy = 4;
+}
+
+message ManualPaymentResponse {
+  Payment payment = 1;
+  Order order = 2;
+}
+
+message GetPaymentStatusRequest { string orderId = 1; }
+
+message PaymentPhaseInfo {
+  string phase = 1;
+  string status = 2;
+  double amount = 3;
+  string method = 4;
+  string paidAt = 5;
+}
+
+message GetPaymentStatusResponse {
+  string orderId = 1;
+  string orderCode = 2;
+  double totalPrice = 3;
+  double paidAmount = 4;
+  double remainingAmount = 5;
+  repeated PaymentPhaseInfo phases = 6;
+}
+
+// === Customer Lookup ===
+message LookupCustomerRequest { string email = 1; }
+
+message LookupCustomerResponse {
+  string type = 1;
+  MemberInfo member = 2;
+  GuestInfo guest = 3;
+}
+
+message MemberInfo {
+  string id = 1;
+  string fullName = 2;
+  string email = 3;
+  string phone = 4;
+  int32 orderCount = 5;
+  int32 activeOrders = 6;
+}
+
+message GuestInfo {
+  string id = 1;
+  string guestCode = 2;
+  string fullName = 3;
+  string phone = 4;
+  string email = 5;
+  int32 orderCount = 6;
+  string lastOrderAt = 7;
+  string convertedAt = 8;
+}
+
+message CancelOrderRequest {
+  string id = 1;
+  string reason = 2;
+}
+
 // === Production ===
 message ProductionTask {
   string id = 1;
@@ -826,4 +912,89 @@ message GuestSetShippingInfoResponse {
   string recipientName = 5;
   string recipientPhone = 6;
   string shippingAddressText = 7;
+}
+
+// === Admin Dashboard (P5) ===
+message DashboardSummaryResponse {
+  int32 totalOrders = 1;
+  int32 completedOrders = 2;
+  double totalRevenue = 3;
+  int32 activeUsers = 4;
+}
+
+message OrdersByStatusResponse {
+  message StatusCount {
+    string status = 1;
+    int32 count = 2;
+  }
+  repeated StatusCount data = 1;
+}
+
+message RevenueTimelineRequest {
+  int32 days = 1;
+}
+
+message RevenueTimelineResponse {
+  message DayRevenue {
+    string date = 1;
+    double revenue = 2;
+  }
+  repeated DayRevenue data = 1;
+}
+
+message TopProductsRequest {
+  int32 limit = 1;
+}
+
+message TopProductsResponse {
+  message ProductSales {
+    string id = 1;
+    string name = 2;
+    int32 orderCount = 3;
+  }
+  repeated ProductSales data = 1;
+}
+
+// === Capture Session (P4) ===
+message CreateCaptureSessionRequest {
+  string orderId = 1;
+  string staffId = 2;
+  string deviceId = 3;
+}
+
+message CreateCaptureSessionResponse {
+  CaptureSession session = 1;
+}
+
+message CompleteCaptureSessionRequest {
+  string id = 1;
+  double qualityScore = 2;
+  string staffNote = 3;
+}
+
+message GetCaptureSessionsRequest {
+  string orderId = 1;
+}
+
+message GetCaptureSessionsResponse {
+  repeated CaptureSession data = 1;
+}
+
+message GetCaptureSessionRequest {
+  string id = 1;
+}
+
+message CaptureSession {
+  string id = 1;
+  string orderId = 2;
+  string engravingId = 3;
+  string customerId = 4;
+  string guestCustomerId = 5;
+  string staffId = 6;
+  string deviceId = 7;
+  string status = 8;
+  double qualityScore = 9;
+  string staffNote = 10;
+  string startedAt = 11;
+  string completedAt = 12;
 }

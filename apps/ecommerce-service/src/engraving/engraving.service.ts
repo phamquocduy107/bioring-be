@@ -327,7 +327,9 @@ export class EngravingService {
     ]);
 
     return {
-      engravings: engravings.map((e) => this.mapEngraving(e)),
+      engravings: (engravings as unknown as EngravingRecord[]).map((e) =>
+        this.mapEngraving(e),
+      ),
       total,
       page,
       limit,
@@ -347,7 +349,9 @@ export class EngravingService {
       },
     });
     if (!engraving) throw new NotFoundException('Engraving not found');
-    return { engraving: this.mapEngraving(engraving) };
+    return {
+      engraving: this.mapEngraving(engraving as unknown as EngravingRecord),
+    };
   }
 
   private mapEngraving(engraving: EngravingRecord) {

@@ -53,6 +53,7 @@
     "@nestjs/swagger": "^11.2.5",
     "@payos/node": "^2.0.5",
     "@prisma/client": "^6.19.2",
+    "@sendgrid/mail": "^8.1.6",
     "amqp-connection-manager": "^5.0.0",
     "amqplib": "^0.10.9",
     "bullmq": "^5.67.2",

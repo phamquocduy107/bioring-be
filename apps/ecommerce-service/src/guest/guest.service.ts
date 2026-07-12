@@ -103,6 +103,46 @@ export class GuestService {
     });
     if (!guest) throw new NotFoundException('Guest not found');
 
+    // Validate biometrics: nếu đã set selectedBiometrics, kiểm tra đủ file
+    const existingSession = await this.prisma.orders.findFirst({
+      where: { guest_customer_id: data.guestCustomerId },
+      orderBy: { created_at: 'desc' },
+      include: {
+        engraving: {
+          include: {
+            engraving_versions_engraving_versions_engraving_idToengravings: {
+              orderBy: { version_number: 'desc' },
+              take: 1,
+            },
+          },
+        },
+      },
+    });
+
+    if (existingSession?.engraving) {
+      const version =
+        existingSession.engraving
+          .engraving_versions_engraving_versions_engraving_idToengravings[0];
+      const selected =
+        version?.selected_biometrics?.split(',').filter(Boolean) ?? [];
+      if (selected.length > 0) {
+        const uploaded = await this.prisma.engraving_biometrics.findMany({
+          where: {
+            engraving_id: existingSession.engraving.id,
+            status: 'CAPTURED',
+          },
+          select: { biometric_type: true },
+        });
+        const uploadedTypes = new Set(uploaded.map((b) => b.biometric_type));
+        const missing = selected.filter((t) => !uploadedTypes.has(t));
+        if (missing.length > 0) {
+          throw new BadRequestException(
+            `Missing biometric data: ${missing.join(', ')}. Please upload before creating order.`,
+          );
+        }
+      }
+    }
+
     const engraving = (await this.prisma.engravings.create({
       data: {
         id: randomUUID(),
@@ -210,6 +250,9 @@ export class GuestService {
     if (!order) throw new NotFoundException('Order not found');
 
     if (order.status === 'AWAITING_SUBMIT') {
+      // Validate: tất cả biometric trong package đã được upload chưa
+      await this.validateBiometricsReady(orderId);
+
       const updated = (await this.prisma.orders.update({
         where: { id: orderId },
         data: { status: 'PENDING_REVIEW' },
@@ -218,6 +261,8 @@ export class GuestService {
     }
 
     if (order.status === 'REVISION_REQUIRED') {
+      // Validate biometrics cho resubmit
+      await this.validateBiometricsReady(orderId);
       await this.prisma.$transaction([
         this.prisma.engravings.updateMany({
           where: { order: { id: orderId } },
@@ -369,6 +414,47 @@ export class GuestService {
 
   // =========== HELPERS ===========
 
+  private async validateBiometricsReady(orderId: string) {
+    const orderWithEngraving = await this.prisma.orders.findUnique({
+      where: { id: orderId },
+      include: {
+        engraving: {
+          include: {
+            engraving_versions_engraving_versions_engraving_idToengravings: {
+              orderBy: { version_number: 'desc' },
+              take: 1,
+            },
+          },
+        },
+      },
+    });
+
+    const engraving = orderWithEngraving?.engraving;
+    if (!engraving) return;
+
+    const version =
+      engraving
+        .engraving_versions_engraving_versions_engraving_idToengravings[0];
+    const selected =
+      version?.selected_biometrics?.split(',').filter(Boolean) ?? [];
+    if (selected.length === 0) return;
+
+    const uploaded = await this.prisma.engraving_biometrics.findMany({
+      where: {
+        engraving_id: engraving.id,
+        status: 'CAPTURED',
+      },
+      select: { biometric_type: true },
+    });
+    const uploadedTypes = new Set(uploaded.map((b) => b.biometric_type));
+    const missing = selected.filter((t: string) => !uploadedTypes.has(t));
+    if (missing.length > 0) {
+      throw new BadRequestException(
+        `Missing biometric data: ${missing.join(', ')}. Please upload before submitting.`,
+      );
+    }
+  }
+
   async validateGuestOwnership(
     guestCode: string,
     target: {
@@ -383,14 +469,21 @@ export class GuestService {
     if (!guest) throw new NotFoundException('Invalid guest code');
 
     if (target.engravingVersionId) {
-      const version = await this.prisma.engraving_versions.findUnique({
+      const versionRecord = (await this.prisma.engraving_versions.findUnique({
         where: { id: target.engravingVersionId },
-        include: {
-          engraving: { include: { order: true } },
-        },
-      });
-      if (!version) throw new NotFoundException('Version not found');
-      const order = version.engraving.order;
+      })) as unknown as { engraving_id: string } | null;
+      if (!versionRecord) throw new NotFoundException('Version not found');
+
+      const engravingWithOrder = (await this.prisma.engravings.findUnique({
+        where: { id: versionRecord.engraving_id },
+        include: { order: true },
+      })) as unknown as {
+        order?: { guest_customer_id: string | null } | null;
+      } | null;
+
+      if (!engravingWithOrder)
+        throw new NotFoundException('Engraving not found');
+      const order = engravingWithOrder.order;
       if (!order || order.guest_customer_id !== guest.id) {
         throw new ForbiddenException('Guest does not own this engraving');
       }
@@ -402,7 +495,12 @@ export class GuestService {
         include: { order: true },
       });
       if (!engraving) throw new NotFoundException('Engraving not found');
-      if (!engraving.order || engraving.order.guest_customer_id !== guest.id) {
+      const engOrder = (
+        engraving as unknown as {
+          order?: { guest_customer_id: string | null } | null;
+        }
+      ).order;
+      if (!engOrder || engOrder.guest_customer_id !== guest.id) {
         throw new ForbiddenException('Guest does not own this engraving');
       }
     }

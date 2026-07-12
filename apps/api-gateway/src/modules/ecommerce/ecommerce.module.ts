@@ -9,6 +9,9 @@ import { MemoryCardController } from './memory-card/memory-card.controller';
 import { CardThemeController } from './card-theme/card-theme.controller';
 import { GuestController } from './guest/guest.controller';
 import { GuestTabletController } from './guest/guest-tablet.controller';
+import { AdminController } from './admin/admin.controller';
+import { CaptureSessionController } from './capture-session/capture-session.controller';
+import { CustomerController } from './customer/customer.controller';
 
 @Module({
   imports: [
@@ -33,6 +36,9 @@ import { GuestTabletController } from './guest/guest-tablet.controller';
     CardThemeController,
     GuestController,
     GuestTabletController,
+    CaptureSessionController,
+    AdminController,
+    CustomerController,
   ],
 })
 export class EcommerceModule {}

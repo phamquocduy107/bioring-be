@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '@app/prisma';
 import { PayOSService } from '@app/common/payment/payos.service';
@@ -47,6 +48,7 @@ export class OrderService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly payOS: PayOSService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async createOrder(engravingId: string, userId: string) {
@@ -248,6 +250,10 @@ export class OrderService {
         },
       });
 
+      this.eventEmitter.emit('order.approved', { orderId: id });
+
+      return { order: await this.mapOrder(updated) };
+
       return { order: await this.mapOrder(updated) };
     }
 
@@ -296,6 +302,8 @@ export class OrderService {
         },
       });
 
+      this.eventEmitter.emit('order.rejected', { orderId: id, note: note ?? '' });
+
       return { order: await this.mapOrder(updated) };
     }
 
@@ -325,10 +333,47 @@ export class OrderService {
       });
     }
 
+    // Validate: tất cả biometric trong package đã được upload chưa
+    const engraving = await this.prisma.engravings.findFirst({
+      where: { order: { id } },
+      include: {
+        engraving_versions_engraving_versions_engraving_idToengravings: {
+          orderBy: { version_number: 'desc' },
+          take: 1,
+        },
+      },
+    });
+
+    if (engraving) {
+      const version =
+        engraving
+          .engraving_versions_engraving_versions_engraving_idToengravings[0];
+      const selected =
+        version?.selected_biometrics?.split(',').filter(Boolean) ?? [];
+      if (selected.length > 0) {
+        const uploaded = await this.prisma.engraving_biometrics.findMany({
+          where: {
+            engraving_id: engraving.id,
+            status: 'CAPTURED',
+          },
+          select: { biometric_type: true },
+        });
+        const uploadedTypes = new Set(uploaded.map((b) => b.biometric_type));
+        const missing = selected.filter((t: string) => !uploadedTypes.has(t));
+        if (missing.length > 0) {
+          throw new BadRequestException(
+            `Missing biometric data: ${missing.join(', ')}. Please upload before submitting.`,
+          );
+        }
+      }
+    }
+
     const updated = await this.prisma.orders.update({
       where: { id },
       data: { status: 'PENDING_REVIEW' },
     });
+
+    this.eventEmitter.emit('order.submitted', { orderId: id });
 
     return { order: await this.mapOrder(updated) };
   }
@@ -664,6 +709,11 @@ export class OrderService {
           status: newStatus,
         },
       });
+
+      // ponytail: chỉ emit cho payment đáng chú ý
+      if (newStatus === 'DEPOSIT_PAID' || newStatus === 'READY_FOR_DELIVERY') {
+        this.eventEmitter.emit('payment.confirmed', { orderId: order.id });
+      }
     }
 
     return { success: true };
@@ -701,6 +751,158 @@ export class OrderService {
     });
 
     return { success: true, orderCode: order.order_code ?? '' };
+  }
+
+  async cancelOrder(orderId: string, reason: string) {
+    const order = await this.prisma.orders.findUnique({
+      where: { id: orderId },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+
+    const cancellable = [
+      'AWAITING_SUBMIT',
+      'AWAITING_DEPOSIT_1',
+      'PENDING_REVIEW',
+      'REVISION_REQUIRED',
+      'AWAITING_DEPOSIT',
+      'DEPOSIT_PAID',
+      'IN_PRODUCTION',
+      'AWAITING_REMAINING',
+      'PENDING_QC',
+      'READY_FOR_DELIVERY',
+    ];
+    if (!cancellable.includes(order.status ?? '')) {
+      throw new BadRequestException(
+        `Order cannot be cancelled in status "${order.status}"`,
+      );
+    }
+
+    const updated = await this.prisma.orders.update({
+      where: { id: orderId },
+      data: {
+        status: 'CANCELLED',
+        note: reason ? `[Cancelled] ${reason}` : order.note,
+      },
+    });
+
+    return { order: await this.mapOrder(updated) };
+  }
+
+  async manualPayment(
+    orderId: string,
+    data: { paymentPhase: string; amount: number; receivedBy: string },
+  ) {
+    const order = await this.prisma.orders.findUnique({
+      where: { id: orderId },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+
+    const allowedPhases = ['DEPOSIT_1', 'DEPOSIT_2', 'REMAINING', 'FULL'];
+    if (!allowedPhases.includes(data.paymentPhase)) {
+      throw new BadRequestException(
+        `Invalid paymentPhase: ${data.paymentPhase}`,
+      );
+    }
+
+    const payment = await this.prisma.payments.create({
+      data: {
+        id: randomUUID(),
+        order_id: orderId,
+        payment_code: `MANUAL-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        payment_phase: data.paymentPhase,
+        amount: data.amount,
+        method: 'MANUAL',
+        status: 'PAID',
+        paid_at: new Date(),
+      },
+    });
+
+    const newPaidAmount = Number(order.paid_amount ?? 0) + data.amount;
+    const totalPrice = Number(order.total_price ?? 0);
+    const remainingAmount = totalPrice - newPaidAmount;
+
+    let newStatus = order.status;
+    if (data.paymentPhase === 'DEPOSIT_1') newStatus = 'AWAITING_SUBMIT';
+    else if (data.paymentPhase === 'DEPOSIT_2') newStatus = 'DEPOSIT_PAID';
+    else if (data.paymentPhase === 'FULL') newStatus = 'DEPOSIT_PAID';
+    else if (data.paymentPhase === 'REMAINING')
+      newStatus = 'READY_FOR_DELIVERY';
+
+    const updated = await this.prisma.orders.update({
+      where: { id: orderId },
+      data: {
+        paid_amount: newPaidAmount,
+        remaining_amount: remainingAmount >= 0 ? remainingAmount : 0,
+        status: newStatus,
+      },
+    });
+
+    if (newStatus === 'DEPOSIT_PAID' || newStatus === 'READY_FOR_DELIVERY') {
+      this.eventEmitter.emit('payment.confirmed', { orderId });
+    }
+
+    return {
+      payment: {
+        id: payment.id,
+        orderId: payment.order_id ?? '',
+        paymentPhase: payment.payment_phase ?? '',
+        amount: Number(payment.amount),
+        method: payment.method ?? '',
+        status: payment.status ?? '',
+        payosTransactionId: payment.payos_transaction_id ?? '',
+        paymentUrl: payment.payment_url ?? '',
+        paidAt: payment.paid_at?.toISOString() ?? '',
+        createdAt: payment.created_at?.toISOString() ?? '',
+      },
+      order: await this.mapOrder(updated),
+    };
+  }
+
+  async getPaymentStatus(orderId: string) {
+    const order = await this.prisma.orders.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        order_code: true,
+        total_price: true,
+        paid_amount: true,
+        remaining_amount: true,
+      },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+
+    const payments = await this.prisma.payments.findMany({
+      where: { order_id: orderId, status: 'PAID' },
+      select: {
+        payment_phase: true,
+        amount: true,
+        method: true,
+        paid_at: true,
+      },
+      orderBy: { paid_at: 'desc' },
+    });
+
+    const phases = ['DEPOSIT_1', 'DEPOSIT_2', 'REMAINING', 'FULL'].map(
+      (phase) => {
+        const paid = payments.find((p) => p.payment_phase === phase);
+        return {
+          phase,
+          status: paid ? 'PAID' : 'PENDING',
+          amount: paid ? Number(paid.amount) : null,
+          method: paid?.method ?? null,
+          paidAt: paid?.paid_at?.toISOString() ?? null,
+        };
+      },
+    );
+
+    return {
+      orderId: order.id,
+      orderCode: order.order_code,
+      totalPrice: Number(order.total_price ?? 0),
+      paidAmount: Number(order.paid_amount ?? 0),
+      remainingAmount: Number(order.remaining_amount ?? 0),
+      phases,
+    };
   }
 
   private mapTask(task: TaskRecord) {
@@ -759,6 +961,8 @@ export class OrderService {
       where: { id: orderId },
       data: { status: 'IN_PRODUCTION' },
     });
+
+    this.eventEmitter.emit('order.production_started', { orderId });
 
     return { task: this.mapTask(task) };
   }
@@ -850,8 +1054,8 @@ export class OrderService {
     });
     if (!order) throw new NotFoundException('Order not found');
 
-    if (order.status !== 'IN_PRODUCTION') {
-      throw new BadRequestException('Order must be IN_PRODUCTION for QC');
+    if (order.status !== 'IN_PRODUCTION' && order.status !== 'PENDING_QC') {
+      throw new BadRequestException('Order must be IN_PRODUCTION or PENDING_QC');
     }
 
     const completedTask = order.production_tasks?.[0];
@@ -894,6 +1098,11 @@ export class OrderService {
         where: { id: orderId },
         data: { status: nextStatus },
       });
+
+      if (nextStatus === 'READY_FOR_DELIVERY') {
+        this.eventEmitter.emit('order.ready_for_delivery', { orderId });
+      }
+
       return { order: await this.mapOrder(updated) };
     }
 
@@ -1083,6 +1292,8 @@ export class OrderService {
         data: { status: 'DELIVERED' },
       });
 
+      this.eventEmitter.emit('order.delivered', { orderId: data.orderId });
+
       // Auto-complete: warranty + unlock QR + COMPLETED
       return this.completeOrder(data.orderId);
     }
@@ -1111,7 +1322,7 @@ export class OrderService {
         warranty_scope: {
           description: '1 năm bảo hành chính hãng',
           coverage: ['manufacturing_defect'],
-        } as Prisma.InputJsonValue,
+        },
         issue_date: new Date(),
         expiry_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
         activated_at: new Date(),

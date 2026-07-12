@@ -188,4 +188,24 @@ export class OrderController {
   async lookupOrder(data: { orderCode: string }) {
     return this.orderService.lookupOrder(data.orderCode);
   }
+
+  @GrpcMethod('EcommerceService', 'CancelOrder')
+  async cancelOrder(data: { id: string; reason: string }) {
+    return this.orderService.cancelOrder(data.id, data.reason);
+  }
+
+  @GrpcMethod('EcommerceService', 'ManualPayment')
+  async manualPayment(data: {
+    orderId: string;
+    paymentPhase: string;
+    amount: number;
+    receivedBy: string;
+  }) {
+    return this.orderService.manualPayment(data.orderId, data);
+  }
+
+  @GrpcMethod('EcommerceService', 'GetPaymentStatus')
+  async getPaymentStatus(data: { orderId: string }) {
+    return this.orderService.getPaymentStatus(data.orderId);
+  }
 }

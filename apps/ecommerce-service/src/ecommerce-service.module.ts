@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { APP_FILTER, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import {
   CommonModule,
@@ -15,9 +16,14 @@ import { EngravingModule } from './engraving/engraving.module';
 import { MemoryCardModule } from './memory-card/memory-card.module';
 import { CardThemeModule } from './card-theme/card-theme.module';
 import { GuestModule } from './guest/guest.module';
+import { AdminModule } from './admin/admin.module';
+import { CaptureSessionModule } from './capture-session/capture-session.module';
+import { NotificationModule as EcommerceNotificationModule } from './notification/notification.module';
+import { CustomerModule } from './customer/customer.module';
 
 @Module({
   imports: [
+    EventEmitterModule.forRoot(),
     CommonModule,
     PrismaModule,
     CatalogModule,
@@ -27,6 +33,10 @@ import { GuestModule } from './guest/guest.module';
     MemoryCardModule,
     CardThemeModule,
     GuestModule,
+    CaptureSessionModule,
+    AdminModule,
+    EcommerceNotificationModule,
+    CustomerModule,
   ],
   providers: [
     {

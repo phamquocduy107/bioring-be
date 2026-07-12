@@ -391,7 +391,8 @@ const warrantyExample = {
   expiryDate: '2027-07-03T10:00:00.000Z',
   activatedAt: '2026-07-03T10:00:00.000Z',
   status: 'ACTIVE',
-  warrantyScope: '{"description":"1 năm bảo hành chính hãng","coverage":["manufacturing_defect"]}',
+  warrantyScope:
+    '{"description":"1 năm bảo hành chính hãng","coverage":["manufacturing_defect"]}',
 };
 
 export function ApiQcAcceptOrderDocs() {
@@ -520,8 +521,7 @@ export function ApiGetProductionInfoDocs() {
     ApiBearerAuth('access-token'),
     ApiOperation({
       summary: 'Get production & QC info',
-      description:
-        'Returns production task + latest QA check for an order.',
+      description: 'Returns production task + latest QA check for an order.',
     }),
     ApiParam({
       name: 'id',
