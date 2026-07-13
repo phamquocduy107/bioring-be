@@ -12,6 +12,18 @@ function layout(content: string): string {
 </div>`;
 }
 
+function deepLinkButton(href: string): string {
+  return `
+<div style="text-align:center;margin:16px 0">
+  <a href="${href}" style="display:inline-block;background:#8B4513;color:#fff;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:16px">
+    Mở App Bioring →
+  </a>
+  <p style="font-size:12px;color:#999;margin-top:8px">
+    Hoặc truy cập: https://bioring.com${href.replace('bioring://', '/')}
+  </p>
+</div>`;
+}
+
 export const templates = {
   orderSubmitted: (vars: { orderCode: string; customerName: string }) =>
     layout(`
@@ -25,23 +37,8 @@ export const templates = {
       <h2 style="color:#8B4513">Đơn hàng đã được duyệt 🎉</h2>
       <p>Xin chào <strong>${vars.fullName}</strong>,</p>
       <p>Đơn hàng <strong>${vars.orderCode}</strong> của bạn đã được duyệt.</p>
+      ${deepLinkButton(`bioring://payment/${vars.orderCode}`)}
       <p>Vui lòng thanh toán để chúng tôi tiến hành sản xuất.</p>
-    `),
-
-  paymentConfirmed: (vars: { orderCode: string; fullName: string }) =>
-    layout(`
-      <h2 style="color:#8B4513">Thanh toán thành công</h2>
-      <p>Xin chào <strong>${vars.fullName}</strong>,</p>
-      <p>Đơn hàng <strong>${vars.orderCode}</strong> đã được thanh toán thành công.</p>
-      <p>Chúng tôi đang tiến hành sản xuất. Bạn sẽ nhận được thông báo khi có tiến trình mới.</p>
-    `),
-
-  orderDelivered: (vars: { orderCode: string; fullName: string }) =>
-    layout(`
-      <h2 style="color:#8B4513">Đơn hàng đã giao thành công 🚚</h2>
-      <p>Xin chào <strong>${vars.fullName}</strong>,</p>
-      <p>Đơn hàng <strong>${vars.orderCode}</strong> đã được giao thành công.</p>
-      <p>Hãy đăng nhập vào tài khoản Bioring để xem Memory Card của bạn.</p>
     `),
 
   orderRejected: (vars: { orderCode: string; fullName: string; note?: string }) =>
@@ -50,6 +47,16 @@ export const templates = {
       <p>Xin chào <strong>${vars.fullName}</strong>,</p>
       <p>Đơn hàng <strong>${vars.orderCode}</strong> cần được chỉnh sửa trước khi duyệt.</p>
       ${vars.note ? `<p><strong>Ghi chú từ Manager:</strong> ${vars.note}</p>` : ''}
+      ${deepLinkButton(`bioring://order/${vars.orderCode}`)}
+    `),
+
+  paymentConfirmed: (vars: { orderCode: string; fullName: string }) =>
+    layout(`
+      <h2 style="color:#8B4513">Thanh toán thành công</h2>
+      <p>Xin chào <strong>${vars.fullName}</strong>,</p>
+      <p>Đơn hàng <strong>${vars.orderCode}</strong> đã được thanh toán thành công.</p>
+      <p>Chúng tôi đang tiến hành sản xuất. Bạn sẽ nhận được thông báo khi có tiến trình mới.</p>
+      ${deepLinkButton(`bioring://order/${vars.orderCode}`)}
     `),
 
   productionStarted: (vars: { orderCode: string; fullName: string }) =>
@@ -58,6 +65,7 @@ export const templates = {
       <p>Xin chào <strong>${vars.fullName}</strong>,</p>
       <p>Đơn hàng <strong>${vars.orderCode}</strong> đã được chuyển sang giai đoạn sản xuất.</p>
       <p>Thợ kim hoàn đang chế tác chiếc nhẫn của bạn. Chúng tôi sẽ thông báo khi hoàn thành.</p>
+      ${deepLinkButton(`bioring://order/${vars.orderCode}`)}
     `),
 
   readyForDelivery: (vars: { orderCode: string; fullName: string }) =>
@@ -66,5 +74,15 @@ export const templates = {
       <p>Xin chào <strong>${vars.fullName}</strong>,</p>
       <p>Đơn hàng <strong>${vars.orderCode}</strong> đã hoàn thiện và sẵn sàng để giao.</p>
       <p>Vui lòng chọn hình thức nhận hàng trong ứng dụng Bioring.</p>
+      ${deepLinkButton(`bioring://order/${vars.orderCode}`)}
+    `),
+
+  orderDelivered: (vars: { orderCode: string; fullName: string }) =>
+    layout(`
+      <h2 style="color:#8B4513">Đơn hàng đã giao thành công 🚚</h2>
+      <p>Xin chào <strong>${vars.fullName}</strong>,</p>
+      <p>Đơn hàng <strong>${vars.orderCode}</strong> đã được giao thành công.</p>
+      <p>Hãy mở App để xem Memory Card và thông tin bảo hành của bạn.</p>
+      ${deepLinkButton(`bioring://memory/${vars.orderCode}`)}
     `),
 };

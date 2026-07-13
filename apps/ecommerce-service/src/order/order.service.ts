@@ -251,6 +251,13 @@ export class OrderService {
       });
 
       this.eventEmitter.emit('order.approved', { orderId: id });
+      this.eventEmitter.emit('audit.log', {
+        userId: managerId,
+        action: 'status_change',
+        entityName: 'orders',
+        entityId: id,
+        newValue: { status: 'AWAITING_DEPOSIT' },
+      });
 
       return { order: await this.mapOrder(updated) };
 
@@ -303,6 +310,13 @@ export class OrderService {
       });
 
       this.eventEmitter.emit('order.rejected', { orderId: id, note: note ?? '' });
+      this.eventEmitter.emit('audit.log', {
+        userId: managerId,
+        action: 'status_change',
+        entityName: 'orders',
+        entityId: id,
+        newValue: { status: 'REVISION_REQUIRED' },
+      });
 
       return { order: await this.mapOrder(updated) };
     }
@@ -371,6 +385,13 @@ export class OrderService {
     const updated = await this.prisma.orders.update({
       where: { id },
       data: { status: 'PENDING_REVIEW' },
+    });
+
+    this.eventEmitter.emit('audit.log', {
+      action: 'status_change',
+      entityName: 'orders',
+      entityId: id,
+      newValue: { status: 'PENDING_REVIEW' },
     });
 
     this.eventEmitter.emit('order.submitted', { orderId: id });
@@ -713,6 +734,12 @@ export class OrderService {
       // ponytail: chỉ emit cho payment đáng chú ý
       if (newStatus === 'DEPOSIT_PAID' || newStatus === 'READY_FOR_DELIVERY') {
         this.eventEmitter.emit('payment.confirmed', { orderId: order.id });
+        this.eventEmitter.emit('audit.log', {
+          action: 'payment_received',
+          entityName: 'orders',
+          entityId: order.id,
+          newValue: { paymentPhase: payment.payment_phase, amount: webhookData.amount, status: 'PAID' },
+        });
       }
     }
 

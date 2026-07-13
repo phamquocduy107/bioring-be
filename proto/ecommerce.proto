@@ -92,6 +92,18 @@ rpc GetProductionTasks (GetProductionTasksRequest) returns (GetProductionTasksRe
   rpc GetRevenueTimeline (RevenueTimelineRequest) returns (RevenueTimelineResponse);
   rpc GetTopProducts (TopProductsRequest) returns (TopProductsResponse);
 
+  // MF-06: Warranty & Service Claim
+  rpc CreateWarrantyClaim (CreateWarrantyClaimRequest) returns (CreateWarrantyClaimResponse);
+  rpc CreateWarrantyClaimByLookup (CreateWarrantyClaimByLookupRequest) returns (CreateWarrantyClaimResponse);
+  rpc GetWarrantyClaim (GetWarrantyClaimRequest) returns (GetWarrantyClaimResponse);
+  rpc GetMyWarrantyClaims (GetMyWarrantyClaimsRequest) returns (GetMyWarrantyClaimsResponse);
+  rpc ReviewWarrantyClaim (ReviewWarrantyClaimRequest) returns (GetWarrantyClaimResponse);
+  rpc ConfirmWarrantyClaim (ConfirmWarrantyClaimRequest) returns (GetWarrantyClaimResponse);
+  rpc InitiateClaimPayment (InitiateClaimPaymentRequest) returns (InitiatePaymentResponse);
+  rpc ReceiveServiceTicket (ReceiveServiceTicketRequest) returns (GetWarrantyClaimResponse);
+  rpc CompleteServiceTicket (CompleteServiceTicketRequest) returns (GetWarrantyClaimResponse);
+  rpc ReturnWarrantyClaim (ReturnWarrantyClaimRequest) returns (GetWarrantyClaimResponse);
+
   // Customer lookup (Staff Dashboard)
   rpc LookupCustomer (LookupCustomerRequest) returns (LookupCustomerResponse);
 }
@@ -997,4 +1009,122 @@ message CaptureSession {
   string staffNote = 10;
   string startedAt = 11;
   string completedAt = 12;
+}
+
+// === MF-06: Warranty & Service Claim ===
+message WarrantyClaim {
+  string id = 1;
+  string claimCode = 2;
+  string warrantyId = 3;
+  string orderId = 4;
+  string engravingId = 5;
+  string serviceType = 6;
+  string issueDescription = 7;
+  repeated string proofImages = 8;
+  string status = 9;
+  string chargeStatus = 10;
+  double extraFee = 11;
+  string managerNote = 12;
+  string customerConfirmedAt = 13;
+  string createdAt = 14;
+  string updatedAt = 15;
+  repeated ServiceTicketMessage serviceTickets = 16;
+}
+
+message ServiceTicketMessage {
+  string id = 1;
+  string ticketCode = 2;
+  string warrantyClaimId = 3;
+  string assignedStaffId = 4;
+  string assignedJewelerId = 5;
+  string assignedJewelerName = 6;
+  string status = 7;
+  string receivedProductAt = 8;
+  string serviceCompletedAt = 9;
+  string resultNote = 10;
+  double costUpdate = 11;
+}
+
+message CreateWarrantyClaimRequest {
+  string warrantyId = 1;
+  string orderId = 2;
+  string serviceType = 3;
+  string issueDescription = 4;
+  repeated string proofImages = 5;
+  repeated string proofVideos = 6;
+  string userId = 7;
+}
+
+message CreateWarrantyClaimByLookupRequest {
+  string orderCode = 1;
+  string serviceType = 2;
+  string issueDescription = 3;
+  repeated string proofImages = 4;
+  repeated string proofVideos = 5;
+}
+
+message CreateWarrantyClaimResponse {
+  WarrantyClaim claim = 1;
+}
+
+message GetWarrantyClaimRequest {
+  string id = 1;
+}
+
+message GetWarrantyClaimResponse {
+  WarrantyClaim claim = 1;
+}
+
+message GetMyWarrantyClaimsRequest {
+  string userId = 1;
+  int32 page = 2;
+  int32 limit = 3;
+}
+
+message GetMyWarrantyClaimsResponse {
+  repeated WarrantyClaim data = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 lastPage = 5;
+}
+
+message ReviewWarrantyClaimRequest {
+  string id = 1;
+  string action = 2;
+  double extraFee = 3;
+  string managerNote = 4;
+  string managerId = 5;
+}
+
+message ConfirmWarrantyClaimRequest {
+  string id = 1;
+  string userId = 2;
+}
+
+message InitiateClaimPaymentRequest {
+  string claimId = 1;
+  string userId = 2;
+  string returnUrl = 3;
+  string cancelUrl = 4;
+}
+
+message ReceiveServiceTicketRequest {
+  string claimId = 1;
+  string conditionNote = 2;
+  repeated string receivedImages = 3;
+  string jewelerId = 4;
+  string staffId = 5;
+}
+
+message CompleteServiceTicketRequest {
+  string claimId = 1;
+  string resultNote = 2;
+  double costUpdate = 3;
+  string jewelerId = 4;
+}
+
+message ReturnWarrantyClaimRequest {
+  string id = 1;
+  string staffId = 2;
 }

@@ -12,6 +12,7 @@ import { GuestTabletController } from './guest/guest-tablet.controller';
 import { AdminController } from './admin/admin.controller';
 import { CaptureSessionController } from './capture-session/capture-session.controller';
 import { CustomerController } from './customer/customer.controller';
+import { WarrantyController } from './warranty/warranty.controller';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { CustomerController } from './customer/customer.controller';
     CaptureSessionController,
     AdminController,
     CustomerController,
+    WarrantyController,
   ],
 })
 export class EcommerceModule {}

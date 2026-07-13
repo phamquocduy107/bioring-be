@@ -20,6 +20,8 @@ import { AdminModule } from './admin/admin.module';
 import { CaptureSessionModule } from './capture-session/capture-session.module';
 import { NotificationModule as EcommerceNotificationModule } from './notification/notification.module';
 import { CustomerModule } from './customer/customer.module';
+import { WarrantyModule } from './warranty/warranty.module';
+import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [
@@ -37,6 +39,8 @@ import { CustomerModule } from './customer/customer.module';
     AdminModule,
     EcommerceNotificationModule,
     CustomerModule,
+    WarrantyModule,
+    AuditModule,
   ],
   providers: [
     {

@@ -12,3 +12,6 @@ export * from './production-task-status.enum';
 export * from './package-type.enum';
 export * from './shipment-status.enum';
 export * from './capture-session-status.enum';
+export * from './warranty-claim-status.enum';
+export * from './service-ticket-status.enum';
+export * from './service-type.enum';

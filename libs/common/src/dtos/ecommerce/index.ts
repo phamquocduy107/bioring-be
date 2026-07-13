@@ -15,3 +15,4 @@ export * from './delivery';
 export * from './guest';
 export * from './capture-session';
 export * from './admin';
+export * from './warranty';
