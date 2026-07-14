@@ -32,6 +32,7 @@ import {
   Permission,
   CreateOrderDto,
   ReviewOrderDto,
+  BulkReviewOrderDto,
   InitiatePaymentDto,
   GetMyOrdersQueryDto,
   AssignJewelerDto,
@@ -48,6 +49,7 @@ import {
   ApiGetOrderDocs,
   ApiGetMyOrdersDocs,
   ApiReviewOrderDocs,
+  ApiBulkReviewOrderDocs,
   ApiInitiatePaymentDocs,
   ApiPayOSWebhookDocs,
   ApiSubmitOrderDocs,
@@ -434,6 +436,36 @@ export class OrderController implements OnModuleInit {
         managerId: user.sub,
       }),
     );
+  }
+
+  @Put('bulk/review')
+  @Permissions(Permission.OrderWrite)
+  @ApiBulkReviewOrderDocs()
+  async bulkReviewOrder(
+    @Body() body: BulkReviewOrderDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const results: { id: string; success: boolean; order?: OrderResponse; error?: string }[] = [];
+    for (const item of body.items) {
+      try {
+        const order = await this.call(() =>
+          this.grpc!.reviewOrder({
+            id: item.id,
+            action: item.action,
+            note: item.note ?? '',
+            managerId: user.sub,
+          }),
+        );
+        results.push({ id: item.id, success: true, order: order.order });
+      } catch (e) {
+        results.push({
+          id: item.id,
+          success: false,
+          error: (e as Error).message,
+        });
+      }
+    }
+    return { results };
   }
 
   @Post(':id/payments')

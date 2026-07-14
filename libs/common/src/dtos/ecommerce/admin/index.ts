@@ -10,3 +10,4 @@ export {
   ProductSalesDto,
   TopProductsQueryDto,
 } from './top-products.dto';
+export { MonthlyGrowthDto, MonthlyRevenueDto } from './monthly-growth.dto';

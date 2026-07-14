@@ -30,4 +30,14 @@ export class UsersController {
   async assignRole(data: { userId: string; roleId: string }) {
     return this.usersService.assignRole(data.userId, data.roleId);
   }
+
+  @GrpcMethod('IdentityService', 'CreateUser')
+  async createUser(data: { email: string; fullName: string; phone?: string; roleId?: string }) {
+    return this.usersService.createUser(data);
+  }
+
+  @GrpcMethod('IdentityService', 'UpdateUser')
+  async updateUser(data: { id: string; email?: string; fullName?: string; phone?: string; status?: string }) {
+    return this.usersService.updateUser(data);
+  }
 }

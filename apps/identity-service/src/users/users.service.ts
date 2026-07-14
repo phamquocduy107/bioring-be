@@ -2,8 +2,10 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '@app/prisma';
+import { randomUUID } from 'node:crypto';
 
 @Injectable()
 export class UsersService {
@@ -110,6 +112,57 @@ export class UsersService {
     });
 
     return { success: true };
+  }
+
+  async createUser(data: { email: string; fullName: string; phone?: string; roleId?: string }) {
+    const existing = await this.prisma.users.findUnique({ where: { email: data.email } });
+    if (existing) throw new ConflictException('Email already exists');
+
+    const id = randomUUID();
+    await this.prisma.users.create({
+      data: {
+        id,
+        email: data.email,
+        full_name: data.fullName,
+        phone: data.phone ?? null,
+        status: 'ACTIVE',
+        created_at: new Date(),
+        updated_at: new Date(),
+      },
+    });
+
+    if (data.roleId) {
+      const role = await this.prisma.roles.findUnique({ where: { id: data.roleId } });
+      if (!role) throw new BadRequestException('Role not found');
+      await this.prisma.user_roles.create({
+        data: { user_id: id, role_id: data.roleId },
+      });
+    }
+
+    return this.findById(id);
+  }
+
+  async updateUser(data: { id: string; email?: string; fullName?: string; phone?: string; status?: string }) {
+    const user = await this.prisma.users.findUnique({ where: { id: data.id } });
+    if (!user) throw new NotFoundException('User not found');
+
+    if (data.email && data.email !== user.email) {
+      const existing = await this.prisma.users.findUnique({ where: { email: data.email } });
+      if (existing) throw new ConflictException('Email already in use');
+    }
+
+    await this.prisma.users.update({
+      where: { id: data.id },
+      data: {
+        ...(data.email !== undefined && { email: data.email }),
+        ...(data.fullName !== undefined && { full_name: data.fullName }),
+        ...(data.phone !== undefined && { phone: data.phone }),
+        ...(data.status !== undefined && { status: data.status }),
+        updated_at: new Date(),
+      },
+    });
+
+    return this.findById(data.id);
   }
 
   async assignRole(userId: string, roleId: string) {

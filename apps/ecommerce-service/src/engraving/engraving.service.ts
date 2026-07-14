@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
@@ -486,5 +487,28 @@ export class EngravingService {
           }
         : null,
     };
+  }
+
+  async cancelEngraving(id: string, userId: string) {
+    const engraving = await this.prisma.engravings.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        user_id: true,
+        status: true,
+        order: { select: { id: true } },
+      },
+    });
+    if (!engraving) throw new NotFoundException('Engraving not found');
+    if (engraving.user_id !== userId) throw new ForbiddenException('Not your engraving');
+    if (engraving.order) throw new BadRequestException('Cannot cancel — already has order');
+    if (engraving.status === 'CANCELLED') throw new BadRequestException('Already cancelled');
+
+    await this.prisma.engravings.update({
+      where: { id },
+      data: { status: 'CANCELLED' },
+    });
+
+    return { success: true };
   }
 }

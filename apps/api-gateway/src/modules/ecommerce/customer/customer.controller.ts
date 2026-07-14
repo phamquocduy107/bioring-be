@@ -8,10 +8,12 @@ import {
 } from '@nestjs/common';
 import type { ClientGrpc } from '@nestjs/microservices';
 import { Observable, lastValueFrom } from 'rxjs';
-import { Permissions, Permission } from '@app/common';
+import { Permissions, Permission, ListCustomersQueryDto } from '@app/common';
+import { ApiListCustomersDocs } from './customer.swagger';
 
 interface EcommerceGrpcService {
   lookupCustomer(data: { email: string }): Observable<unknown>;
+  listCustomers(data: Record<string, unknown>): Observable<unknown>;
 }
 
 @Controller('api/v1/customers')
@@ -39,5 +41,21 @@ export class CustomerController implements OnModuleInit {
   @Permissions(Permission.OrderWrite)
   async lookup(@Query('email') email: string) {
     return this.call(() => this.grpc!.lookupCustomer({ email }));
+  }
+
+  @Get()
+  @Permissions(Permission.UserRead)
+  @ApiListCustomersDocs()
+  async listCustomers(@Query() query: ListCustomersQueryDto) {
+    return this.call(() =>
+      this.grpc!.listCustomers({
+        page: query.page ?? 1,
+        limit: query.limit ?? 20,
+        search: query.search ?? '',
+        status: query.status ?? '',
+        sort_by: query.sort_by ?? '',
+        sort_order: query.sort_order ?? '',
+      }),
+    );
   }
 }

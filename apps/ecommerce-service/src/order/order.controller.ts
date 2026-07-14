@@ -208,4 +208,19 @@ export class OrderController {
   async getPaymentStatus(data: { orderId: string }) {
     return this.orderService.getPaymentStatus(data.orderId);
   }
+
+  @GrpcMethod('EcommerceService', 'ListPayments')
+  async listPayments(data: {
+    page: number;
+    limit: number;
+    status?: string;
+    method?: string;
+  }) {
+    return this.orderService.listPayments(data);
+  }
+
+  @GrpcMethod('EcommerceService', 'GetTransactionOverview')
+  async getTransactionOverview() {
+    return this.orderService.getTransactionOverview();
+  }
 }

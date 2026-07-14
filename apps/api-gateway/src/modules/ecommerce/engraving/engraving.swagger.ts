@@ -207,6 +207,19 @@ export function ApiGetEngravingDocs() {
   );
 }
 
+export function ApiCancelEngravingDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({ summary: 'Cancel engraving', description: 'Set engraving status to CANCELLED. Rejects if already has an order.' }),
+    ApiParam({ name: 'id', type: String, format: 'uuid' }),
+    ApiResponse({ status: 200, description: 'Cancelled', schema: { example: { success: true } } }),
+    ApiResponse({ status: 400, description: 'Cannot cancel — already has order or already cancelled' }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+    ApiResponse({ status: 403, description: 'Not your engraving' }),
+    ApiResponse({ status: 404, description: 'Engraving not found' }),
+  );
+}
+
 export function ApiAttachBiometricDocs() {
   return applyDecorators(
     ApiBearerAuth('access-token'),

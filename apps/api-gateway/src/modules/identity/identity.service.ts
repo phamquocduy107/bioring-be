@@ -69,6 +69,19 @@ interface IdentityGrpcService {
     userId: string;
     roleId: string;
   }): Observable<{ success: boolean }>;
+  createUser(data: {
+    email: string;
+    fullName: string;
+    phone?: string;
+    roleId?: string;
+  }): Observable<{ user: UserResponse }>;
+  updateUser(data: {
+    id: string;
+    email?: string;
+    fullName?: string;
+    phone?: string;
+    status?: string;
+  }): Observable<{ user: UserResponse }>;
   getRoles(data: Record<string, never>): Observable<{ roles: RoleResponse[] }>;
   getRoleWithPermissions(data: {
     id: string;
@@ -155,6 +168,12 @@ export class IdentityService implements OnModuleInit {
   }
   assignRole(userId: string, roleId: string) {
     return this.call(() => this.grpc!.assignRole({ userId, roleId }));
+  }
+  createUser(dto: { email: string; fullName: string; phone?: string; roleId?: string }) {
+    return this.call(() => this.grpc!.createUser(dto));
+  }
+  updateUser(dto: { id: string; email?: string; fullName?: string; phone?: string; status?: string }) {
+    return this.call(() => this.grpc!.updateUser(dto));
   }
 
   // RBAC

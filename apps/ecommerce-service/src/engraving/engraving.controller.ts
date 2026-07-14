@@ -60,4 +60,9 @@ export class EngravingController {
   async getEngraving(data: { id: string }) {
     return this.engravingService.getEngraving(data.id);
   }
+
+  @GrpcMethod('EcommerceService', 'CancelEngraving')
+  async cancelEngraving(data: { id: string; user_id: string }) {
+    return this.engravingService.cancelEngraving(data.id, data.user_id);
+  }
 }

@@ -25,4 +25,14 @@ export enum Permission {
 
   // Design
   DesignWrite = 'design.write',
+
+  // Audit
+  AuditRead = 'audit.read',
+
+  // IoT Devices
+  DeviceRead = 'device.read',
+  DeviceWrite = 'device.write',
+
+  // Catalog (admin CRUD)
+  CatalogWrite = 'catalog.write',
 }

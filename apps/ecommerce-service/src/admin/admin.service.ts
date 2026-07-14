@@ -63,6 +63,37 @@ export class AdminService {
     };
   }
 
+  async getMonthlyGrowth(months: number) {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth() - months + 1, 1);
+
+    const payments = await this.prisma.payments.findMany({
+      where: {
+        status: { in: ['PAID', 'SUCCESS'] },
+        paid_at: { gte: start, lte: now },
+      },
+      select: { amount: true, paid_at: true },
+    });
+
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const map = new Map<string, number>();
+
+    for (const p of payments) {
+      if (!p.paid_at) continue;
+      const key = `${monthNames[p.paid_at.getMonth()]} ${p.paid_at.getFullYear()}`;
+      map.set(key, (map.get(key) ?? 0) + Number(p.amount));
+    }
+
+    const data: { month: string; revenue: number }[] = [];
+    for (let i = months - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
+      data.push({ month: monthNames[d.getMonth()], revenue: map.get(key) ?? 0 });
+    }
+
+    return { data };
+  }
+
   async getTopProducts(limit: number) {
     const rows = await this.prisma.$queryRaw<
       Array<{ id: string; name: string; orderCount: bigint }>

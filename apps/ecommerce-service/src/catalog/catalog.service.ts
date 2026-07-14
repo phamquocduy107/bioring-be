@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '@app/prisma';
+import { randomUUID } from 'node:crypto';
 
 type ProductWithRelations = Prisma.productsGetPayload<{
   include: {
@@ -111,6 +112,62 @@ export class CatalogService {
         isAvailable: g.is_available ?? true,
       })),
     };
+  }
+
+  async createProduct(data: {
+    name: string; description?: string; base_material_id?: string;
+    base_price?: number; thumbnail_url?: string; model_3d_url?: string;
+  }) {
+    if (!data.name) throw new BadRequestException('Product name is required');
+    const product = await this.prisma.products.create({
+      data: {
+        id: randomUUID(),
+        name: data.name,
+        description: data.description ?? null,
+        base_material_id: data.base_material_id ?? null,
+        base_price: data.base_price ?? null,
+        thumbnail_url: data.thumbnail_url ?? null,
+        model_3d_url: data.model_3d_url ?? null,
+        is_active: true,
+        created_at: new Date(),
+        updated_at: new Date(),
+      },
+    });
+    return { success: true, id: product.id };
+  }
+
+  async updateProduct(data: {
+    id: string; name?: string; description?: string; base_material_id?: string;
+    base_price?: number; thumbnail_url?: string; model_3d_url?: string;
+  }) {
+    const existing = await this.prisma.products.findUnique({ where: { id: data.id } });
+    if (!existing) throw new NotFoundException('Product not found');
+
+    await this.prisma.products.update({
+      where: { id: data.id },
+      data: {
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.description !== undefined && { description: data.description }),
+        ...(data.base_material_id !== undefined && { base_material_id: data.base_material_id }),
+        ...(data.base_price !== undefined && { base_price: data.base_price }),
+        ...(data.thumbnail_url !== undefined && { thumbnail_url: data.thumbnail_url }),
+        ...(data.model_3d_url !== undefined && { model_3d_url: data.model_3d_url }),
+        updated_at: new Date(),
+      },
+    });
+    return { success: true };
+  }
+
+  async deleteProduct(id: string) {
+    const existing = await this.prisma.products.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Product not found');
+
+    // ponytail: soft delete, hard delete when migration tool exists
+    await this.prisma.products.update({
+      where: { id },
+      data: { is_active: false, updated_at: new Date() },
+    });
+    return { success: true };
   }
 
   private mapProduct(product: ProductWithRelations) {

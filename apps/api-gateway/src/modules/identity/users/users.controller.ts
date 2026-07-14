@@ -6,9 +6,10 @@ import {
   Patch,
   Post,
   Query,
+  Body,
 } from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
-import { Permissions, Permission } from '@app/common';
+import { Permissions, Permission, CreateUserDto, UpdateUserDto } from '@app/common';
 import { IdentityService } from '../identity.service';
 import {
   ApiGetUsersDocs,
@@ -16,6 +17,8 @@ import {
   ApiBanUserDocs,
   ApiUnbanUserDocs,
   ApiAssignRoleDocs,
+  ApiCreateUserDocs,
+  ApiUpdateUserDocs,
 } from './users.swagger';
 
 @ApiBearerAuth('access-token')
@@ -56,6 +59,23 @@ export class UsersController {
   @ApiUnbanUserDocs()
   unbanUser(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.identityService.unbanUser(id);
+  }
+
+  @Post()
+  @Permissions(Permission.UserWrite)
+  @ApiCreateUserDocs()
+  createUser(@Body() body: CreateUserDto) {
+    return this.identityService.createUser(body);
+  }
+
+  @Patch(':id')
+  @Permissions(Permission.UserWrite)
+  @ApiUpdateUserDocs()
+  updateUser(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() body: UpdateUserDto,
+  ) {
+    return this.identityService.updateUser({ id, ...body });
   }
 
   @Post(':id/assign-role')

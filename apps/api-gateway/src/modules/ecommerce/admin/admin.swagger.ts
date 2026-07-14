@@ -80,6 +80,32 @@ export function ApiGetRevenueTimelineDocs() {
   );
 }
 
+export function ApiGetMonthlyGrowthDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'Monthly revenue growth',
+      description: 'Revenue aggregated by month for the last N months.',
+    }),
+    ApiQuery({ name: 'months', required: false, example: 12 }),
+    ApiResponse({
+      status: 200,
+      description: 'Monthly growth',
+      schema: {
+        example: {
+          data: [
+            { month: 'Jan', revenue: 0 },
+            { month: 'Feb', revenue: 35000000 },
+            { month: 'Mar', revenue: 52000000 },
+          ],
+        },
+      },
+    }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+    ApiResponse({ status: 403, description: 'Forbidden' }),
+  );
+}
+
 export function ApiGetTopProductsDocs() {
   return applyDecorators(
     ApiBearerAuth('access-token'),

@@ -25,4 +25,9 @@ export class AdminController {
   async getTopProducts(data: { limit?: number }) {
     return this.service.getTopProducts(data.limit ?? 10);
   }
+
+  @GrpcMethod('EcommerceService', 'GetMonthlyGrowth')
+  async getMonthlyGrowth(data: { months?: number }) {
+    return this.service.getMonthlyGrowth(data.months ?? 12);
+  }
 }

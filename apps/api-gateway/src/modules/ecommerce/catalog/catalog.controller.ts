@@ -1,21 +1,35 @@
 import {
   Controller,
   Get,
+  Post,
+  Put,
+  Delete,
   Param,
   ParseUUIDPipe,
   Query,
+  Body,
   Inject,
   OnModuleInit,
   Optional,
 } from '@nestjs/common';
 import type { ClientGrpc } from '@nestjs/microservices';
 import { Observable, lastValueFrom } from 'rxjs';
-import { Public, CatalogFilterDto } from '@app/common';
+import {
+  Public,
+  Permissions,
+  Permission,
+  CatalogFilterDto,
+  CreateProductBodyDto,
+  UpdateProductBodyDto,
+} from '@app/common';
 import {
   ApiGetProductsDocs,
   ApiGetProductByIdDocs,
   ApiGetMaterialsDocs,
   ApiGetGemstonesDocs,
+  ApiCreateProductDocs,
+  ApiUpdateProductDocs,
+  ApiDeleteProductDocs,
 } from './catalog.swagger';
 
 interface MaterialResponse {
@@ -68,6 +82,9 @@ interface EcommerceGrpcService {
   getGemstones(
     data: Record<string, never>,
   ): Observable<{ gemstones: GemstoneResponse[] }>;
+  createProduct(data: Record<string, unknown>): Observable<{ success: boolean; id?: string }>;
+  updateProduct(data: Record<string, unknown>): Observable<{ success: boolean }>;
+  deleteProduct(data: { id: string }): Observable<{ success: boolean }>;
 }
 
 @Controller('api/v1')
@@ -122,5 +139,31 @@ export class CatalogController implements OnModuleInit {
   async getGemstones() {
     const result = await this.call(() => this.grpc!.getGemstones({}));
     return { gemstones: result?.gemstones ?? [] };
+  }
+
+  @Post('products')
+  @Permissions(Permission.CatalogWrite)
+  @ApiCreateProductDocs()
+  async createProduct(@Body() body: CreateProductBodyDto) {
+    return this.call(() => this.grpc!.createProduct(body as unknown as Record<string, unknown>));
+  }
+
+  @Put('products/:id')
+  @Permissions(Permission.CatalogWrite)
+  @ApiUpdateProductDocs()
+  async updateProduct(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() body: UpdateProductBodyDto,
+  ) {
+    return this.call(() =>
+      this.grpc!.updateProduct({ id, ...body } as unknown as Record<string, unknown>),
+    );
+  }
+
+  @Delete('products/:id')
+  @Permissions(Permission.CatalogWrite)
+  @ApiDeleteProductDocs()
+  async deleteProduct(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
+    return this.call(() => this.grpc!.deleteProduct({ id }));
   }
 }

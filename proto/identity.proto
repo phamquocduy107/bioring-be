@@ -13,6 +13,8 @@ service IdentityService {
   rpc BanUser (BanUserRequest) returns (BanUserResponse);
   rpc UnbanUser (UnbanUserRequest) returns (UnbanUserResponse);
   rpc AssignRole (AssignRoleRequest) returns (AssignRoleResponse);
+  rpc CreateUser (CreateUserRequest) returns (CreateUserResponse);
+  rpc UpdateUser (UpdateUserRequest) returns (UpdateUserResponse);
 
   // RBAC
   rpc GetRoles (GetRolesRequest) returns (GetRolesResponse);
@@ -128,6 +130,29 @@ message AssignRoleRequest {
 
 message AssignRoleResponse {
   bool success = 1;
+}
+
+message CreateUserRequest {
+  string email = 1;
+  string fullName = 2;
+  string phone = 3;
+  string roleId = 4;
+}
+
+message CreateUserResponse {
+  User user = 1;
+}
+
+message UpdateUserRequest {
+  string id = 1;
+  string email = 2;
+  string fullName = 3;
+  string phone = 4;
+  string status = 5;
+}
+
+message UpdateUserResponse {
+  User user = 1;
 }
 
 // --- RBAC ---

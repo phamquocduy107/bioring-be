@@ -579,3 +579,52 @@ export function ApiLookupOrderDocs() {
     ApiResponse({ status: 404, description: 'Order not found' }),
   );
 }
+
+export function ApiBulkReviewOrderDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'Bulk review orders (manager)',
+      description:
+        'Review multiple orders at once. Each item: approve → AWAITING_DEPOSIT, reject → REVISION_REQUIRED. Returns per-item result.',
+    }),
+    ApiBody({
+      schema: {
+        example: {
+          items: [
+            {
+              id: '550e8400-e29b-41d4-a716-446655440001',
+              action: 'approve',
+            },
+            {
+              id: '550e8400-e29b-41d4-a716-446655440002',
+              action: 'reject',
+              note: 'Need revision',
+            },
+          ],
+        },
+      },
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Orders reviewed',
+      schema: {
+        example: {
+          results: [
+            {
+              id: '550e8400-e29b-41d4-a716-446655440001',
+              success: true,
+              order: orderExample(),
+            },
+            {
+              id: '550e8400-e29b-41d4-a716-446655440002',
+              success: false,
+              error: 'Order not in PENDING_REVIEW status',
+            },
+          ],
+        },
+      },
+    }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+  );
+}

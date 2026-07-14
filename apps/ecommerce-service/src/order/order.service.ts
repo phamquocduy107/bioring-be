@@ -1681,7 +1681,109 @@ export class OrderService {
               status: b.status ?? '',
             })),
           }
-        : null,
+          : null,
+    };
+  }
+
+  // === FE API Gaps — Transactions (B1 + B2) ===
+
+  async listPayments(data: {
+    page: number;
+    limit: number;
+    status?: string;
+    method?: string;
+  }) {
+    const where: Prisma.paymentsWhereInput = {};
+    if (data.status) where.status = data.status;
+    if (data.method) where.method = data.method;
+
+    const [rows, total] = await Promise.all([
+      this.prisma.payments.findMany({
+        where,
+        include: {
+          orders: {
+            include: {
+              users_orders_user_idTousers: { select: { id: true, full_name: true, email: true } },
+              guest_customers: { select: { id: true, full_name: true, email: true } },
+            },
+          },
+        },
+        orderBy: { created_at: 'desc' },
+        skip: (data.page - 1) * data.limit,
+        take: data.limit,
+      }),
+      this.prisma.payments.count({ where }),
+    ]);
+
+    return {
+      data: rows.map((p) => {
+        const order = p.orders;
+        const user = order?.users_orders_user_idTousers;
+        const guest = order?.guest_customers;
+        const customer = user
+          ? { id: user.id, name: user.full_name ?? '', email: user.email ?? '' }
+          : guest
+            ? { id: guest.id, name: guest.full_name ?? '', email: guest.email ?? '' }
+            : null;
+        return {
+          id: p.id,
+          transaction_id: `PAY-${p.payos_transaction_id ?? p.id}`,
+          order_id: p.order_id ?? '',
+          order_number: order?.order_code ?? '',
+          customer,
+          method: p.method ?? '',
+          amount: Number(p.amount ?? 0),
+          status: p.status ?? '',
+          created_at: p.created_at?.toISOString() ?? '',
+        };
+      }),
+      total,
+      page: data.page,
+      limit: data.limit,
+      last_page: Math.ceil(total / data.limit),
+    };
+  }
+
+  async getTransactionOverview() {
+    const now = new Date();
+    const startThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const endLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+
+    const aggregate = async (from: Date, to: Date) => {
+      const payments = await this.prisma.payments.groupBy({
+        by: ['status'],
+        where: { created_at: { gte: from, lte: to } },
+        _sum: { amount: true },
+      });
+      let gross = 0, net = 0, pending = 0, refunded = 0;
+      for (const p of payments) {
+        const amt = Number(p._sum.amount ?? 0);
+        gross += amt;
+        if (p.status === 'PAID' || p.status === 'SUCCESS') net += amt;
+        else if (p.status === 'PENDING') pending += amt;
+        else if (p.status === 'REFUNDED') refunded += amt;
+      }
+      return { gross, net, pending, refunded };
+    };
+
+    const [thisMonth, lastMonth] = await Promise.all([
+      aggregate(startThisMonth, now),
+      aggregate(startLastMonth, endLastMonth),
+    ]);
+
+    const calcChange = (cur: number, prev: number) =>
+      prev === 0 ? 0 : Number(((cur - prev) / prev * 100).toFixed(1));
+
+    return {
+      gross_revenue: thisMonth.gross,
+      net_revenue: thisMonth.net,
+      pending_cod: thisMonth.pending,
+      refunded: thisMonth.refunded,
+      gross_change: calcChange(thisMonth.gross, lastMonth.gross),
+      net_change: calcChange(thisMonth.net, lastMonth.net),
+      pending_change: calcChange(thisMonth.pending, lastMonth.pending),
+      refunded_change: calcChange(thisMonth.refunded, lastMonth.refunded),
     };
   }
 }

@@ -20,6 +20,7 @@ import {
   ApiGetOrdersByStatusDocs,
   ApiGetRevenueTimelineDocs,
   ApiGetTopProductsDocs,
+  ApiGetMonthlyGrowthDocs,
 } from './admin.swagger';
 
 interface EcommerceGrpcService {
@@ -27,6 +28,7 @@ interface EcommerceGrpcService {
   getOrdersByStatus(data: object): Observable<any>;
   getRevenueTimeline(data: { days?: number }): Observable<any>;
   getTopProducts(data: { limit?: number }): Observable<any>;
+  getMonthlyGrowth(data: { months?: number }): Observable<any>;
 }
 
 @Controller('api/v1/admin/dashboard')
@@ -103,6 +105,17 @@ export class AdminController implements OnModuleInit {
     const key = `admin:dashboard:top-products:${query.limit ?? 10}`;
     return this.withCache(key, () =>
       this.call(() => this.grpc!.getTopProducts({ limit: query.limit ?? 10 })),
+    );
+  }
+
+  @Get('monthly-growth')
+  @Permissions(Permission.DashboardView)
+  @ApiGetMonthlyGrowthDocs()
+  async getMonthlyGrowth(@Query('months') months?: string) {
+    const m = Math.min(Math.max(Number(months) || 12, 1), 60);
+    const key = `admin:dashboard:monthly-growth:${m}`;
+    return this.withCache(key, () =>
+      this.call(() => this.grpc!.getMonthlyGrowth({ months: m })),
     );
   }
 }

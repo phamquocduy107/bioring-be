@@ -22,6 +22,7 @@ import { NotificationModule as EcommerceNotificationModule } from './notificatio
 import { CustomerModule } from './customer/customer.module';
 import { WarrantyModule } from './warranty/warranty.module';
 import { AuditModule } from './audit/audit.module';
+import { DeviceModule } from './device/device.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { AuditModule } from './audit/audit.module';
     CustomerModule,
     WarrantyModule,
     AuditModule,
+    DeviceModule,
   ],
   providers: [
     {

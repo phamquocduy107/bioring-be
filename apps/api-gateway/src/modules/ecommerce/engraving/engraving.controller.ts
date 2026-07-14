@@ -35,6 +35,7 @@ import {
   ApiGetMyEngravingsDocs,
   ApiGetEngravingDocs,
   ApiAttachBiometricDocs,
+  ApiCancelEngravingDocs,
 } from './engraving.swagger';
 
 interface EcommerceGrpcService {
@@ -76,6 +77,10 @@ interface EcommerceGrpcService {
     rawFileUrl: string;
     extraData?: string;
   }): Observable<{ biometric: EngravingBioMetricResponse }>;
+  cancelEngraving(data: {
+    id: string;
+    user_id: string;
+  }): Observable<{ success: boolean }>;
 }
 
 @Controller('api/v1/engravings')
@@ -175,6 +180,17 @@ export class EngravingController implements OnModuleInit {
         rawFileUrl: body.rawFileUrl,
         extraData: body.extraData,
       }),
+    );
+  }
+
+  @Patch(':id/cancel')
+  @ApiCancelEngravingDocs()
+  cancelEngraving(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.call(() =>
+      this.grpc!.cancelEngraving({ id, user_id: user.sub }),
     );
   }
 }

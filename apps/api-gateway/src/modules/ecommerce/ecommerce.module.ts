@@ -10,9 +10,12 @@ import { CardThemeController } from './card-theme/card-theme.controller';
 import { GuestController } from './guest/guest.controller';
 import { GuestTabletController } from './guest/guest-tablet.controller';
 import { AdminController } from './admin/admin.controller';
+import { AdminAuditController } from './admin/admin-audit.controller';
 import { CaptureSessionController } from './capture-session/capture-session.controller';
 import { CustomerController } from './customer/customer.controller';
 import { WarrantyController } from './warranty/warranty.controller';
+import { TransactionController } from './transaction/transaction.controller';
+import { DeviceController } from './device/device.controller';
 
 @Module({
   imports: [
@@ -39,8 +42,11 @@ import { WarrantyController } from './warranty/warranty.controller';
     GuestTabletController,
     CaptureSessionController,
     AdminController,
+    AdminAuditController,
     CustomerController,
     WarrantyController,
+    TransactionController,
+    DeviceController,
   ],
 })
 export class EcommerceModule {}

@@ -16,3 +16,6 @@ export * from './guest';
 export * from './capture-session';
 export * from './admin';
 export * from './warranty';
+export * from './customer';
+export * from './audit';
+export * from './device';
