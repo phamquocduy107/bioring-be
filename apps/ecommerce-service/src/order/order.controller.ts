@@ -257,4 +257,9 @@ export class OrderController {
   async updateShippingFee(data: { paymentId: string; amount: number }) {
     return this.orderService.updateShippingFee(data.paymentId, data.amount);
   }
+
+  @GrpcMethod('EcommerceService', 'ListPickups')
+  async listPickups(data: { limit?: number; status?: string; search?: string }) {
+    return this.orderService.listPickups(data);
+  }
 }

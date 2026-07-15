@@ -50,6 +50,7 @@ import {
   ApiGetOrderDocs,
   ApiGetMyOrdersDocs,
   ApiListDeliveriesDocs,
+  ApiListPickupsDocs,
   ApiReviewOrderDocs,
   ApiBulkReviewOrderDocs,
   ApiInitiatePaymentDocs,
@@ -318,6 +319,11 @@ interface EcommerceGrpcService {
   }): Observable<unknown>;
   getPaymentStatus(data: { orderId: string }): Observable<unknown>;
   listDeliveries(data: Record<string, unknown>): Observable<unknown>;
+  listPickups(data: {
+    limit?: number;
+    status?: string;
+    search?: string;
+  }): Observable<unknown>;
 }
 
 @Controller('api/v1/orders')
@@ -720,6 +726,24 @@ export class OrderController implements OnModuleInit {
         search: query.search ?? '',
       }),
     );
+  }
+
+  @Get('pickups')
+  @Permissions(Permission.OrderRead)
+  @ApiListPickupsDocs()
+  async listPickups(
+    @Query('limit') limit: string,
+    @Query('status') status: string,
+    @Query('search') search: string,
+  ) {
+    const result = await this.call(() =>
+      this.grpc!.listPickups({
+        limit: Number(limit) || 200,
+        status: status ?? '',
+        search: search ?? '',
+      }),
+    );
+    return { data: ((result as Record<string, unknown>)?.data as unknown[]) ?? [] };
   }
 
   @Post('lookup')

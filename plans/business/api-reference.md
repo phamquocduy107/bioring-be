@@ -1461,6 +1461,35 @@ data: { "status": "PAID", "transactionId": "txn_abc123", "orderCode": "172000000
 
 ---
 
+### 64. GET `/api/v1/orders/pickups`
+**Auth:** `order.read`
+**Description:** List in-store pickups. Filter by status (waiting/completed) and search (order_code / customer_name).
+
+| Query | Type | Required | Example |
+|-------|------|----------|---------|
+| limit | number | No | 200 |
+| status | string | No | waiting |
+| search | string | No | ORD |
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "id": "550e8400-...",
+      "order_code": "ORD-005",
+      "customer_name": "David Chen",
+      "customer_phone": "0945678901",
+      "payment_status": "final_pending",
+      "status": "waiting",
+      "handover_staff_name": null,
+      "handover_note": null,
+      "proof_image": null
+    }
+  ]
+}
+```
+
 ---
 
 ## 3.5 QR Memory
@@ -2662,7 +2691,7 @@ Route prefix: `api/v1/track`
 | Ecommerce | Catalog | 7 |
 | Ecommerce | Design | 5 |
 | Ecommerce | Engraving | 6 |
-| Ecommerce | Order | 23 |
+| Ecommerce | Order | 24 |
 | Ecommerce | QR Memory | 3 |
 | Ecommerce | Card Theme | 5 |
 | Ecommerce | Guest | 2 |
@@ -2676,4 +2705,4 @@ Route prefix: `api/v1/track`
 | Ecommerce | Warranty | 10 |
 | Ecommerce | Jeweler | 1 |
 | Track | Track | 1 |
-| **Total** | **21 controllers** | **117 endpoints** |
+| **Total** | **21 controllers** | **118 endpoints** |

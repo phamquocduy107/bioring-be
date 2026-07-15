@@ -2057,4 +2057,60 @@ export class OrderService {
       },
     };
   }
+
+  async listPickups(data: { limit?: number; status?: string; search?: string }) {
+    const where: Prisma.pickup_recordsWhereInput = {};
+    if (data.status === 'waiting') where.picked_up_at = null;
+    else if (data.status === 'completed') where.picked_up_at = { not: null };
+
+    if (data.search) {
+      where.orders = {
+        OR: [
+          { order_code: { contains: data.search } },
+          { users_orders_user_idTousers: { full_name: { contains: data.search } } },
+          { guest_customers: { full_name: { contains: data.search } } },
+        ],
+      };
+    }
+
+    const rows = await this.prisma.pickup_records.findMany({
+      where,
+      include: {
+        orders: {
+          include: {
+            users_orders_user_idTousers: { select: { full_name: true } },
+            guest_customers: { select: { full_name: true } },
+          },
+        },
+        users: { select: { full_name: true } },
+      },
+      orderBy: { picked_up_at: { sort: 'desc', nulls: 'last' } },
+      take: data.limit ?? 200,
+    });
+
+    const computePaymentStatus = (o: typeof rows[0]['orders']) => {
+      const paid = Number(o?.paid_amount ?? 0);
+      const total = Number(o?.total_price ?? 0);
+      if (paid >= total && total > 0) return 'paid';
+      if (paid > 0) return 'final_pending';
+      return 'cod_pending';
+    };
+
+    return {
+      data: rows.map((r) => ({
+        id: r.id,
+        order_code: r.orders?.order_code ?? '',
+        customer_name:
+          r.orders?.users_orders_user_idTousers?.full_name
+          ?? r.orders?.guest_customers?.full_name
+          ?? '',
+        customer_phone: r.receiver_phone ?? '',
+        payment_status: computePaymentStatus(r.orders),
+        status: r.picked_up_at ? 'completed' : 'waiting',
+        handover_staff_name: r.users?.full_name ?? '',
+        handover_note: r.identity_note ?? '',
+        proof_image: r.proof_image_url ?? '',
+      })),
+    };
+  }
 }

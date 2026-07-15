@@ -624,6 +624,42 @@ export function ApiListDeliveriesDocs() {
   );
 }
 
+export function ApiListPickupsDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'List in-store pickups',
+      description: 'Returns pickups (paginated). Filter by status (waiting/completed) and search by order code or customer name.',
+    }),
+    ApiQuery({ name: 'limit', required: false, example: 200 }),
+    ApiQuery({ name: 'status', required: false, example: 'waiting' }),
+    ApiQuery({ name: 'search', required: false, example: 'ORD' }),
+    ApiResponse({
+      status: 200,
+      description: 'Pickup list',
+      schema: {
+        example: {
+          data: [
+            {
+              id: 'pic-1',
+              order_code: 'ORD-005',
+              customer_name: 'David Chen',
+              customer_phone: '0945678901',
+              payment_status: 'final_pending',
+              status: 'waiting',
+              handover_staff_name: null,
+              handover_note: null,
+              proof_image: null,
+            },
+          ],
+        },
+      },
+    }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+    ApiResponse({ status: 403, description: 'Forbidden' }),
+  );
+}
+
 export function ApiBulkReviewOrderDocs() {
   return applyDecorators(
     ApiBearerAuth('access-token'),
