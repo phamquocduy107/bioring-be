@@ -116,4 +116,22 @@ export class AdminService {
       })),
     };
   }
+
+  async getProductionStats() {
+    const [taskCountsByStatus, distinctJewelers, pendingQa] = await Promise.all([
+      this.prisma.production_tasks.groupBy({ by: ['status'], _count: true }),
+      this.prisma.production_tasks.findMany({
+        where: { assigned_jeweler_id: { not: null } },
+        distinct: ['assigned_jeweler_id'],
+        select: { assigned_jeweler_id: true },
+      }),
+      this.prisma.qa_checks.count({ where: { result: null } }),
+    ]);
+    const countMap = new Map(taskCountsByStatus.map(t => [t.status, t._count]));
+    return {
+      total_jewelers: distinctJewelers.length,
+      in_progress: countMap.get('IN_PROGRESS') ?? 0,
+      pending_qa: pendingQa,
+    };
+  }
 }

@@ -123,19 +123,18 @@ export class WarrantyService {
     return { claim };
   }
 
-  async getMyClaims(userId: string, page: number, limit: number) {
+  async getMyClaims(userId: string, page: number, limit: number, viewAll?: boolean) {
     const skip = (page - 1) * limit;
+    const where = viewAll ? {} : { requested_by_user_id: userId };
     const [data, total] = await Promise.all([
       this.prisma.warranty_claims.findMany({
-        where: { requested_by_user_id: userId },
+        where,
         skip,
         take: limit,
         orderBy: { created_at: 'desc' },
         include: { service_tickets: true },
       }),
-      this.prisma.warranty_claims.count({
-        where: { requested_by_user_id: userId },
-      }),
+      this.prisma.warranty_claims.count({ where }),
     ]);
 
     return {

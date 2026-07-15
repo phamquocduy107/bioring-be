@@ -106,6 +106,25 @@ export function ApiGetMonthlyGrowthDocs() {
   );
 }
 
+export function ApiGetProductionStatsDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'Production statistics',
+      description: 'Active jewelers, in-progress tasks, pending QA.',
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Production stats',
+      schema: {
+        example: { total_jewelers: 6, in_progress: 3, pending_qa: 2 },
+      },
+    }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+    ApiResponse({ status: 403, description: 'Forbidden' }),
+  );
+}
+
 export function ApiGetTopProductsDocs() {
   return applyDecorators(
     ApiBearerAuth('access-token'),

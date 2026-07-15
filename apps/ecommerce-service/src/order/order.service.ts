@@ -26,6 +26,16 @@ interface TaskRecord {
   completed_at: Date | null;
   created_at: Date | null;
   users?: { full_name: string | null } | null;
+  orders?: {
+    order_code: string | null;
+    users_orders_user_idTousers?: { full_name: string | null } | null;
+    guest_customers?: { full_name: string | null } | null;
+  } | null;
+  engravings?: {
+    engraving_versions_engravings_approved_version_idToengraving_versions?: {
+      ring_size: string | null;
+    } | null;
+  } | null;
 }
 
 interface ShipmentRecord {
@@ -932,7 +942,166 @@ export class OrderService {
     };
   }
 
+  // ===== Finance Mutations =====
+
+  async forcePaidPayment(paymentId: string, adminId: string) {
+    const payment = await this.prisma.payments.findUnique({
+      where: { id: paymentId },
+    });
+    if (!payment) throw new NotFoundException('Payment not found');
+
+    const updated = await this.prisma.payments.update({
+      where: { id: paymentId },
+      data: { status: 'PAID', paid_at: new Date() },
+    });
+
+    const order = await this.prisma.orders.findUnique({
+      where: { id: updated.order_id ?? '' },
+    });
+    if (order) {
+      const newPaidAmount =
+        Number(order.paid_amount ?? 0) + Number(updated.amount ?? 0);
+      const totalPrice = Number(order.total_price ?? 0);
+      await this.prisma.orders.update({
+        where: { id: order.id },
+        data: {
+          paid_amount: newPaidAmount,
+          remaining_amount: Math.max(totalPrice - newPaidAmount, 0),
+        },
+      });
+    }
+
+    return { payment: this.mapPaymentProto(updated) };
+  }
+
+  async syncPaymentStatus(paymentId: string) {
+    const payment = await this.prisma.payments.findUnique({
+      where: { id: paymentId },
+    });
+    if (!payment) throw new NotFoundException('Payment not found');
+
+    const order = await this.prisma.orders.findUnique({
+      where: { id: payment.order_id ?? '' },
+      select: { order_code: true },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+
+    const payosResult = await this.payOS.getTransactionStatus(
+      order.order_code,
+    );
+
+    const mappedStatus =
+      payosResult.status === 'PAID' ? 'PAID' : payosResult.status;
+
+    const updateData: Record<string, unknown> = { status: mappedStatus };
+    if (mappedStatus === 'PAID') updateData.paid_at = new Date();
+    const updated = await this.prisma.payments.update({
+      where: { id: paymentId },
+      data: updateData,
+    });
+
+    return {
+      payment: this.mapPaymentProto(updated),
+      payosStatus: payosResult.status,
+      orderCode: order.order_code,
+    };
+  }
+
+  async refundPayment(paymentId: string, adminId: string, reason: string) {
+    const payment = await this.prisma.payments.findUnique({
+      where: { id: paymentId },
+    });
+    if (!payment) throw new NotFoundException('Payment not found');
+    if (payment.status === 'REFUNDED')
+      throw new BadRequestException('Payment already refunded');
+
+    const updated = await this.prisma.payments.update({
+      where: { id: paymentId },
+      data: { status: 'REFUNDED', is_refund: true },
+    });
+
+    const order = await this.prisma.orders.findUnique({
+      where: { id: updated.order_id ?? '' },
+    });
+    if (order) {
+      const refundAmount = Number(updated.amount ?? 0);
+      const newPaidAmount = Math.max(
+        Number(order.paid_amount ?? 0) - refundAmount,
+        0,
+      );
+      const totalPrice = Number(order.total_price ?? 0);
+      await this.prisma.orders.update({
+        where: { id: order.id },
+        data: {
+          paid_amount: newPaidAmount,
+          remaining_amount: Math.min(
+            totalPrice - newPaidAmount,
+            totalPrice,
+          ),
+        },
+      });
+    }
+
+    return { payment: this.mapPaymentProto(updated) };
+  }
+
+  async updateShippingFee(paymentId: string, amount: number) {
+    const payment = await this.prisma.payments.findUnique({
+      where: { id: paymentId },
+    });
+    if (!payment) throw new NotFoundException('Payment not found');
+
+    const order = await this.prisma.orders.findUnique({
+      where: { id: payment.order_id ?? '' },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+
+    await this.prisma.orders.update({
+      where: { id: order.id },
+      data: { extra_fee: amount },
+    });
+
+    return { success: true };
+  }
+
+  private mapPaymentProto(p: Record<string, unknown>) {
+    return {
+      id: p.id,
+      orderId: p.order_id ?? '',
+      paymentPhase: p.payment_phase ?? '',
+      amount: Number(p.amount ?? 0),
+      method: p.method ?? '',
+      status: p.status ?? '',
+      payosTransactionId: p.payos_transaction_id ?? '',
+      paymentUrl: p.payment_url ?? '',
+      paidAt: p.paid_at instanceof Date ? p.paid_at.toISOString() : (p.paid_at ?? ''),
+      createdAt: p.created_at instanceof Date ? p.created_at.toISOString() : (p.created_at ?? ''),
+    };
+  }
+
+  private taskInclude() {
+    return {
+      users: { select: { full_name: true } },
+      orders: {
+        select: {
+          order_code: true,
+          users_orders_user_idTousers: { select: { full_name: true } },
+          guest_customers: { select: { full_name: true } },
+        },
+      },
+      engravings: {
+        include: {
+          engraving_versions_engravings_approved_version_idToengraving_versions: {
+            select: { ring_size: true },
+          },
+        },
+      },
+    };
+  }
+
   private mapTask(task: TaskRecord) {
+    const userName = task.orders?.users_orders_user_idTousers?.full_name;
+    const guestName = task.orders?.guest_customers?.full_name;
     return {
       id: task.id,
       orderId: task.order_id,
@@ -946,6 +1115,9 @@ export class OrderService {
       startedAt: task.started_at?.toISOString() ?? '',
       completedAt: task.completed_at?.toISOString() ?? '',
       createdAt: task.created_at?.toISOString() ?? '',
+      orderCode: task.orders?.order_code ?? '',
+      customerName: userName ?? guestName ?? '',
+      ringSize: task.engravings?.engraving_versions_engravings_approved_version_idToengraving_versions?.ring_size ?? '',
     };
   }
 
@@ -981,7 +1153,7 @@ export class OrderService {
         status: 'IN_PROGRESS',
         started_at: new Date(),
       },
-      include: { users: { select: { full_name: true } } },
+      include: this.taskInclude(),
     });
 
     await this.prisma.orders.update({
@@ -1018,7 +1190,7 @@ export class OrderService {
 
     const taskWithUser = await this.prisma.production_tasks.findUnique({
       where: { id: taskId },
-      include: { users: { select: { full_name: true } } },
+      include: this.taskInclude(),
     });
 
     return { task: this.mapTask(taskWithUser ?? updated) };
@@ -1044,7 +1216,7 @@ export class OrderService {
         skip: (page - 1) * limit,
         take: limit,
         orderBy: { created_at: 'desc' },
-        include: { users: { select: { full_name: true } } },
+        include: this.taskInclude(),
       }),
       this.prisma.production_tasks.count({ where }),
     ]);
@@ -1422,7 +1594,7 @@ export class OrderService {
 
     const task = await this.prisma.production_tasks.findFirst({
       where: { order_id: orderId },
-      include: { users: { select: { full_name: true } } },
+      include: this.taskInclude(),
       orderBy: { created_at: 'desc' },
     });
 
@@ -1784,6 +1956,105 @@ export class OrderService {
       net_change: calcChange(thisMonth.net, lastMonth.net),
       pending_change: calcChange(thisMonth.pending, lastMonth.pending),
       refunded_change: calcChange(thisMonth.refunded, lastMonth.refunded),
+    };
+  }
+
+  // === FE API Gaps — Delivery Listing ===
+
+  async listDeliveries(data: {
+    page: number;
+    limit: number;
+    status?: string;
+    from_date?: string;
+    to_date?: string;
+    search?: string;
+  }) {
+    const where: Prisma.shipmentsWhereInput = {};
+    if (data.status) where.status = data.status;
+    if (data.from_date || data.to_date) {
+      where.created_at = {};
+      if (data.from_date) where.created_at.gte = new Date(data.from_date);
+      if (data.to_date) where.created_at.lte = new Date(data.to_date);
+    }
+    if (data.search) {
+      where.OR = [
+        { tracking_code: { contains: data.search } },
+        { recipient_phone: { contains: data.search } },
+        { orders: { order_code: { contains: data.search } } },
+      ];
+    }
+
+    const [rows, total] = await Promise.all([
+      this.prisma.shipments.findMany({
+        where,
+        include: {
+          orders: { select: { order_code: true, total_price: true, paid_amount: true, remaining_amount: true } },
+          users: { select: { id: true, full_name: true, avatar_url: true, status: true } },
+        },
+        orderBy: { created_at: 'desc' },
+        skip: (data.page - 1) * data.limit,
+        take: data.limit,
+      }),
+      this.prisma.shipments.count({ where }),
+    ]);
+
+    const staffIds = [...new Set(rows.filter(r => r.assigned_delivery_staff_id).map(r => r.assigned_delivery_staff_id!))];
+    const staffCounts = staffIds.length
+      ? await this.prisma.shipments.groupBy({
+          by: ['assigned_delivery_staff_id'],
+          where: { assigned_delivery_staff_id: { in: staffIds }, status: 'IN_TRANSIT' },
+          _count: true,
+        })
+      : [];
+    const staffCountMap = new Map(staffCounts.map(s => [s.assigned_delivery_staff_id, s._count]));
+
+    const stats = await this.prisma.shipments.groupBy({
+      by: ['status', 'delivery_method'],
+      _count: true,
+    });
+
+    const computePaymentStatus = (o: typeof rows[0]['orders']) => {
+      if (!o) return 'cod_pending';
+      const remaining = Number(o.remaining_amount ?? 0);
+      if (remaining <= 0) return 'paid';
+      const paid = Number(o.paid_amount ?? 0);
+      const total = Number(o.total_price ?? 0);
+      return paid >= total ? 'final_pending' : 'cod_pending';
+    };
+
+    return {
+      data: rows.map(s => ({
+        id: s.id,
+        order_code: s.orders?.order_code ?? '',
+        tracking_code: s.tracking_code ?? '',
+        customer: {
+          name: s.recipient_name ?? '',
+          phone: s.recipient_phone ?? '',
+          address: s.shipping_address_text ?? '',
+        },
+        payment_status: computePaymentStatus(s.orders),
+        delivery_staff: s.users
+          ? {
+              id: s.users.id,
+              name: s.users.full_name ?? '',
+              avatar: s.users.avatar_url ?? '',
+              status: s.users.status ?? '',
+              current_deliveries: staffCountMap.get(s.users.id) ?? 0,
+            }
+          : null,
+        status: s.status ?? '',
+        proof_of_delivery: '',
+        created_at: s.created_at?.toISOString() ?? '',
+      })),
+      total,
+      page: data.page,
+      limit: data.limit,
+      last_page: Math.ceil(total / data.limit),
+      stats: {
+        ready_for_delivery: stats.find(s => s.status === 'READY')?._count ?? 0,
+        in_transit: stats.find(s => s.status === 'IN_TRANSIT')?._count ?? 0,
+        waiting_for_pickup: stats.find(s => s.delivery_method === 'PICKUP' && s.status !== 'COMPLETED')?._count ?? 0,
+      },
     };
   }
 }

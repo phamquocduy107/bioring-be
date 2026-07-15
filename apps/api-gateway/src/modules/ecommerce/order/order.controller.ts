@@ -42,12 +42,14 @@ import {
   InitiateDeliveryDto,
   UpdateShipmentStatusDto,
   OrderLookupDto,
+  ListDeliveriesQueryDto,
 } from '@app/common';
 import type { JwtPayload } from '@app/common';
 import {
   ApiCreateOrderDocs,
   ApiGetOrderDocs,
   ApiGetMyOrdersDocs,
+  ApiListDeliveriesDocs,
   ApiReviewOrderDocs,
   ApiBulkReviewOrderDocs,
   ApiInitiatePaymentDocs,
@@ -315,6 +317,7 @@ interface EcommerceGrpcService {
     receivedBy: string;
   }): Observable<unknown>;
   getPaymentStatus(data: { orderId: string }): Observable<unknown>;
+  listDeliveries(data: Record<string, unknown>): Observable<unknown>;
 }
 
 @Controller('api/v1/orders')
@@ -699,6 +702,22 @@ export class OrderController implements OnModuleInit {
         paymentPhase: body.paymentPhase,
         amount: body.amount,
         receivedBy: user.sub,
+      }),
+    );
+  }
+
+  @Get('deliveries')
+  @Permissions(Permission.OrderRead)
+  @ApiListDeliveriesDocs()
+  async listDeliveries(@Query() query: ListDeliveriesQueryDto) {
+    return this.call(() =>
+      this.grpc!.listDeliveries({
+        page: query.page ?? 1,
+        limit: query.limit ?? 20,
+        status: query.status ?? '',
+        from_date: query.from_date ?? '',
+        to_date: query.to_date ?? '',
+        search: query.search ?? '',
       }),
     );
   }

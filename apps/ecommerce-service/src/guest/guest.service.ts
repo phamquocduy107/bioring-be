@@ -572,6 +572,101 @@ export class GuestService {
     };
   }
 
+  async listGuestCustomers(params: { page: number; limit: number; search?: string }) {
+    const where: any = {};
+    if (params.search) {
+      where.OR = [
+        { full_name: { contains: params.search, mode: 'insensitive' } },
+        { phone: { contains: params.search } },
+        { email: { contains: params.search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [rows, total] = await Promise.all([
+      this.prisma.guest_customers.findMany({
+        where,
+        skip: (params.page - 1) * params.limit,
+        take: params.limit,
+        orderBy: { created_at: 'desc' },
+        include: {
+          orders: {
+            include: {
+              engravings: {
+                select: { qr_memories: { select: { status: true } } },
+              },
+              warranties: { select: { status: true, expiry_date: true } },
+            },
+          },
+          biometric_capture_sessions: {
+            include: { biometric_capture_items: { select: { capture_type: true } } },
+          },
+          warranty_claims: {
+            include: {
+              service_tickets: {
+                select: { id: true, ticket_code: true, service_type: true, status: true, created_at: true },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.guest_customers.count({ where }),
+    ]);
+
+    return {
+      data: rows.map((g) => {
+        const totalSpent = g.orders.reduce((s, o) => s + Number(o.total_price ?? 0), 0);
+        const sorted = [...g.orders].sort((a, b) => (b.created_at?.getTime() ?? 0) - (a.created_at?.getTime() ?? 0));
+        const latestOrder = sorted[0];
+        const warrantyOrder = g.orders.find((o) => o.warranties.length > 0);
+        const warranty = warrantyOrder?.warranties[0];
+
+        return {
+          id: g.id,
+          name: g.full_name ?? '',
+          email: g.email ?? '',
+          phone: g.phone ?? '',
+          status: 'active',
+          total_orders: g.orders.length,
+          total_spent: totalSpent,
+          last_order_date: latestOrder?.created_at?.toISOString() ?? '',
+          join_date: g.created_at?.toISOString() ?? '',
+          digital_assets: this.computeDigitalAssets(g.biometric_capture_sessions),
+          qr_memory_status: latestOrder?.engravings?.qr_memories?.status ?? '',
+          service_tickets: g.warranty_claims.flatMap((wc) =>
+            wc.service_tickets.map((st) => ({
+              id: st.id,
+              ticket_code: st.ticket_code ?? '',
+              service_type: st.service_type ?? '',
+              status: st.status ?? '',
+              created_at: st.created_at?.toISOString() ?? '',
+            })),
+          ),
+          warranty: warranty
+            ? { is_active: warranty.status === 'ACTIVE', expiry_date: warranty.expiry_date?.toISOString() ?? '', used_free_count: 0 }
+            : { is_active: false, expiry_date: '', used_free_count: 0 },
+        };
+      }),
+      total,
+      page: params.page,
+      limit: params.limit,
+      last_page: Math.ceil(total / params.limit),
+    };
+  }
+
+  private computeDigitalAssets(
+    sessions: Array<{ biometric_capture_items: Array<{ capture_type: string | null }> }>,
+  ) {
+    const types = new Set<string>();
+    for (const s of sessions)
+      for (const item of s.biometric_capture_items)
+        if (item.capture_type) types.add(item.capture_type);
+    return {
+      has_voice: types.has('VOICE'),
+      has_fingerprint: types.has('FINGERPRINT'),
+      has_heartbeat: types.has('HEARTBEAT'),
+    };
+  }
+
   private mapEngraving(engraving: EngravingRecord) {
     return {
       id: engraving.id,

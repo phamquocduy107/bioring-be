@@ -223,4 +223,38 @@ export class OrderController {
   async getTransactionOverview() {
     return this.orderService.getTransactionOverview();
   }
+
+  @GrpcMethod('EcommerceService', 'ListDeliveries')
+  async listDeliveries(data: {
+    page: number;
+    limit: number;
+    status?: string;
+    from_date?: string;
+    to_date?: string;
+    search?: string;
+  }) {
+    return this.orderService.listDeliveries(data);
+  }
+
+  // ===== Finance Mutations =====
+
+  @GrpcMethod('EcommerceService', 'ForcePaidPayment')
+  async forcePaidPayment(data: { paymentId: string; adminId: string }) {
+    return this.orderService.forcePaidPayment(data.paymentId, data.adminId);
+  }
+
+  @GrpcMethod('EcommerceService', 'SyncPaymentStatus')
+  async syncPaymentStatus(data: { paymentId: string }) {
+    return this.orderService.syncPaymentStatus(data.paymentId);
+  }
+
+  @GrpcMethod('EcommerceService', 'RefundPayment')
+  async refundPayment(data: { paymentId: string; adminId: string; reason: string }) {
+    return this.orderService.refundPayment(data.paymentId, data.adminId, data.reason);
+  }
+
+  @GrpcMethod('EcommerceService', 'UpdateShippingFee')
+  async updateShippingFee(data: { paymentId: string; amount: number }) {
+    return this.orderService.updateShippingFee(data.paymentId, data.amount);
+  }
 }

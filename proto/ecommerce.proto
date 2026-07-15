@@ -114,6 +114,12 @@ rpc GetProductionTasks (GetProductionTasksRequest) returns (GetProductionTasksRe
   rpc ListPayments (ListPaymentsRequest) returns (ListPaymentsResponse);
   rpc GetTransactionOverview (Empty) returns (TransactionOverviewResponse);
 
+  // Finance mutations
+  rpc ForcePaidPayment (ForcePaidPaymentRequest) returns (ForcePaidPaymentResponse);
+  rpc SyncPaymentStatus (SyncPaymentStatusRequest) returns (SyncPaymentStatusResponse);
+  rpc RefundPayment (RefundPaymentRequest) returns (RefundPaymentResponse);
+  rpc UpdateShippingFee (UpdateShippingFeeRequest) returns (UpdateShippingFeeResponse);
+
   // FE API Gaps — Monthly Growth (B3)
   rpc GetMonthlyGrowth (GetMonthlyGrowthRequest) returns (GetMonthlyGrowthResponse);
 
@@ -134,6 +140,18 @@ rpc GetProductionTasks (GetProductionTasksRequest) returns (GetProductionTasksRe
   rpc CreateProduct (CreateProductRequest) returns (MutateProductResponse);
   rpc UpdateProduct (UpdateProductRequest) returns (MutateProductResponse);
   rpc DeleteProduct (DeleteProductRequest) returns (MutateProductResponse);
+
+  // FE API Gaps — Guest Customer Listing
+  rpc ListGuestCustomers (ListGuestCustomersRequest) returns (ListGuestCustomersResponse);
+
+  // FE API Gaps — Delivery Listing
+  rpc ListDeliveries (ListDeliveriesRequest) returns (ListDeliveriesResponse);
+
+  // FE API Gaps — Production Stats
+  rpc GetProductionStats (Empty) returns (ProductionStatsResponse);
+
+  // FE API Gaps — Jeweler Performance
+  rpc GetMyPerformance (GetMyPerformanceRequest) returns (GetMyPerformanceResponse);
 }
 
 // ===== Messages =====
@@ -543,6 +561,44 @@ message ManualPaymentResponse {
   Order order = 2;
 }
 
+message ForcePaidPaymentRequest {
+  string paymentId = 1;
+  string adminId = 2;
+}
+
+message ForcePaidPaymentResponse {
+  Payment payment = 1;
+}
+
+message SyncPaymentStatusRequest {
+  string paymentId = 1;
+}
+
+message SyncPaymentStatusResponse {
+  Payment payment = 1;
+  string payosStatus = 2;
+  string orderCode = 3;
+}
+
+message RefundPaymentRequest {
+  string paymentId = 1;
+  string adminId = 2;
+  string reason = 3;
+}
+
+message RefundPaymentResponse {
+  Payment payment = 1;
+}
+
+message UpdateShippingFeeRequest {
+  string paymentId = 1;
+  double amount = 2;
+}
+
+message UpdateShippingFeeResponse {
+  bool success = 1;
+}
+
 message GetPaymentStatusRequest { string orderId = 1; }
 
 message PaymentPhaseInfo {
@@ -610,6 +666,9 @@ message ProductionTask {
   string createdAt = 10;
   string taskName = 11;
   string taskDescription = 12;
+  string orderCode = 13;
+  string customerName = 14;
+  string ringSize = 15;
 }
 
 message AssignJewelerRequest {
@@ -1107,6 +1166,7 @@ message GetMyWarrantyClaimsRequest {
   string userId = 1;
   int32 page = 2;
   int32 limit = 3;
+  bool viewAll = 4;
 }
 
 message GetMyWarrantyClaimsResponse {
@@ -1369,4 +1429,134 @@ message DeleteProductRequest {
 
 message MutateProductResponse {
   bool success = 1;
+}
+
+// === Guest Customer Listing ===
+message ListGuestCustomersRequest {
+  int32 page = 1;
+  int32 limit = 2;
+  string search = 3;
+}
+
+message GuestCustomerInfo {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+  string phone = 4;
+  string status = 5;
+  int32 total_orders = 6;
+  double total_spent = 7;
+  string last_order_date = 8;
+  string join_date = 9;
+  DigitalAssetsSummary digital_assets = 10;
+  string qr_memory_status = 11;
+  repeated ServiceTicketInfo service_tickets = 12;
+  WarrantyInfo warranty = 13;
+}
+
+message DigitalAssetsSummary {
+  bool has_voice = 1;
+  bool has_fingerprint = 2;
+  bool has_heartbeat = 3;
+}
+
+message ServiceTicketInfo {
+  string id = 1;
+  string ticket_code = 2;
+  string service_type = 3;
+  string status = 4;
+  string created_at = 5;
+}
+
+message WarrantyInfo {
+  bool is_active = 1;
+  string expiry_date = 2;
+  int32 used_free_count = 3;
+}
+
+message ListGuestCustomersResponse {
+  repeated GuestCustomerInfo data = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 last_page = 5;
+}
+
+// === Delivery Listing ===
+message ListDeliveriesRequest {
+  int32 page = 1;
+  int32 limit = 2;
+  string status = 3;
+  string from_date = 4;
+  string to_date = 5;
+  string search = 6;
+}
+
+message DeliveryRecord {
+  string id = 1;
+  string order_code = 2;
+  string tracking_code = 3;
+  DeliveryCustomer customer = 4;
+  string payment_status = 5;
+  DeliveryStaffInfo delivery_staff = 6;
+  string status = 7;
+  string proof_of_delivery = 8;
+  string created_at = 9;
+}
+
+message DeliveryCustomer {
+  string name = 1;
+  string phone = 2;
+  string address = 3;
+}
+
+message DeliveryStaffInfo {
+  string id = 1;
+  string name = 2;
+  string avatar = 3;
+  string status = 4;
+  int32 current_deliveries = 5;
+}
+
+message DeliveryStats {
+  int32 ready_for_delivery = 1;
+  int32 in_transit = 2;
+  int32 waiting_for_pickup = 3;
+}
+
+message ListDeliveriesResponse {
+  repeated DeliveryRecord data = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 last_page = 5;
+  DeliveryStats stats = 6;
+}
+
+// === Production Stats ===
+message ProductionStatsResponse {
+  int32 total_jewelers = 1;
+  int32 in_progress = 2;
+  int32 pending_qa = 3;
+}
+
+// === Jeweler Performance ===
+message GetMyPerformanceRequest {
+  string from_date = 1;
+}
+
+message GetMyPerformanceResponse {
+  int32 completed_today = 1;
+  int32 completed_shift = 2;
+  double qa_pass_rate = 3;
+  double avg_hours = 4;
+  repeated CompletedTask recent_tasks = 5;
+}
+
+message CompletedTask {
+  string id = 1;
+  string order_code = 2;
+  string completed_at = 3;
+  string qa_result = 4;
+  double duration_hours = 5;
 }

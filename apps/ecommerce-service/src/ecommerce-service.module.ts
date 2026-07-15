@@ -23,6 +23,7 @@ import { CustomerModule } from './customer/customer.module';
 import { WarrantyModule } from './warranty/warranty.module';
 import { AuditModule } from './audit/audit.module';
 import { DeviceModule } from './device/device.module';
+import { JewelerModule } from './jeweler/jeweler.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { DeviceModule } from './device/device.module';
     WarrantyModule,
     AuditModule,
     DeviceModule,
+    JewelerModule,
   ],
   providers: [
     {

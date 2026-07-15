@@ -1,5 +1,5 @@
 import { applyDecorators } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiBody, ApiResponse } from '@nestjs/swagger';
 
 export function ApiListTransactionsDocs() {
   return applyDecorators(
@@ -62,5 +62,100 @@ export function ApiTransactionOverviewDocs() {
       },
     }),
     ApiResponse({ status: 401, description: 'Unauthorized' }),
+  );
+}
+
+export function ApiForcePaidDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'Force mark payment as PAID',
+      description: 'Admin override — sets payment status to PAID and updates order amounts. Requires order.write permission.',
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Payment forced to PAID',
+      schema: {
+        example: {
+          payment: { id: '550e8400-...', orderId: '550e8400-...', paymentPhase: 'REMAINING', amount: 5000000, method: 'PAYOS', status: 'PAID', paidAt: '2026-07-15T10:00:00.000Z' },
+        },
+      },
+    }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+    ApiResponse({ status: 404, description: 'Payment not found' }),
+  );
+}
+
+export function ApiSyncPaymentDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'Sync payment status from PayOS',
+      description: 'Queries PayOS API for current transaction status and updates the payment record. Requires order.write permission.',
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Payment status synced',
+      schema: {
+        example: {
+          payment: { id: '550e8400-...', status: 'PAID' },
+          payosStatus: 'PAID',
+          orderCode: '172000000042',
+        },
+      },
+    }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+    ApiResponse({ status: 404, description: 'Payment or order not found' }),
+  );
+}
+
+export function ApiRefundDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'Refund payment',
+      description: 'Marks payment as REFUNDED and adjusts order paid/remaining amounts. Requires order.write permission.',
+    }),
+    ApiBody({
+      schema: {
+        type: 'object',
+        properties: { reason: { type: 'string', example: 'Khách hàng yêu cầu hoàn tiền' } },
+      },
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Payment refunded',
+      schema: {
+        example: {
+          payment: { id: '550e8400-...', orderId: '550e8400-...', status: 'REFUNDED' },
+        },
+      },
+    }),
+    ApiResponse({ status: 400, description: 'Payment already refunded' }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+    ApiResponse({ status: 404, description: 'Payment not found' }),
+  );
+}
+
+export function ApiUpdateShippingFeeDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'Update shipping fee',
+      description: 'Updates extra_fee on the order associated with this payment. Requires order.write permission.',
+    }),
+    ApiBody({
+      schema: {
+        type: 'object',
+        properties: { amount: { type: 'number', example: 50000 } },
+      },
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Shipping fee updated',
+      schema: { example: { success: true } },
+    }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+    ApiResponse({ status: 404, description: 'Payment or order not found' }),
   );
 }

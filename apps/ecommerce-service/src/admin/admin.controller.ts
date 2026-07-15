@@ -30,4 +30,9 @@ export class AdminController {
   async getMonthlyGrowth(data: { months?: number }) {
     return this.service.getMonthlyGrowth(data.months ?? 12);
   }
+
+  @GrpcMethod('EcommerceService', 'GetProductionStats')
+  async getProductionStats() {
+    return this.service.getProductionStats();
+  }
 }

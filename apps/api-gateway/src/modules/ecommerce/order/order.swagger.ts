@@ -580,6 +580,50 @@ export function ApiLookupOrderDocs() {
   );
 }
 
+export function ApiListDeliveriesDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'List deliveries',
+      description: 'Paginated delivery list with filter by status, date range, search.',
+    }),
+    ApiQuery({ name: 'page', required: false, example: 1 }),
+    ApiQuery({ name: 'limit', required: false, example: 20 }),
+    ApiQuery({ name: 'status', required: false, example: 'in_transit' }),
+    ApiQuery({ name: 'from_date', required: false, example: '2026-07-01' }),
+    ApiQuery({ name: 'to_date', required: false, example: '2026-07-14' }),
+    ApiQuery({ name: 'search', required: false, example: 'DH001' }),
+    ApiResponse({
+      status: 200,
+      description: 'Delivery list',
+      schema: {
+        example: {
+          data: [
+            {
+              id: 'uuid-ship-1',
+              order_code: 'DH001',
+              tracking_code: 'VNPOST123456',
+              customer: { name: 'Nguyen Van A', phone: '0901234567', address: '123 Nguyen Hue, Q1, HCM' },
+              payment_status: 'paid',
+              delivery_staff: { id: 'uuid-staff-1', name: 'Tran Van C', avatar: '', status: 'busy', current_deliveries: 3 },
+              status: 'in_transit',
+              proof_of_delivery: null,
+              created_at: '2026-07-14T10:00:00.000Z',
+            },
+          ],
+          total: 1,
+          page: 1,
+          limit: 20,
+          last_page: 1,
+          stats: { ready_for_delivery: 5, in_transit: 3, waiting_for_pickup: 2 },
+        },
+      },
+    }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+    ApiResponse({ status: 403, description: 'Forbidden' }),
+  );
+}
+
 export function ApiBulkReviewOrderDocs() {
   return applyDecorators(
     ApiBearerAuth('access-token'),

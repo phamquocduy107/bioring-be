@@ -1,0 +1,518 @@
+# MF03 — Offline Biometric Capture Order — Manual Test
+
+## Prerequisites
+
+| Item | Note |
+|------|------|
+| MF01 hoàn tất bước 6 | Đã claim draft → có `ENGRAVING_ID`, `VERSION_ID` |
+| JWT token | User đã đăng nhập |
+| Staff JWT token | User có permission `order.write` (để upload biometrics) |
+| Manager JWT token | User có quyền `order.write` (để duyệt) |
+| Cloudinary audio URL | Đã upload raw audio cho SW (xem hướng dẫn dưới) |
+| Cloudinary image URL | Đã upload ảnh fingerprint / heartbeat (nếu test FP/HB) |
+| Giả lập PayOS | Cần `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, `PAYOS_CHECKSUM_KEY` trong `.env` |
+
+---
+
+## 0. Chuẩn bị raw file URLs
+
+### Audio (SW)
+
+```powershell
+curl.exe -X POST "https://api.cloudinary.com/v1_1/dpm0zc06s/auto/upload" -F "file=@đường_dẫn_tới_audio.mp3" -F "upload_preset=BioRing"
+```
+
+Ghi nhớ `secure_url`:
+```
+https://res.cloudinary.com/dpm0zc06s/video/upload/v1782360241/audio.mp3
+```
+
+### Fingerprint ảnh (FP)
+
+```powershell
+curl.exe -X POST "https://api.cloudinary.com/v1_1/dpm0zc06s/auto/upload" -F "file=@đường_dẫn_tới_fingerprint.png" -F "upload_preset=BioRing"
+```
+
+Ghi nhớ `secure_url`:
+```
+https://res.cloudinary.com/dpm0zc06s/image/upload/v1782360242/fingerprint.png
+```
+
+### Heartbeat (HB) — nếu test
+
+```powershell
+curl.exe -X POST "https://api.cloudinary.com/v1_1/dpm0zc06s/auto/upload" -F "file=@đường_dẫn_tới_heartbeat.png" -F "upload_preset=BioRing"
+```
+
+---
+
+## 1. Cập nhật engraving version config — Simple Design
+
+> Giống MF-02: chọn ring style, shape, material, gemstone, vị trí khắc.
+
+```http
+PATCH /api/v1/engravings/versions/VERSION_ID/config
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+Content-Type: application/json
+
+{
+  "customizationConfig": "{\"engravedType\":\"sw\",\"engravingPositions\":{\"sw\":{\"enabled\":true,\"status\":\"pending\",\"position\":{\"startAngle\":45,\"width\":180}},\"fp\":{\"enabled\":true,\"status\":\"pending\",\"position\":{\"startAngle\":270,\"width\":90}}}}"
+}
+```
+
+---
+
+## 2. Cập nhật engraving version config — Package Selection
+
+> Chọn package có biometrics (VD: SW_FP). Lưu `selectedBiometrics`.
+
+```http
+PATCH /api/v1/engravings/versions/VERSION_ID/config
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+Content-Type: application/json
+
+{
+  "selectedBiometrics": "[\"SW\",\"FP\"]"
+}
+```
+
+---
+
+## 3. Cập nhật engraving version config — Advanced Design (non-audio)
+
+> Chọn material, ring size, vị trí hiển thị. Biometrics sẽ được staff upload **sau** tạo order.
+> `customizationConfig` không chứa `selectedBiometrics` hay `audioUrl`.
+
+```http
+PATCH /api/v1/engravings/versions/VERSION_ID/config
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+Content-Type: application/json
+
+{
+  "customizationConfig": "{\"engravedType\":\"sw\",\"engravingPositions\":{\"sw\":{\"enabled\":true,\"status\":\"pending\",\"position\":{\"startAngle\":45,\"width\":180}},\"fp\":{\"enabled\":true,\"status\":\"pending\",\"position\":{\"startAngle\":270,\"width\":90}}}}",
+  "ringSize": "M",
+  "selectedMaterialId": "MATERIAL_ID"
+}
+```
+
+---
+
+## 4. Chỉnh sửa QR memory
+
+> Phải làm **trước** tạo order. Sau POST /orders không edit được qr_memories nữa.
+
+```http
+PUT /api/v1/qr-memories/ENGRAVING_ID
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+Content-Type: application/json
+
+{
+  "cardTitle": "Our Special Ring",
+  "greetingMessage": "Thank you for being with me!",
+  "recipientEmail": "friend@example.com"
+}
+```
+
+---
+
+## 5. Tạo order
+
+> Gói đã chọn, design + mem card đã hoàn tất. Tạo order để chốt.
+> Server tự derive `packageType` từ `selected_biometrics`.
+> **Sau bước này: CHỈ block đổi package (selectedBiometrics). Vẫn cho PATCH config design, PUT qr-memories, POST biometrics.**
+
+```http
+POST /api/v1/orders
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+Content-Type: application/json
+
+{
+  "engravingId": "ENGRAVING_ID"
+}
+```
+
+**Response mẫu:**
+```json
+{
+  "order": {
+    "id": "ORDER_ID",
+    "orderCode": "BIORING-DEF456",
+    "userId": "USER_ID",
+    "captureRoute": "OFFLINE",
+    "status": "AWAITING_DEPOSIT_1",
+    "totalPrice": 13200000,
+    "paidAmount": 0,
+    "remainingAmount": 13200000,
+    "payments": []
+  }
+}
+```
+
+Ghi nhớ `ORDER_ID`. Order hiện ở `AWAITING_DEPOSIT_1` — cần đóng IoT fee trước.
+
+---
+
+## 6. Thanh toán DEPOSIT_1 (IoT fee 100k)
+
+### 6a. Tạo link thanh toán
+
+```http
+POST /api/v1/orders/ORDER_ID/payments
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+Content-Type: application/json
+
+{
+  "paymentPhase": "DEPOSIT_1",
+  "returnUrl": "https://bioring.vn/order/success",
+  "cancelUrl": "https://bioring.vn/order/cancel"
+}
+```
+
+**Response mẫu:**
+```json
+{
+  "payment": {
+    "id": "PAYMENT_ID",
+    "orderId": "ORDER_ID",
+    "paymentPhase": "DEPOSIT_1",
+    "amount": 100000,
+    "method": "PAYOS",
+    "status": "PENDING",
+    "payosTransactionId": "txn_iot_001",
+    "paymentUrl": "https://pay.payos.vn/checkout/iot001"
+  },
+  "paymentUrl": "https://pay.payos.vn/checkout/iot001",
+  "qrCode": "000201010212..."
+}
+```
+
+### 6b. Webhook callback (PayOS → server)
+
+> Giả lập webhook để test (thực tế PayOS gọi tự động sau khi user thanh toán).
+
+```http
+POST /api/v1/orders/payments/webhook
+Content-Type: application/json
+
+{
+  "code": "00",
+  "desc": "success",
+  "success": true,
+  "data": {
+    "orderCode": 123456789,
+    "amount": 100000,
+    "description": "IoT 1741234567890",
+    "reference": "txn_iot_001",
+    "code": "00"
+  },
+  "signature": "<HMAC-SHA256 signature>"
+}
+```
+
+> `signature` phải hợp lệ (HMAC-SHA256 với `PAYOS_CHECKSUM_KEY`), nếu không server trả `{ success: false }`.
+
+**Kết quả:** Order → `AWAITING_SUBMIT`. `paidAmount` += 100.000.
+
+### 6c. SSE — realtime payment status (optional)
+
+```http
+GET /api/v1/orders/ORDER_CODE/payments/events
+```
+
+> Server-sent events: nhận `PAID` khi webhook xử lý xong.
+
+---
+
+## 7. Staff upload biometrics (tại store)
+
+> Yêu cầu **staff token** (permission `order.write`).
+> Order phải ở `AWAITING_SUBMIT`. Gửi từng biometric type một. Dùng chung endpoint `POST /engravings/:id/biometrics`.
+
+### 7a. Upload SW (audio → waveform)
+
+```http
+POST /api/v1/engravings/ENGRAVING_ID/biometrics
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+Content-Type: application/json
+
+{
+  "biometricType": "SW",
+  "rawFileUrl": "https://res.cloudinary.com/dpm0zc06s/video/upload/v1782360241/audio.mp3",
+  "extraData": "{\"startMs\":2000,\"endMs\":5000}"
+}
+```
+
+**Response mẫu:**
+```json
+{
+  "biometric": {
+    "id": "BIO_SW_ID",
+    "engravingId": "ENGRAVING_ID",
+    "biometricType": "SW",
+    "requiredChannel": "ENGRAVING",
+    "rawFileUrl": "https://res.cloudinary.com/.../audio.mp3",
+    "processedSvgUrl": "https://res.cloudinary.com/.../waveform.svg",
+    "extraData": "{\"startMs\":2000,\"endMs\":5000}",
+    "status": "CAPTURED"
+  }
+}
+```
+
+> Server nhận `rawFileUrl`, gọi Python service xử lý waveform → trả về `processedSvgUrl` (SVG đã xử lý). Cả raw (dùng cho mem card) và processed (dùng cho engraving) đều được lưu.
+
+### 7b. Upload FP (fingerprint → skeleton SVG)
+
+```http
+POST /api/v1/engravings/ENGRAVING_ID/biometrics
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+Content-Type: application/json
+
+{
+  "biometricType": "FP",
+  "rawFileUrl": "https://res.cloudinary.com/dpm0zc06s/image/upload/v1782360242/fingerprint.png"
+}
+```
+
+**Response mẫu:**
+```json
+{
+  "biometric": {
+    "id": "BIO_FP_ID",
+    "engravingId": "ENGRAVING_ID",
+    "biometricType": "FP",
+    "requiredChannel": "ENGRAVING",
+    "rawFileUrl": "https://res.cloudinary.com/.../fingerprint.png",
+    "processedSvgUrl": "https://res.cloudinary.com/.../fingerprint.svg",
+    "extraData": "",
+    "status": "CAPTURED"
+  }
+}
+```
+
+> Server gọi Python service xử lý fingerprint → trả về `processedSvgUrl` (SVG skeleton đã xử lý). `rawFileUrl` giữ nguyên ảnh gốc.
+
+### 7c. Upload HB (heartbeat) — nếu có trong package
+
+```http
+POST /api/v1/engravings/ENGRAVING_ID/biometrics
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+Content-Type: application/json
+
+{
+  "biometricType": "HB",
+  "rawFileUrl": "https://res.cloudinary.com/dpm0zc06s/image/upload/v1782360243/heartbeat.png"
+}
+```
+
+**Response:** tương tự, `requiredChannel: "MEMORY_CARD"`.
+
+---
+
+## 8. Submit order — gửi duyệt
+
+```http
+PATCH /api/v1/orders/ORDER_ID/submit
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+```
+
+**Kết quả:** Order → `PENDING_REVIEW`.
+
+---
+
+## 9. Duyệt order (manager)
+
+> **1 order = 1 engraving.** Yêu cầu manager token.
+
+### 9a. APPROVE
+
+```http
+PUT /api/v1/orders/ORDER_ID/review
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+Content-Type: application/json
+
+{
+  "action": "approve",
+  "note": "OK, proceed."
+}
+```
+
+**Kết quả:** engraving version → `APPROVED`, `qr_memories.biometric_display_settings` cập nhật. Order → `AWAITING_DEPOSIT`.
+
+### 9b. REJECT
+
+```http
+PUT /api/v1/orders/ORDER_ID/review
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+Content-Type: application/json
+
+{
+  "action": "reject",
+  "note": "Cần chỉnh vị trí fingerprint."
+}
+```
+
+**Kết quả:** Version → `REJECTED` + branch version mới. Order → `REVISION_REQUIRED`.
+
+### 9c. Resubmit — user sửa xong → gửi lại duyệt
+
+Sau khi reject (order → `REVISION_REQUIRED`), user sửa design qua PATCH config. Order **giữ nguyên** `REVISION_REQUIRED`.
+
+```http
+PATCH /api/v1/engravings/versions/VERSION_ID/config
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+Content-Type: application/json
+
+{
+  "customizationConfig": "{\"engravedType\":\"mixed\",\"engravingPositions\":{\"sw\":{\"enabled\":true,\"status\":\"pending\",\"position\":{\"startAngle\":45,\"width\":180}},\"fp\":{\"enabled\":true,\"status\":\"pending\",\"position\":{\"startAngle\":270,\"width\":90}}}}"
+}
+```
+
+> Server cho edit vì order đang `REVISION_REQUIRED`. **Giữ nguyên** `REVISION_REQUIRED`.
+> `selectedBiometrics` vẫn block — không đổi được gói.
+
+Sau đó user submit (bước 8) → thẳng `PENDING_REVIEW` (không qua `AWAITING_SUBMIT`). Manager duyệt lại (bước 9a).
+
+---
+
+## 10. Thanh toán DEPOSIT_2 (30% min 3000)
+
+> Sau khi approve, order ở `AWAITING_DEPOSIT`. User đóng DEPOSIT_2.
+
+```http
+POST /api/v1/orders/ORDER_ID/payments
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+Content-Type: application/json
+
+{
+  "paymentPhase": "DEPOSIT_2",
+  "returnUrl": "https://bioring.vn/order/success",
+  "cancelUrl": "https://bioring.vn/order/cancel"
+}
+```
+
+**Kết quả (sau webhook):** Order → `DEPOSIT_PAID`.
+
+---
+
+## 11. Sản xuất
+
+### 11a. Giao thợ
+
+```http
+POST /api/v1/orders/ORDER_ID/assign-jeweler
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+Content-Type: application/json
+
+{
+  "jewelerId": "JEWELER_USER_ID"
+}
+```
+
+**Kết quả:** Tạo `production_task`, order → `IN_PRODUCTION`.
+
+### 11b. Cập nhật tiến độ
+
+```http
+PUT /api/v1/orders/production-tasks/TASK_ID/status
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+Content-Type: application/json
+
+{
+  "status": "COMPLETED",
+  "note": "Hoàn thành sản xuất."
+}
+```
+
+**Kết quả:** Nếu còn nợ → `AWAITING_REMAINING`. Nếu hết → `COMPLETED`.
+
+---
+
+## 12. Thanh toán REMAINING (nếu còn nợ)
+
+> Sau sản xuất, nếu còn `remainingAmount` > 0 → order `AWAITING_REMAINING`.
+
+```http
+POST /api/v1/orders/ORDER_ID/payments
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+Content-Type: application/json
+
+{
+  "paymentPhase": "REMAINING",
+  "returnUrl": "https://bioring.vn/order/success",
+  "cancelUrl": "https://bioring.vn/order/cancel"
+}
+```
+
+**Kết quả (sau webhook):** `remainingAmount` = 0, order → `COMPLETED`.
+
+---
+
+## Flow hoàn chỉnh
+
+```
+                         MF01 ──→ claim draft ──→ engravingId + versionId + qr_memories
+                                                        │
+                     ┌──────────────────────────────────┘
+                     ▼
+           [Mobile] PATCH config (simple design — engravingPositions)
+                     │
+                     ▼
+           [Mobile] PATCH config (package selection — selectedBiometrics)
+                     │
+                     ▼
+           [Mobile] PATCH config (advanced design — material, ringSize)
+                     │
+                     ▼
+           [Mobile] PUT /api/v1/qr-memories/:engravingId (memory card)
+                     │
+                     ▼
+           POST createOrder { engravingId }
+           (vẫn cho PATCH config design + PUT qr-memories + POST biometrics
+            CHỈ block đổi package / selectedBiometrics)
+                     │
+                     ▼
+                  AWAITING_DEPOSIT_1
+                     │
+                     ▼
+           POST initiatePayment (DEPOSIT_1 — IoT fee 100k)
+                     │
+                     ▼
+           PayOS webhook → AWAITING_SUBMIT
+                     │
+                     ▼
+     ┌────[Staff] POST /engravings/:id/biometrics (SW, FP, HB...)
+     │                    │
+     │                    ▼
+     │          FE GET engraving → thấy biometrics → render
+     │                    │
+     │                    ▼
+     │          PATCH /orders/:id/submit → PENDING_REVIEW
+     │          ╔═══ LOCK: ko cho PATCH config / PUT qr-memories nữa ═══╗
+     │                    │
+     │                    ▼
+     │    ┌───[Manager] review (1 order = 1 engraving)
+     │    │      │
+     │    │      ├── approve → AWAITING_DEPOSIT
+     │    │      │
+     │    │      └── reject → REVISION_REQUIRED
+     │    │             └── user PATCH config (UNLOCK — edit design)
+     │    │                   └── giữ REVISION_REQUIRED → submit → review lại
+     │    │                   │
+     │    │                   ▼
+     │    │             POST initiatePayment (DEPOSIT_2 — 30% min 3000)
+     │    │                   │
+     │    │                   ▼
+     │    │             PayOS webhook → DEPOSIT_PAID
+     │    │                   │
+     │    │                   ▼
+     │    │             POST assign-jeweler → IN_PRODUCTION
+     │    │                   │
+     │    │                   ▼
+     │    │             PUT production status → COMPLETED
+     │    │                   │
+     │    │                   ▼
+     │    │             POST initiatePayment (REMAINING) ←── nếu còn nợ
+     │    │                   │
+     │    │                   ▼
+     └────┴─────────── PayOS webhook → COMPLETED
+```

@@ -36,11 +36,12 @@ export class WarrantyController {
   }
 
   @GrpcMethod('EcommerceService', 'GetMyWarrantyClaims')
-  async getMyClaims(data: { userId: string; page?: number; limit?: number }) {
+  async getMyClaims(data: { userId: string; page?: number; limit?: number; viewAll?: boolean }) {
     return this.warrantyService.getMyClaims(
       data.userId,
       data.page ?? 1,
       data.limit ?? 10,
+      data.viewAll,
     );
   }
 

@@ -34,6 +34,7 @@ interface EcommerceGrpcService {
     userId: string;
     page?: number;
     limit?: number;
+    viewAll?: boolean;
   }): Observable<unknown>;
   reviewWarrantyClaim(data: Record<string, unknown>): Observable<unknown>;
   confirmWarrantyClaim(data: { id: string; userId: string }): Observable<unknown>;
@@ -100,13 +101,17 @@ export class WarrantyController implements OnModuleInit {
   async getMyClaims(
     @Query('page') page: string,
     @Query('limit') limit: string,
+    @Query('view') view: string,
     @CurrentUser() user: JwtPayload,
   ) {
+    const isAdmin = user.role?.some(r => ['ADMIN', 'MANAGER'].includes(r));
+    const viewAll = view === 'all' && isAdmin;
     const result = await this.call(() =>
       this.grpc!.getMyWarrantyClaims({
         userId: user.sub,
         page: Number(page) || 1,
         limit: Number(limit) || 10,
+        viewAll,
       }),
     );
     const r = result as Record<string, unknown>;
