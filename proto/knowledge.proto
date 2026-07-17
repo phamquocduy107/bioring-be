@@ -32,6 +32,8 @@ message UploadDocumentRequest {
   string userId = 1;
   string workspaceId = 2;
   UploadFile file = 3;
+  string documentType = 4;
+  repeated string retrievalTypes = 5;
 }
 
 message FindAllDocumentsRequest {
@@ -94,6 +96,8 @@ message Document {
   string status = 7;
   string createdAt = 8;
   string updatedAt = 9;
+  string documentType = 10;
+  repeated string retrievalTypes = 11;
 }
 
 message CreateChatSessionRequest {

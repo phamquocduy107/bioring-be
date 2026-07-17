@@ -1,5 +1,7 @@
-from typing import Literal, Optional
+from typing import List, Literal, Optional
 from pydantic import BaseModel, Field
+
+from .document_types import normalize_document_type, normalize_retrieval_types
 
 
 class RabbitMQIngestionJob(BaseModel):
@@ -16,7 +18,19 @@ class RabbitMQIngestionJob(BaseModel):
     )
     originalName: Optional[str] = Field(None, examples=["research.pdf"])
 
+    # Metadata filter Qdrant. Job cũ thiếu field -> default general / auto-map.
+    documentType: Optional[str] = Field(default="general", examples=["policy"])
+    retrievalTypes: Optional[List[str]] = Field(default=None, examples=[["policy"]])
+
     createdAt: Optional[str] = None
+
+    def normalized_document_type(self) -> str:
+        return normalize_document_type(self.documentType)
+
+    def normalized_retrieval_types(self) -> List[str]:
+        return normalize_retrieval_types(
+            self.retrievalTypes, self.normalized_document_type()
+        )
 
 
 class IngestionStatusEvent(BaseModel):

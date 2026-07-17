@@ -16,6 +16,8 @@ export class DocumentsController {
       size: number;
       buffer: Buffer;
     };
+    documentType?: string;
+    retrievalTypes?: string[];
   }) {
     return this.documentsService.uploadDocument(data);
   }

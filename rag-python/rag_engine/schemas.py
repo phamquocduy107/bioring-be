@@ -137,6 +137,12 @@ class QueryDebug(BaseModel):
     cacheHit: bool = False
     topK: Optional[int] = None
     scoreThreshold: Optional[float] = None
+    intent: Optional[str] = None
+    retrievalTypes: List[str] = Field(default_factory=list)
+    qdrantFilterUsed: bool = False
+    retrievalFallbackUsed: bool = False
+    retrievedChunks: int = 0
+    documentIdsCount: int = 0
 
 
 class QueryResponse(BaseModel):

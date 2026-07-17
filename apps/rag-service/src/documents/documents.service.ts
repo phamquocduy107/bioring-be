@@ -6,7 +6,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '@app/prisma';
-import { knowledge_documents } from '@prisma/client';
+import {
+  normalizeDocumentType,
+  normalizeRetrievalTypes,
+  type RetrievalType,
+} from '@app/common';
+import { knowledge_documents, Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { MinioService } from '../storage/minio.service';
 import { IngestionService } from '../ingestion/ingestion.service';
@@ -32,6 +37,8 @@ export class DocumentsService {
       size: number;
       buffer: Buffer;
     };
+    documentType?: string;
+    retrievalTypes?: string[];
   }) {
     const documentId = randomUUID();
     const storageKey = this.minioService.buildStorageKey(
@@ -46,6 +53,13 @@ export class DocumentsService {
       data.file.mimetype,
     );
 
+    // Chuẩn hóa type: documentType lạ → general; retrievalTypes rỗng → map từ documentType.
+    const documentType = normalizeDocumentType(data.documentType);
+    const retrievalTypes = normalizeRetrievalTypes(
+      data.retrievalTypes,
+      documentType,
+    );
+
     const document = await this.prisma.knowledge_documents.create({
       data: {
         id: documentId,
@@ -57,6 +71,8 @@ export class DocumentsService {
         storage_key: storageKey,
         status: 'PENDING',
         chunk_count: 0,
+        document_type: documentType,
+        retrieval_types: retrievalTypes,
       },
     });
 
@@ -209,8 +225,20 @@ export class DocumentsService {
       mimetype: document.mimetype,
       size: document.size,
       status: document.status,
+      documentType: document.document_type,
+      retrievalTypes: parseRetrievalTypes(document.retrieval_types),
       createdAt: document.created_at.toISOString(),
       updatedAt: document.updated_at.toISOString(),
     };
   }
+}
+
+/** retrieval_types lưu dạng Json (Prisma.JsonValue) nên phải parse an toàn về string[]. */
+export function parseRetrievalTypes(
+  value: Prisma.JsonValue | null | undefined,
+): RetrievalType[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter((item): item is RetrievalType => typeof item === 'string');
 }

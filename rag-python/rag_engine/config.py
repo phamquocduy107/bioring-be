@@ -33,8 +33,13 @@ class Settings:
     QDRANT_API_KEY: str | None = os.getenv("QDRANT_API_KEY") or None
     QDRANT_COLLECTION: str = os.getenv("QDRANT_COLLECTION", "rag_chunks")
 
-    # If your ingestion payload contains document_type, set this to true.
+    # Filter Qdrant theo retrieval_types (map từ chat intent).
+    # Cần chunks đã có metadata retrieval_types (reindex tài liệu cũ trước).
+    ENABLE_RETRIEVAL_TYPE_FILTER: bool = get_bool_env("ENABLE_RETRIEVAL_TYPE_FILTER", True)
+    # Backward-compat: nếu payload chỉ có document_type cũ.
     ENABLE_DOCUMENT_TYPE_FILTER: bool = get_bool_env("ENABLE_DOCUMENT_TYPE_FILTER", False)
+    # Nếu filter theo retrieval_types không ra chunk, thử lại 1 lần bỏ filter type.
+    ENABLE_RETRIEVAL_FALLBACK: bool = get_bool_env("ENABLE_RETRIEVAL_FALLBACK", True)
 
     # LM Studio / OpenAI-compatible API
     OPENAI_BASE_URL: str = os.getenv("OPENAI_BASE_URL", "http://localhost:1234/v1")

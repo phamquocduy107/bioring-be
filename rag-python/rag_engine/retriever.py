@@ -30,7 +30,8 @@ class Retriever:
         query: str,
         workspace_id: str,
         document_ids: Optional[List[str]] = None,
-        document_types: Optional[List[str]] = None,
+        retrieval_types: Optional[List[str]] = None,
+        apply_type_filter: bool = True,
         top_k: int = 4,
         score_threshold: float = 0.50,
     ) -> List[RetrievedChunk]:
@@ -38,7 +39,8 @@ class Retriever:
         query_filter = self._build_filter(
             workspace_id=workspace_id,
             document_ids=document_ids or [],
-            document_types=document_types or [],
+            retrieval_types=retrieval_types or [],
+            apply_type_filter=apply_type_filter,
         )
 
         # qdrant-client >=1.12: search() removed; use query_points()
@@ -87,8 +89,10 @@ class Retriever:
         self,
         workspace_id: str,
         document_ids: List[str],
-        document_types: List[str],
+        retrieval_types: List[str],
+        apply_type_filter: bool = True,
     ) -> models.Filter:
+        # Bắt buộc: cùng workspace. Optional: documentIds nếu user chọn tài liệu cụ thể.
         must_conditions: list[models.Condition] = [
             models.FieldCondition(
                 key="workspace_id",
@@ -104,15 +108,37 @@ class Retriever:
                 )
             )
 
-        if settings.ENABLE_DOCUMENT_TYPE_FILTER and document_types:
-            must_conditions.append(
-                models.FieldCondition(
-                    key="document_type",
-                    match=models.MatchAny(any=document_types),
+        # Filter theo retrieval_types (array payload). MatchAny khớp nếu chunk có bất kỳ
+        # retrieval_type nào nằm trong list intent -> không search tài liệu không liên quan.
+        if apply_type_filter and retrieval_types:
+            if settings.ENABLE_RETRIEVAL_TYPE_FILTER:
+                must_conditions.append(
+                    models.FieldCondition(
+                        key="retrieval_types",
+                        match=models.MatchAny(any=retrieval_types),
+                    )
                 )
-            )
+            elif settings.ENABLE_DOCUMENT_TYPE_FILTER:
+                # Backward-compat: chunk cũ chỉ có document_type (không phải array).
+                must_conditions.append(
+                    models.FieldCondition(
+                        key="document_type",
+                        match=models.MatchAny(any=retrieval_types),
+                    )
+                )
 
         return models.Filter(must=must_conditions)
+
+    @staticmethod
+    def should_apply_type_filter(
+        intent: RagIntent, retrieval_types: List[str]
+    ) -> bool:
+        """GENERAL_RAG_QA search rộng (không filter type); intent khác thì filter."""
+        if not retrieval_types:
+            return False
+        if intent == RagIntent.GENERAL_RAG_QA:
+            return False
+        return settings.ENABLE_RETRIEVAL_TYPE_FILTER or settings.ENABLE_DOCUMENT_TYPE_FILTER
 
     @staticmethod
     def retrieval_limits_for_intent(intent: RagIntent) -> Tuple[int, float, int]:

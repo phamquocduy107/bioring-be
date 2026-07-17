@@ -9,6 +9,17 @@ import {
 } from '@nestjs/swagger';
 import { ApiAuthFailures } from '@app/common';
 
+const RETRIEVAL_TYPE_ENUM = [
+  'policy',
+  'package',
+  'ring_guide',
+  'gemstone_guide',
+  'custom_design',
+  'general',
+] as const;
+
+const DOCUMENT_TYPE_ENUM = [...RETRIEVAL_TYPE_ENUM] as const;
+
 const documentExample = {
   id: '550e8400-e29b-41d4-a716-446655440001',
   workspaceId: 'bioring-catalog',
@@ -17,6 +28,8 @@ const documentExample = {
   mimetype: 'application/pdf',
   size: 1048576,
   status: 'PENDING',
+  documentType: 'policy',
+  retrievalTypes: ['policy'],
   createdAt: '2026-07-10T02:00:00.000Z',
   updatedAt: '2026-07-10T02:00:00.000Z',
 };
@@ -47,6 +60,25 @@ export function ApiUploadDocumentDocs() {
             type: 'string',
             format: 'binary',
             description: 'PDF file',
+          },
+          documentType: {
+            type: 'string',
+            enum: [...DOCUMENT_TYPE_ENUM],
+            default: 'general',
+            description:
+              'Chọn 1 loại tài liệu chính. Backend tự map retrievalTypes nếu bỏ trống field bên dưới.',
+          },
+          retrievalTypes: {
+            type: 'array',
+            uniqueItems: true,
+            items: {
+              type: 'string',
+              enum: [...RETRIEVAL_TYPE_ENUM],
+            },
+            example: ['custom_design', 'package', 'policy', 'ring_guide'],
+            description:
+              'Optional — chọn nhiều giá trị: bấm Add item trong Swagger, hoặc nhập CSV `custom_design,package,policy`. ' +
+              'Bỏ trống thì backend tự map từ documentType.',
           },
         },
       },

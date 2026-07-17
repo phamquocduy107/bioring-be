@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_core.documents import Document
@@ -32,12 +32,15 @@ class PdfProcessor:
         workspace_id: str,
         user_id: str,
         original_name: str,
+        document_type: str = "general",
+        retrieval_types: Optional[List[str]] = None,
     ) -> List[Document]:
         loader = PyPDFLoader(file_path)
         pages = loader.load()
 
         chunks = self.text_splitter.split_documents(pages)
         normalized_chunks: List[Document] = []
+        retrieval_types = retrieval_types or []
 
         for index, chunk in enumerate(chunks):
             page = chunk.metadata.get("page")
@@ -49,6 +52,9 @@ class PdfProcessor:
                 "source": original_name,
                 "page": page,
                 "chunk_index": index,
+                # Metadata dùng để Qdrant filter theo chat intent.
+                "document_type": document_type,
+                "retrieval_types": retrieval_types,
             }
 
             normalized_chunks.append(

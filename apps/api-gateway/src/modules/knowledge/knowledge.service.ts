@@ -11,6 +11,8 @@ export interface KnowledgeDocument {
   mimetype: string;
   size: number;
   status: string;
+  documentType?: string;
+  retrievalTypes?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -44,6 +46,8 @@ interface KnowledgeGrpcService {
     userId: string;
     workspaceId: string;
     file: UploadedFilePayload;
+    documentType?: string;
+    retrievalTypes?: string[];
   }): Observable<{ document: KnowledgeDocument }>;
   findAllDocuments(data: {
     userId: string;
@@ -159,11 +163,21 @@ export class KnowledgeService implements OnModuleInit {
   }
 
   // Documents
-  uploadDocument(userId: string, file: UploadedFilePayload) {
+  uploadDocument(
+    userId: string,
+    file: UploadedFilePayload,
+    options?: { documentType?: string; retrievalTypes?: string[] },
+  ) {
     // Gateway gắn workspace mặc định rồi proxy upload PDF sang rag-service.
     const workspaceId = getKnowledgeWorkspaceId();
     return this.call(() =>
-      this.grpc!.uploadDocument({ userId, workspaceId, file }),
+      this.grpc!.uploadDocument({
+        userId,
+        workspaceId,
+        file,
+        documentType: options?.documentType,
+        retrievalTypes: options?.retrievalTypes,
+      }),
     );
   }
 

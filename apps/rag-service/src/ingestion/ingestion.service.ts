@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { knowledge_documents } from '@prisma/client';
-import { DocumentsService } from '../documents/documents.service';
+import {
+  DocumentsService,
+  parseRetrievalTypes,
+} from '../documents/documents.service';
 import { IngestionQueueService } from './ingestion-queue.service';
 
 @Injectable()
@@ -61,6 +64,8 @@ export class IngestionService {
       mimetype: document.mimetype,
       size: document.size,
       status: document.status,
+      documentType: document.document_type,
+      retrievalTypes: parseRetrievalTypes(document.retrieval_types),
       createdAt: document.created_at.toISOString(),
       updatedAt: document.updated_at.toISOString(),
     };

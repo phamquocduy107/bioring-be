@@ -23,6 +23,10 @@ export interface IngestionJobPayload {
   bucket?: string;
   objectName?: string;
   originalName?: string;
+  /** Loại tài liệu để worker gắn metadata + Qdrant filter theo intent. */
+  documentType?: string;
+  /** Các retrieval type gắn vào từng chunk (map từ documentType nếu rỗng). */
+  retrievalTypes?: string[];
   createdAt?: string;
 }
 

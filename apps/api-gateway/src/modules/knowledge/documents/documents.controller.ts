@@ -1,7 +1,12 @@
-import { KNOWLEDGE_MAX_UPLOAD_BYTES, type JwtPayload } from '@app/common';
-import { CurrentUser } from '@app/common';
+import {
+  CurrentUser,
+  KNOWLEDGE_MAX_UPLOAD_BYTES,
+  type JwtPayload,
+} from '@app/common';
+import { UploadDocumentDto } from '@app/common/dtos/knowledge/upload-document.dto';
 import {
   BadRequestException,
+  Body,
   Controller,
   Delete,
   Get,
@@ -46,6 +51,7 @@ export class DocumentsController {
   )
   uploadDocument(
     @UploadedFile() file: UploadedPdfFile | undefined,
+    @Body() body: UploadDocumentDto,
     @CurrentUser() user: JwtPayload,
   ) {
     // Gateway chỉ validate file upload; ingestion/RabbitMQ/vector hóa nằm ở rag-service/worker.
@@ -55,8 +61,11 @@ export class DocumentsController {
     if (file.mimetype !== 'application/pdf') {
       throw new BadRequestException('Only PDF files are allowed');
     }
-    // Sau validate, chuyển PDF sang rag-service để lưu MinIO và publish ingestion job.
-    return this.knowledgeService.uploadDocument(user.sub, file);
+    // documentType/retrievalTypes chỉ metadata để filter Qdrant; rag-service tự chuẩn hóa/mapping.
+    return this.knowledgeService.uploadDocument(user.sub, file, {
+      documentType: body.documentType,
+      retrievalTypes: body.retrievalTypes,
+    });
   }
 
   @Get()

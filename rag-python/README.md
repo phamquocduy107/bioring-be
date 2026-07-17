@@ -91,9 +91,20 @@ Body:
   "bucket": "rag-documents",
   "objectName": "workspaces/ws_001/documents/doc_123/original.pdf",
   "originalName": "research.pdf",
+  "documentType": "custom_design",
+  "retrievalTypes": ["custom_design", "package", "policy", "ring_guide"],
   "createdAt": "2026-07-13T08:00:00.000Z"
 }
 ```
+
+`documentType`/`retrievalTypes` được worker gắn vào metadata + top-level payload từng chunk
+để Qdrant filter theo chat intent. Job cũ thiếu 2 field này sẽ default `general`.
+
+> Lưu ý reindex: sau khi thêm `document_type`/`retrieval_types`, các chunk cũ trong Qdrant
+> chưa có metadata này nên filter theo `retrieval_types` sẽ không tìm thấy chúng.
+> Cần reindex tài liệu cũ (POST `/knowledge/documents/:id/reindex`) hoặc xóa collection và
+> upload lại với `documentType` đúng. Có thể bật `ENABLE_RETRIEVAL_FALLBACK=true` để tạm
+> search rộng khi filter không ra kết quả (debug ghi `retrievalFallbackUsed=true`).
 
 ### REINDEX
 

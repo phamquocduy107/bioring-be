@@ -843,19 +843,23 @@ model refresh_tokens {
 }
 
 model knowledge_documents {
-  id            String    @id @db.Uuid
-  workspace_id  String    @db.VarChar(255)
-  user_id       String    @db.Uuid
-  original_name String    @db.VarChar(500)
-  mimetype      String    @db.VarChar(100)
-  size          Int
-  storage_key   String    @db.VarChar(1000)
-  status        String    @default("PENDING") @db.VarChar(50)
-  chunk_count   Int       @default(0)
-  error_message String?
-  created_at    DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at    DateTime  @updatedAt @db.Timestamptz(6)
-  users         users     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id              String   @id @db.Uuid
+  workspace_id    String   @db.VarChar(255)
+  user_id         String   @db.Uuid
+  original_name   String   @db.VarChar(500)
+  mimetype        String   @db.VarChar(100)
+  size            Int
+  storage_key     String   @db.VarChar(1000)
+  status          String   @default("PENDING") @db.VarChar(50)
+  chunk_count     Int      @default(0)
+  error_message   String?
+  document_type   String   @default("general") @db.VarChar(100)
+  retrieval_types Json     @default("[]")
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @updatedAt @db.Timestamptz(6)
+  users           users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([workspace_id, user_id, created_at(sort: Desc)])
+  @@index([workspace_id, document_type])
+  @@index([status])
 }

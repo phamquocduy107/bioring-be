@@ -45,13 +45,18 @@ class QdrantStore:
         self._create_payload_indexes()
 
     def _create_payload_indexes(self) -> None:
+        # Ưu tiên filter bằng top-level field; giữ nested metabase.* cho tương thích cũ.
         index_fields = [
             "document_id",
             "workspace_id",
             "user_id",
+            "document_type",
+            "retrieval_types",
             "metadata.document_id",
             "metadata.workspace_id",
             "metadata.user_id",
+            "metadata.document_type",
+            "metadata.retrieval_types",
         ]
 
         for field in index_fields:
@@ -136,6 +141,9 @@ class QdrantStore:
                 "source": metadata["source"],
                 "page": metadata["page"],
                 "chunk_index": metadata["chunk_index"],
+                # Flatten type để filter theo chat intent (MatchAny trên retrieval_types).
+                "document_type": metadata.get("document_type", "general"),
+                "retrieval_types": metadata.get("retrieval_types", []),
             }
 
             points.append(

@@ -1,5 +1,7 @@
 import {
   INGESTION_ROUTING_KEYS,
+  normalizeDocumentType,
+  normalizeRetrievalTypes,
   type IngestionJobPayload,
   type IngestionJobType,
   type IngestionStatusEvent,
@@ -104,6 +106,17 @@ export class IngestionQueueService implements OnModuleInit, OnModuleDestroy {
       );
       payload.objectName = document.storage_key;
       payload.originalName = document.original_name;
+
+      // Gửi type từ DB xuống worker để gắn metadata chunk cho Qdrant filter.
+      // Job cũ/DB thiếu type vẫn được chuẩn hóa (general) để worker không crash.
+      const documentType = normalizeDocumentType(document.document_type);
+      payload.documentType = documentType;
+      payload.retrievalTypes = normalizeRetrievalTypes(
+        Array.isArray(document.retrieval_types)
+          ? (document.retrieval_types as unknown[]).map((item) => String(item))
+          : [],
+        documentType,
+      );
     }
 
     return payload;

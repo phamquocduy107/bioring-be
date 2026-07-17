@@ -427,8 +427,9 @@ def _run_query(request: QueryRequest) -> QueryResponse:
                 ),
             )
 
-    chunks = _retrieve_context(
+    chunks, qdrant_filter_used, fallback_used = _retrieve_context(
         request=request,
+        intent=intent,
         retrieval_query=retrieval_query,
         retrieval_types=intent_result.retrievalTypes,
         top_k=top_k,
@@ -437,6 +438,19 @@ def _run_query(request: QueryRequest) -> QueryResponse:
     chunks = _prepare_chunks(chunks, score_threshold)
     context, used_chunks = Retriever.format_retrieved_context(
         chunks, max_context_chars, settings.MAX_SOURCES
+    )
+
+    # Log gọn thông tin retrieval theo intent/type/filter (không log full context).
+    logger.info(
+        "query requestId=%s intent=%s retrievalTypes=%s documentIds=%d "
+        "qdrantFilterUsed=%s fallbackUsed=%s retrievedChunks=%d",
+        request_id,
+        intent.value,
+        intent_result.retrievalTypes,
+        len(request.documentIds or []),
+        qdrant_filter_used,
+        fallback_used,
+        len(used_chunks),
     )
 
     debug_base = QueryDebug(
@@ -449,6 +463,12 @@ def _run_query(request: QueryRequest) -> QueryResponse:
         cacheHit=False,
         topK=top_k,
         scoreThreshold=score_threshold,
+        intent=intent.value,
+        retrievalTypes=intent_result.retrievalTypes,
+        qdrantFilterUsed=qdrant_filter_used,
+        retrievalFallbackUsed=fallback_used,
+        retrievedChunks=len(used_chunks),
+        documentIdsCount=len(request.documentIds or []),
     )
 
     # Zero-LLM templates when required knowledge is missing
@@ -499,9 +519,7 @@ def _run_query(request: QueryRequest) -> QueryResponse:
         llm_calls=llm_calls,
         rewrite_used=rewrite_used,
         retrieval_query=retrieval_query,
-        top_k=top_k,
-        score_threshold=score_threshold,
-        cache_hit=False,
+        debug_base=debug_base,
     )
 
     if answer_cache_key and settings.CACHE_POLICY_ANSWERS:
@@ -526,9 +544,7 @@ def _final_llm_answer(
     llm_calls: int,
     rewrite_used: bool,
     retrieval_query: str,
-    top_k: int,
-    score_threshold: float,
-    cache_hit: bool,
+    debug_base: QueryDebug,
 ) -> tuple[str, int, QueryResponse]:
     system_prompt, user_prompt = prompt_builder.build(
         request=request,
@@ -553,25 +569,18 @@ def _final_llm_answer(
             "retrievalQuery": retrieval_query,
             "retrievedChunks": len(used_chunks),
             "retrievalTypes": intent_result.retrievalTypes,
+            "qdrantFilterUsed": debug_base.qdrantFilterUsed,
+            "retrievalFallbackUsed": debug_base.retrievalFallbackUsed,
             "contextChars": len(context or ""),
             "rewriteUsed": rewrite_used,
             "llmCalls": llm_calls,
         },
     )
-    return answer, llm_calls, _with_debug(
-        response,
-        QueryDebug(
-            llmCalls=llm_calls,
-            intentSource=intent_result.source,
-            rewriteUsed=rewrite_used,
-            retrievalQuery=retrieval_query,
-            contextChars=len(context or ""),
-            historyMessages=len(request.chatHistory),
-            cacheHit=cache_hit,
-            topK=top_k,
-            scoreThreshold=score_threshold,
-        ),
+    # Giữ nguyên debug_base (đã có retrievalTypes/filter/fallback), chỉ cập nhật llmCalls.
+    debug = debug_base.model_copy(
+        update={"llmCalls": llm_calls, "contextChars": len(context or "")}
     )
+    return answer, llm_calls, _with_debug(response, debug)
 
 
 def _prepare_chunks(
@@ -617,49 +626,78 @@ def _resolve_intent(request: QueryRequest) -> IntentDetectionResponse:
 
 def _retrieve_context(
     request: QueryRequest,
+    intent: RagIntent,
     retrieval_query: str,
     retrieval_types: List[str],
     top_k: int,
     score_threshold: float,
-) -> List[RetrievedChunk]:
-    cache_key = None
-    if settings.CACHE_RETRIEVAL_RESULTS:
-        cache_key = stable_hash(
-            {
-                "workspaceId": request.workspaceId,
-                "q": retrieval_query,
-                "types": retrieval_types,
-                "topK": top_k,
-                "score": score_threshold,
-                "documentIds": sorted(request.documentIds or []),
-            }
-        )
-        cached = retrieval_cache.get(cache_key)
-        if cached is not None:
-            return [RetrievedChunk(**item) for item in cached]
+) -> tuple[List[RetrievedChunk], bool, bool]:
+    """Trả (chunks, qdrant_filter_used, retrieval_fallback_used)."""
+    apply_type_filter = Retriever.should_apply_type_filter(intent, retrieval_types)
 
-    try:
-        chunks = retriever.search(
-            query=retrieval_query,
-            workspace_id=request.workspaceId,
-            document_ids=request.documentIds,
-            document_types=retrieval_types,
-            top_k=top_k,
-            score_threshold=score_threshold,
-        )
-    except Exception as exc:
-        logger.error("retrieval failed: %s", exc, exc_info=True)
-        if request.intentOverride in [RagIntent.POLICY_QA, RagIntent.PACKAGE_QA]:
-            raise HTTPException(status_code=500, detail=f"retrieval failed: {exc}") from exc
-        return []
+    def _do_search(apply_filter: bool) -> List[RetrievedChunk]:
+        cache_key = None
+        if settings.CACHE_RETRIEVAL_RESULTS:
+            cache_key = stable_hash(
+                {
+                    "workspaceId": request.workspaceId,
+                    "q": retrieval_query,
+                    "types": retrieval_types if apply_filter else [],
+                    "filter": apply_filter,
+                    "topK": top_k,
+                    "score": score_threshold,
+                    "documentIds": sorted(request.documentIds or []),
+                }
+            )
+            cached = retrieval_cache.get(cache_key)
+            if cached is not None:
+                return [RetrievedChunk(**item) for item in cached]
 
-    if cache_key and settings.CACHE_RETRIEVAL_RESULTS:
-        retrieval_cache.set(
-            cache_key,
-            [c.model_dump() for c in chunks],
-            settings.CACHE_TTL_SECONDS,
+        try:
+            found = retriever.search(
+                query=retrieval_query,
+                workspace_id=request.workspaceId,
+                document_ids=request.documentIds,
+                retrieval_types=retrieval_types,
+                apply_type_filter=apply_filter,
+                top_k=top_k,
+                score_threshold=score_threshold,
+            )
+        except Exception as exc:
+            logger.error("retrieval failed: %s", exc, exc_info=True)
+            if request.intentOverride in [RagIntent.POLICY_QA, RagIntent.PACKAGE_QA]:
+                raise HTTPException(
+                    status_code=500, detail=f"retrieval failed: {exc}"
+                ) from exc
+            return []
+
+        if cache_key and settings.CACHE_RETRIEVAL_RESULTS:
+            retrieval_cache.set(
+                cache_key,
+                [c.model_dump() for c in found],
+                settings.CACHE_TTL_SECONDS,
+            )
+        return found
+
+    chunks = _do_search(apply_type_filter)
+    fallback_used = False
+
+    # Fallback: filter theo type không ra chunk -> thử lại bỏ filter type (giữ documentIds).
+    if (
+        not chunks
+        and apply_type_filter
+        and settings.ENABLE_RETRIEVAL_FALLBACK
+    ):
+        logger.warning(
+            "retrieval empty with type filter=%s -> fallback without type filter "
+            "(reindex old docs to add retrieval_types)",
+            retrieval_types,
         )
-    return chunks
+        chunks = _do_search(False)
+        fallback_used = True
+        apply_type_filter = False
+
+    return chunks, apply_type_filter, fallback_used
 
 
 def _slim_products(products: List[ProductCandidate]) -> List[ProductCandidate]:

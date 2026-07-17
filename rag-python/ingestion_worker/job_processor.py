@@ -58,6 +58,15 @@ def process_ingest_or_reindex_job(
 
     bucket = job.bucket or settings.MINIO_BUCKET
 
+    # Chuẩn hóa type ngay đầu job để log + gắn metadata chunk (job cũ thiếu -> general).
+    document_type = job.normalized_document_type()
+    retrieval_types = job.normalized_retrieval_types()
+    print(
+        f"[ingestion] {job.jobType} document={job.documentId} "
+        f"document_type={document_type} retrieval_types={retrieval_types}",
+        flush=True,
+    )
+
     status_publisher.publish_status(
         job=job,
         status="PROCESSING",
@@ -91,6 +100,8 @@ def process_ingest_or_reindex_job(
         workspace_id=job.workspaceId,
         user_id=job.userId,
         original_name=job.originalName,
+        document_type=document_type,
+        retrieval_types=retrieval_types,
     )
 
     if not chunks:
