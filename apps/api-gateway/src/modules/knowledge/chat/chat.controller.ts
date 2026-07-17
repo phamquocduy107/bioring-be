@@ -1,3 +1,10 @@
+import type { JwtPayload } from '@app/common';
+import {
+  ChatQueryDto,
+  CreateChatSessionDto,
+  CurrentUser,
+  SkipTimeout,
+} from '@app/common';
 import {
   Body,
   Controller,
@@ -7,13 +14,6 @@ import {
   Post,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import {
-  ChatQueryDto,
-  CreateChatSessionDto,
-  CurrentUser,
-  SkipTimeout,
-} from '@app/common';
-import type { JwtPayload } from '@app/common';
 import { KnowledgeService } from '../knowledge.service';
 import {
   ApiAskQuestionDocs,
@@ -34,12 +34,14 @@ export class ChatController {
     @Body() body: CreateChatSessionDto,
     @CurrentUser() user: JwtPayload,
   ) {
+    // HTTP gateway nhận request từ FE và chuyển tạo session sang rag-service qua gRPC.
     return this.knowledgeService.createChatSession(user.sub, body.title);
   }
 
   @Get('sessions')
   @ApiFindChatSessionsDocs()
   findSessions(@CurrentUser() user: JwtPayload) {
+    // Không đọc DB ở gateway; rag-service trả danh sách session của user.
     return this.knowledgeService.findChatSessions(user.sub);
   }
 
@@ -49,6 +51,7 @@ export class ChatController {
     @Param('sessionId', new ParseUUIDPipe({ version: '4' })) sessionId: string,
     @CurrentUser() user: JwtPayload,
   ) {
+    // Gateway chỉ validate param/user rồi proxy lấy message sang rag-service.
     return this.knowledgeService.getChatMessages(user.sub, sessionId);
   }
 
@@ -56,6 +59,7 @@ export class ChatController {
   @SkipTimeout()
   @ApiAskQuestionDocs()
   ask(@Body() body: ChatQueryDto, @CurrentUser() user: JwtPayload) {
+    // Luồng chat chính: gateway -> rag-service;
     return this.knowledgeService.askQuestion(
       user.sub,
       body.question,

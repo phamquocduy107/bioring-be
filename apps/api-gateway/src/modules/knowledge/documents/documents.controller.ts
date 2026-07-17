@@ -48,18 +48,21 @@ export class DocumentsController {
     @UploadedFile() file: UploadedPdfFile | undefined,
     @CurrentUser() user: JwtPayload,
   ) {
+    // Gateway chỉ validate file upload; ingestion/RabbitMQ/vector hóa nằm ở rag-service/worker.
     if (!file) {
       throw new BadRequestException('file is required');
     }
     if (file.mimetype !== 'application/pdf') {
       throw new BadRequestException('Only PDF files are allowed');
     }
+    // Sau validate, chuyển PDF sang rag-service để lưu MinIO và publish ingestion job.
     return this.knowledgeService.uploadDocument(user.sub, file);
   }
 
   @Get()
   @ApiFindAllDocumentsDocs()
   findAll(@CurrentUser() user: JwtPayload) {
+    // Proxy danh sách knowledge documents sang rag-service.
     return this.knowledgeService.findAllDocuments(user.sub);
   }
 
@@ -69,6 +72,7 @@ export class DocumentsController {
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @CurrentUser() user: JwtPayload,
   ) {
+    // Proxy chi tiết document; rag-service chịu trách nhiệm kiểm tra quyền.
     return this.knowledgeService.findOneDocument(user.sub, id);
   }
 
@@ -78,6 +82,7 @@ export class DocumentsController {
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @CurrentUser() user: JwtPayload,
   ) {
+    // Status cho biết ingestion/vector hóa đã READY hay chưa để chat có thể query.
     return this.knowledgeService.getDocumentStatus(user.sub, id);
   }
 
@@ -87,6 +92,7 @@ export class DocumentsController {
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @CurrentUser() user: JwtPayload,
   ) {
+    // Delete đi qua rag-service để xóa DB/file/vector đúng thứ tự.
     return this.knowledgeService.deleteDocument(user.sub, id);
   }
 
@@ -96,6 +102,7 @@ export class DocumentsController {
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @CurrentUser() user: JwtPayload,
   ) {
+    // Retry ingestion tạo lại job cho worker PDF, không xử lý ở gateway.
     return this.knowledgeService.retryIngestion(user.sub, id);
   }
 
@@ -105,6 +112,7 @@ export class DocumentsController {
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @CurrentUser() user: JwtPayload,
   ) {
+    // Reindex yêu cầu worker tạo lại chunks/embeddings/Qdrant vectors.
     return this.knowledgeService.reindexDocument(user.sub, id);
   }
 }

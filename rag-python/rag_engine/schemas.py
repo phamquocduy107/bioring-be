@@ -25,8 +25,8 @@ class RagIntent(str, Enum):
 
 
 class QueryOptions(BaseModel):
-    topK: int = Field(default=5, ge=1, le=20)
-    scoreThreshold: float = Field(default=0.45, ge=0.0, le=1.0)
+    topK: int = Field(default=4, ge=1, le=20)
+    scoreThreshold: float = Field(default=0.50, ge=0.0, le=1.0)
     language: Literal["vi", "en"] = "vi"
 
 
@@ -34,6 +34,7 @@ class ExtractedRequirements(BaseModel):
     purpose: Optional[str] = None
     budgetMin: Optional[int] = None
     budgetMax: Optional[int] = None
+    budgetApprox: Optional[int] = None
     style: Optional[str] = None
     material: Optional[str] = None
     stoneName: Optional[str] = None
@@ -41,7 +42,7 @@ class ExtractedRequirements(BaseModel):
     ringSize: Optional[str] = None
     occasion: Optional[str] = None
     recipient: Optional[str] = None
-    customSignal: Optional[str] = None  # voice, fingerprint, biometric, handwriting, etc.
+    customSignal: Optional[str] = None
     notes: Optional[str] = None
 
 
@@ -57,6 +58,8 @@ class IntentDetectionRequest(BaseModel):
 class IntentDetectionResponse(BaseModel):
     intent: RagIntent
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    source: Literal["rules", "llm"] = "rules"
+    llmUsed: bool = False
     extractedRequirements: ExtractedRequirements = Field(default_factory=ExtractedRequirements)
     missingFields: List[str] = Field(default_factory=list)
     retrievalTypes: List[str] = Field(default_factory=list)
@@ -75,8 +78,10 @@ class ProductCandidate(BaseModel):
     stoneName: Optional[str] = None
     stoneColor: Optional[str] = None
     imageUrl: Optional[str] = None
-    description: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
+    shortDescription: Optional[str] = None
+    # Backward-compatible alias; prompt prefers shortDescription.
+    description: Optional[str] = None
     reason: Optional[str] = None
 
 
@@ -84,6 +89,7 @@ class PackageCandidate(BaseModel):
     id: str
     name: str
     price: Optional[int] = None
+    shortDescription: Optional[str] = None
     description: Optional[str] = None
     includedServices: List[str] = Field(default_factory=list)
     estimatedDays: Optional[int] = None
@@ -102,14 +108,12 @@ class QueryRequest(BaseModel):
     lastIntent: Optional[str] = None
     options: QueryOptions = Field(default_factory=QueryOptions)
 
-    # Passed by NestJS if it already called /intent/detect.
     intentOverride: Optional[RagIntent] = None
     extractedRequirements: Optional[ExtractedRequirements] = None
     retrievalTypes: List[str] = Field(default_factory=list)
     productFilters: Dict[str, Any] = Field(default_factory=dict)
     missingFields: List[str] = Field(default_factory=list)
 
-    # Structured data from NestJS/ecommerce/product service.
     productCandidates: List[ProductCandidate] = Field(default_factory=list)
     packageCandidates: List[PackageCandidate] = Field(default_factory=list)
 
@@ -121,6 +125,18 @@ class Source(BaseModel):
     chunkIndex: Optional[int] = None
     score: Optional[float] = None
     contentPreview: Optional[str] = None
+
+
+class QueryDebug(BaseModel):
+    llmCalls: int = 0
+    intentSource: Optional[str] = None
+    rewriteUsed: bool = False
+    retrievalQuery: Optional[str] = None
+    contextChars: int = 0
+    historyMessages: int = 0
+    cacheHit: bool = False
+    topK: Optional[int] = None
+    scoreThreshold: Optional[float] = None
 
 
 class QueryResponse(BaseModel):
@@ -135,6 +151,7 @@ class QueryResponse(BaseModel):
     productFilters: Dict[str, Any] = Field(default_factory=dict)
     shouldAskClarifyingQuestion: bool = False
     usage: Dict[str, Any] = Field(default_factory=dict)
+    debug: Optional[QueryDebug] = None
 
 
 class RetrievedChunk(BaseModel):

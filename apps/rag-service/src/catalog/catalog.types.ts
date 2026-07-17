@@ -3,7 +3,6 @@
 export interface ProductCandidate {
   id: string;
   name: string;
-  description?: string;
   price?: number;
   material?: string;
   style?: string;
@@ -12,14 +11,19 @@ export interface ProductCandidate {
   stoneColor?: string;
   imageUrl?: string;
   tags?: string[];
+  shortDescription?: string;
+  /** @deprecated Prefer shortDescription when sending to rag-engine. */
+  description?: string;
   reason?: string;
 }
 
 export interface PackageCandidate {
   id: string;
   name: string;
-  description?: string;
   price?: number;
+  shortDescription?: string;
+  /** @deprecated Prefer shortDescription when sending to rag-engine. */
+  description?: string;
   includedServices?: string[];
   estimatedDays?: number;
   warranty?: string;

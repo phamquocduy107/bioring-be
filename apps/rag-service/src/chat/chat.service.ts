@@ -1,25 +1,20 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
-import { PackageCatalogService } from '../catalog/package-catalog.service';
-import { ProductRecommendationService } from '../catalog/product-recommendation.service';
-import { DocumentsService } from '../documents/documents.service';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import type {
   PackageCandidate,
   ProductCandidate,
 } from '../catalog/catalog.types';
+import { PackageCatalogService } from '../catalog/package-catalog.service';
+import { ProductRecommendationService } from '../catalog/product-recommendation.service';
+import { DocumentsService } from '../documents/documents.service';
 import { RagEngineClient } from '../rag-engine/rag-engine.client';
 import type {
   IntentDetectionResponse,
   RagQueryRequest,
   RagQueryResponse,
 } from '../rag-engine/rag-engine.types';
+import { retrievalOptionsForIntent } from '../rag-engine/rag-engine.types';
 import { AiChatRepository } from './ai-chat.repository';
 import { ChatContextService } from './chat-context.service';
-import { ConversationSummaryService } from './conversation-summary.service';
-import { WorkspacePermissionService } from './workspace-permission.service';
 import type {
   ChatAskPayload,
   ChatAskResponse,
@@ -27,6 +22,9 @@ import type {
   RagSource,
   UserPreferences,
 } from './chat.types';
+import { MAX_PACKAGE_CANDIDATES, MAX_PRODUCT_CANDIDATES } from './chat.types';
+import { ConversationSummaryService } from './conversation-summary.service';
+import { WorkspacePermissionService } from './workspace-permission.service';
 
 @Injectable()
 export class ChatService {
@@ -55,7 +53,9 @@ export class ChatService {
   async findSessions(data: { userId: string; workspaceId: string }) {
     const sessions =
       await this.aiChatRepository.findSessionsByUserAndWorkspace(data);
-    return { sessions: sessions.map((session) => this.toSessionResponse(session)) };
+    return {
+      sessions: sessions.map((session) => this.toSessionResponse(session)),
+    };
   }
 
   async getMessages(data: { userId: string; sessionId: string }) {
@@ -67,14 +67,17 @@ export class ChatService {
   }
 
   async ask(data: ChatAskPayload): Promise<ChatAskResponse> {
+    // Validate dữ liệu đầu vào ở rag-service trước khi tạo session/gọi Python.
     this.validateAskInput(data);
 
+    // Kiểm tra quyền truy cập workspace ở NestJS; Python rag-engine không xử lý authorization.
     await this.workspacePermissionService.assertUserCanAccessWorkspace(
       data.userId,
       data.workspaceId,
     );
 
     if (data.documentIds?.length) {
+      // Nếu FE giới hạn documentIds, kiểm tra user có quyền đọc các tài liệu này.
       await this.workspacePermissionService.assertUserCanAccessDocuments(
         data.userId,
         data.workspaceId,
@@ -82,11 +85,13 @@ export class ChatService {
       );
     }
 
+    // Chỉ cho phép hỏi khi tài liệu knowledge đã ingest/vector hóa xong.
     await this.documentsService.assertDocumentsReadyForQuery(
       data.workspaceId,
       data.documentIds,
     );
 
+    // Lấy session hiện có hoặc tạo session mới; đây là nghiệp vụ chat của rag-service.
     const session = data.chatSessionId
       ? await this.aiChatRepository.findSessionForUser(
           data.chatSessionId,
@@ -98,11 +103,13 @@ export class ChatService {
           title: data.question.slice(0, 80),
         });
 
+    // Build context ngắn để gửi sang Python: recent history, summary, preferences, lastIntent.
     const context = await this.chatContextService.buildChatContext(
       session.id,
       data.question,
     );
 
+    // Gọi Python rag-engine để detect intent/slot bằng rules-first; Nest không gọi LLM trực tiếp.
     const detected = await this.ragEngineClient.detectIntent({
       question: data.question,
       chatHistory: context.chatHistory,
@@ -112,13 +119,26 @@ export class ChatService {
       language: 'vi',
     });
 
+    // Theo dõi chuyển intent nhưng không reset preferences đã lưu trong session.
     const currentIntent = detected.intent;
     const lastIntent = context.lastIntent ?? null;
+    const intentSwitch = this.chatContextService.isIntentSwitch(
+      currentIntent,
+      lastIntent,
+    );
 
-    if (this.chatContextService.isIntentSwitch(currentIntent, lastIntent)) {
+    if (intentSwitch) {
       this.handleIntentSwitch(currentIntent, lastIntent, session.id);
     }
 
+    this.logger.log(
+      `chat ask session=${session.id} intent=${currentIntent} lastIntent=${lastIntent ?? 'none'} ` +
+        `intentSwitch=${intentSwitch} historyMessages=${context.chatHistory.length} ` +
+        `clarify=${!!detected.shouldAskClarifyingQuestion} ` +
+        `intentSource=${detected.source ?? 'unknown'} llmUsed=${!!detected.llmUsed}`,
+    );
+
+    // Lưu user message trước khi gọi query để session có đầy đủ lịch sử hội thoại.
     const userMessage = await this.aiChatRepository.createMessage({
       sessionId: session.id,
       role: 'user',
@@ -127,6 +147,7 @@ export class ChatService {
     });
     void userMessage;
 
+    // Merge slot vừa extract vào preferences; policy/package không xóa nhu cầu chọn nhẫn trước đó.
     const mergedPreferences = this.chatContextService.mergePreferences(
       context.userPreferences,
       detected.extractedRequirements ?? {},
@@ -137,6 +158,7 @@ export class ChatService {
       mergedPreferences,
     );
 
+    // Điều phối theo intent: rag-service tìm product/package candidates, Python trả final answer.
     const ragResult = await this.dispatchByIntent({
       data,
       sessionId: session.id,
@@ -146,7 +168,24 @@ export class ChatService {
       lastIntent,
       detected,
     });
+    const usageLlmCalls = ragResult.usage?.['llmCalls'];
+    const llmCallsForLog =
+      ragResult.debug?.llmCalls ??
+      (typeof usageLlmCalls === 'string' || typeof usageLlmCalls === 'number'
+        ? usageLlmCalls
+        : 'n/a');
 
+    this.logger.log(
+      `chat result session=${session.id} type=${ragResult.type} ` +
+        `products=${ragResult.suggestedProducts?.length ?? 0} ` +
+        `packages=${ragResult.suggestedPackages?.length ?? 0} ` +
+        `clarify=${!!ragResult.shouldAskClarifyingQuestion} ` +
+        `llmCalls=${llmCallsForLog} ` +
+        `rewrite=${ragResult.debug?.rewriteUsed ?? false} ` +
+        `cacheHit=${ragResult.debug?.cacheHit ?? false}`,
+    );
+
+    // Lưu assistant message kèm metadata để FE xem lại sources/sản phẩm/gói được gợi ý.
     const assistantMessage = await this.aiChatRepository.createMessage({
       sessionId: session.id,
       role: 'assistant',
@@ -165,6 +204,7 @@ export class ChatService {
       },
     });
 
+    // Cập nhật session state phục vụ danh sách chat và follow-up intent ở lượt sau.
     await this.aiChatRepository.updateSessionLastMessage(
       session.id,
       ragResult.answer,
@@ -174,8 +214,10 @@ export class ChatService {
       lastIntent: lastIntent ?? currentIntent,
     });
 
+    // Summary chạy nền, không chặn response chat hiện tại.
     void this.conversationSummaryService.maybeRegenerateSummary(session.id);
 
+    // Chuẩn hóa response theo contract hiện tại với FE/API gateway.
     return {
       messageId: assistantMessage.id,
       sessionId: session.id,
@@ -213,6 +255,7 @@ export class ChatService {
     lastIntent?: string | null;
     detected: IntentDetectionResponse;
   }): Promise<RagQueryResponse> {
+    // Rag-service quyết định nghiệp vụ theo intent; Python chỉ nhận payload đã có context/candidates.
     switch (params.detected.intent) {
       case 'RING_RECOMMENDATION':
         return this.handleRingRecommendation(params);
@@ -241,12 +284,13 @@ export class ChatService {
     const { detected } = params;
 
     if (detected.shouldAskClarifyingQuestion) {
+      // Clarification trả template ngay tại rag-service, không gọi /query và không tốn LLM.
       return {
         type: 'clarification',
         intent: 'RING_RECOMMENDATION',
         answer:
           detected.clarificationQuestion ||
-          "Mình rất sẵn lòng tư vấn nhẫn giúp bạn. Bạn cho mình biết nhanh: nhẫn dùng cho dịp nào (cầu hôn/cưới/kỷ niệm/hằng ngày), ngân sách khoảng bao nhiêu, và bạn thích phong cách tối giản, sang trọng hay cổ điển?",
+          'Mình rất sẵn lòng tư vấn nhẫn giúp bạn. Bạn cho mình biết nhanh: nhẫn dùng cho dịp nào (cầu hôn/cưới/kỷ niệm/hằng ngày), ngân sách khoảng bao nhiêu, và bạn thích phong cách tối giản, sang trọng hay cổ điển?',
         sources: [],
         suggestedProducts: [],
         suggestedPackages: [],
@@ -256,6 +300,7 @@ export class ChatService {
       };
     }
 
+    // Với tư vấn nhẫn, NestJS tìm ứng viên sản phẩm từ catalog trước khi gửi sang Python.
     const productCandidates =
       await this.productRecommendationService.searchRings(
         detected.productFilters ?? {},
@@ -282,6 +327,7 @@ export class ChatService {
     let productCandidates: ProductCandidate[] = [];
     const filters = detected.productFilters ?? {};
     if (filters.stoneColor || filters.stoneName) {
+      // Nếu câu hỏi về đá có slot màu/tên đá, kèm sản phẩm liên quan để LLM không tự bịa catalog.
       productCandidates =
         await this.productRecommendationService.searchRings(filters);
     }
@@ -303,6 +349,7 @@ export class ChatService {
     lastIntent?: string | null;
     detected: IntentDetectionResponse;
   }): Promise<RagQueryResponse> {
+    // Package catalog thuộc nghiệp vụ NestJS; Python chỉ dùng candidates/context để trả lời.
     const packageCandidates = await this.packageCatalogService.searchPackages(
       params.detected.productFilters,
     );
@@ -324,6 +371,7 @@ export class ChatService {
     lastIntent?: string | null;
     detected: IntentDetectionResponse;
   }): Promise<RagQueryResponse> {
+    // Policy QA không cần product/package candidates; Python chỉ dùng policy context từ Qdrant.
     return this.callRagQuery(params, {
       retrievalTypes: params.detected.retrievalTypes?.length
         ? params.detected.retrievalTypes
@@ -344,6 +392,7 @@ export class ChatService {
     const { detected } = params;
 
     if (detected.shouldAskClarifyingQuestion) {
+      // Thiếu đầu vào thiết kế riêng thì hỏi lại bằng template, không gọi LLM.
       return {
         type: 'clarification',
         intent: 'CUSTOM_DESIGN_CONSULTING',
@@ -359,6 +408,7 @@ export class ChatService {
       };
     }
 
+    // Thiết kế riêng ưu tiên package/policy/custom_design context và package candidates nếu có.
     const packageCandidates = await this.packageCatalogService.searchPackages(
       detected.productFilters,
     );
@@ -380,6 +430,7 @@ export class ChatService {
     lastIntent?: string | null;
     detected: IntentDetectionResponse;
   }): Promise<RagQueryResponse> {
+    // Câu hỏi chung chỉ gửi retrievalTypes general; không kèm catalog để giảm prompt.
     return this.callRagQuery(params, {
       retrievalTypes: params.detected.retrievalTypes?.length
         ? params.detected.retrievalTypes
@@ -404,6 +455,7 @@ export class ChatService {
       packageCandidates: PackageCandidate[];
     },
   ): Promise<RagQueryResponse> {
+    // Ranh giới NestJS → Python: từ đây Python xử lý retrieval, prompt và final LLM answer.
     const payload = this.buildRagQueryPayload(params, extras);
     return this.ragEngineClient.query(payload);
   }
@@ -423,9 +475,16 @@ export class ChatService {
       packageCandidates: PackageCandidate[];
     },
   ): RagQueryRequest {
-    const { data, chatHistory, conversationSummary, userPreferences, detected } =
-      params;
+    const {
+      data,
+      chatHistory,
+      conversationSummary,
+      userPreferences,
+      detected,
+    } = params;
+    const options = retrievalOptionsForIntent(detected.intent);
 
+    // Payload gửi Python đã được rút gọn: không gửi full history hay full product object.
     return {
       requestId: this.ragEngineClient.createRequestId(),
       userId: data.userId,
@@ -441,14 +500,58 @@ export class ChatService {
       retrievalTypes: extras.retrievalTypes,
       productFilters: detected.productFilters ?? {},
       missingFields: detected.missingFields ?? [],
-      productCandidates: extras.productCandidates,
-      packageCandidates: extras.packageCandidates,
+      productCandidates: this.slimProductCandidates(extras.productCandidates),
+      packageCandidates: this.slimPackageCandidates(extras.packageCandidates),
       options: {
-        topK: 5,
-        scoreThreshold: 0.45,
+        topK: options.topK,
+        scoreThreshold: options.scoreThreshold,
         language: 'vi',
       },
     };
+  }
+
+  private slimProductCandidates(
+    products: ProductCandidate[],
+  ): ProductCandidate[] {
+    // Chỉ giữ field cần thiết cho prompt/FE; tránh đẩy mô tả dài hoặc metadata catalog sang LLM.
+    return products.slice(0, MAX_PRODUCT_CANDIDATES).map((product) => {
+      const short =
+        product.shortDescription ||
+        (product.description ? product.description.slice(0, 280) : undefined);
+      return {
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        material: product.material,
+        style: product.style,
+        purpose: product.purpose,
+        stoneName: product.stoneName,
+        stoneColor: product.stoneColor,
+        imageUrl: product.imageUrl,
+        tags: (product.tags ?? []).slice(0, 10),
+        shortDescription: short,
+      };
+    });
+  }
+
+  private slimPackageCandidates(
+    packages: PackageCandidate[],
+  ): PackageCandidate[] {
+    // Package candidates cũng được giới hạn để prompt final answer ngắn và ổn định.
+    return packages.slice(0, MAX_PACKAGE_CANDIDATES).map((pkg) => {
+      const short =
+        pkg.shortDescription ||
+        (pkg.description ? pkg.description.slice(0, 280) : undefined);
+      return {
+        id: pkg.id,
+        name: pkg.name,
+        price: pkg.price,
+        includedServices: (pkg.includedServices ?? []).slice(0, 12),
+        estimatedDays: pkg.estimatedDays,
+        warranty: pkg.warranty,
+        shortDescription: short,
+      };
+    });
   }
 
   private validateAskInput(data: ChatAskPayload) {
@@ -518,7 +621,8 @@ export class ChatService {
     return (products ?? []).map((product) => ({
       id: product.id,
       name: product.name,
-      description: product.description ?? '',
+      description: product.shortDescription ?? product.description ?? '',
+      shortDescription: product.shortDescription ?? product.description ?? '',
       price: product.price ?? 0,
       material: product.material ?? '',
       style: product.style ?? '',
@@ -535,7 +639,8 @@ export class ChatService {
     return (packages ?? []).map((pkg) => ({
       id: pkg.id,
       name: pkg.name,
-      description: pkg.description ?? '',
+      description: pkg.shortDescription ?? pkg.description ?? '',
+      shortDescription: pkg.shortDescription ?? pkg.description ?? '',
       price: pkg.price ?? 0,
       includedServices: pkg.includedServices ?? [],
       estimatedDays: pkg.estimatedDays ?? 0,

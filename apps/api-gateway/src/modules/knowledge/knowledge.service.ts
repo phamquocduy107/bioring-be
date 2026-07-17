@@ -53,10 +53,7 @@ interface KnowledgeGrpcService {
     userId: string;
     documentId: string;
   }): Observable<{ document: KnowledgeDocument }>;
-  getDocumentStatus(data: {
-    userId: string;
-    documentId: string;
-  }): Observable<{
+  getDocumentStatus(data: { userId: string; documentId: string }): Observable<{
     documentId: string;
     status: string;
     errorMessage: string;
@@ -148,11 +145,13 @@ export class KnowledgeService implements OnModuleInit {
   ) {}
 
   onModuleInit() {
+    // Gateway lấy gRPC stub của rag-service;
     this.grpc =
       this.client?.getService<KnowledgeGrpcService>('KnowledgeService');
   }
 
   private async call<T>(fn: () => Observable<T>): Promise<T> {
+    // Chuyển Observable gRPC thành Promise cho controller HTTP.
     if (!this.grpc) {
       throw new Error('KNOWLEDGE_SERVICE gRPC client is not initialized');
     }
@@ -161,6 +160,7 @@ export class KnowledgeService implements OnModuleInit {
 
   // Documents
   uploadDocument(userId: string, file: UploadedFilePayload) {
+    // Gateway gắn workspace mặc định rồi proxy upload PDF sang rag-service.
     const workspaceId = getKnowledgeWorkspaceId();
     return this.call(() =>
       this.grpc!.uploadDocument({ userId, workspaceId, file }),
@@ -168,6 +168,7 @@ export class KnowledgeService implements OnModuleInit {
   }
 
   findAllDocuments(userId: string) {
+    // Danh sách tài liệu knowledge được lấy qua rag-service
     const workspaceId = getKnowledgeWorkspaceId();
     return this.call(() =>
       this.grpc!.findAllDocuments({ userId, workspaceId }),
@@ -175,31 +176,35 @@ export class KnowledgeService implements OnModuleInit {
   }
 
   findOneDocument(userId: string, documentId: string) {
-    return this.call(() =>
-      this.grpc!.findOneDocument({ userId, documentId }),
-    );
+    // Proxy chi tiết tài liệu sang rag-service để giữ authorization/DB logic tập trung.
+    return this.call(() => this.grpc!.findOneDocument({ userId, documentId }));
   }
 
   getDocumentStatus(userId: string, documentId: string) {
+    // Status ingestion/vector hóa được rag-service quản lý theo document.
     return this.call(() =>
       this.grpc!.getDocumentStatus({ userId, documentId }),
     );
   }
 
   deleteDocument(userId: string, documentId: string) {
+    // Delete document/vector cũng đi qua rag-service;
     return this.call(() => this.grpc!.deleteDocument({ userId, documentId }));
   }
 
   retryIngestion(userId: string, documentId: string) {
+    // Retry ingestion publish job ở rag-service/worker flow
     return this.call(() => this.grpc!.retryIngestion({ userId, documentId }));
   }
 
   reindexDocument(userId: string, documentId: string) {
+    // Reindex chỉ yêu cầu rag-service tạo job ingestion lại.
     return this.call(() => this.grpc!.reindexDocument({ userId, documentId }));
   }
 
   // Chat
   createChatSession(userId: string, title?: string) {
+    // Session chat thuộc rag-service; gateway chỉ truyền user/workspace/title.
     const workspaceId = getKnowledgeWorkspaceId();
     return this.call(() =>
       this.grpc!.createChatSession({ userId, workspaceId, title }),
@@ -214,9 +219,8 @@ export class KnowledgeService implements OnModuleInit {
   }
 
   getChatMessages(userId: string, sessionId: string) {
-    return this.call(() =>
-      this.grpc!.getChatMessages({ userId, sessionId }),
-    );
+    // Lấy lịch sử chat từ rag-service để giữ format/metadata nhất quán.
+    return this.call(() => this.grpc!.getChatMessages({ userId, sessionId }));
   }
 
   async askQuestion(
@@ -225,6 +229,7 @@ export class KnowledgeService implements OnModuleInit {
     chatSessionId?: string,
     documentIds?: string[],
   ) {
+    // Chat query đi HTTP gateway -> gRPC rag-service -> Python rag-engine
     const workspaceId = getKnowledgeWorkspaceId();
     const result = await this.call(() =>
       this.grpc!.askQuestion({
@@ -236,6 +241,7 @@ export class KnowledgeService implements OnModuleInit {
       }),
     );
 
+    // productFilters đi qua proto dạng JSON string nên parse lại trước khi trả HTTP.
     let productFilters: Record<string, unknown> = {};
     try {
       productFilters = result.productFiltersJson

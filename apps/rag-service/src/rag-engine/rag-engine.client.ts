@@ -37,6 +37,7 @@ export class RagEngineClient {
     lastIntent?: string | null;
     language?: 'vi' | 'en';
   }): Promise<IntentDetectionResponse> {
+    // Gọi Python /intent/detect: rules-first intent + slot extraction, NestJS không tự gọi LLM.
     return this.post<IntentDetectionResponse>(
       '/intent/detect',
       {
@@ -53,6 +54,7 @@ export class RagEngineClient {
   }
 
   async query(payload: RagQueryRequest): Promise<RagQueryResponse> {
+    // Gọi Python /query: embedding, Qdrant retrieval, prompt building và final LLM answer.
     return this.post<RagQueryResponse>(
       '/query',
       payload,
@@ -73,6 +75,7 @@ export class RagEngineClient {
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
+      // HTTP boundary sang rag-engine; api-gateway không gọi Python trực tiếp.
       const response = await fetch(`${this.baseUrl}${path}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -81,6 +84,7 @@ export class RagEngineClient {
       });
 
       if (!response.ok) {
+        // Log body lỗi từ Python để debug retrieval/LLM, nhưng không log prompt/context dài.
         const errText = await response.text();
         this.logger.error(
           `rag-engine ${path} failed (${response.status}): ${errText}`,

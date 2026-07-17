@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '@app/prisma';
+import { MAX_PRODUCT_CANDIDATES } from '../chat/chat.types';
 import type { ProductCandidate } from './catalog.types';
 
 @Injectable()
@@ -85,7 +86,7 @@ export class ProductRecommendationService {
 
       const products = await this.prisma.products.findMany({
         where,
-        take: 8,
+        take: MAX_PRODUCT_CANDIDATES,
         orderBy: { created_at: 'desc' },
         include: {
           materials: true,
@@ -100,11 +101,14 @@ export class ProductRecommendationService {
           product.materials?.name ??
           product.product_materials?.[0]?.materials?.name ??
           undefined;
+        const shortDescription = product.description
+          ? product.description.slice(0, 280)
+          : undefined;
 
         return {
           id: product.id,
           name: product.name,
-          description: product.description ?? undefined,
+          shortDescription,
           price: product.base_price ? Number(product.base_price) : undefined,
           material: materialName,
           style: this.toString(productFilters.style) ?? undefined,
