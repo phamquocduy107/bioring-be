@@ -19,6 +19,7 @@ import { GuestModule } from './guest/guest.module';
 import { AdminModule } from './admin/admin.module';
 import { CaptureSessionModule } from './capture-session/capture-session.module';
 import { NotificationModule as EcommerceNotificationModule } from './notification/notification.module';
+import { NotificationModule } from '@app/common';
 import { CustomerModule } from './customer/customer.module';
 import { WarrantyModule } from './warranty/warranty.module';
 import { AuditModule } from './audit/audit.module';
@@ -40,6 +41,7 @@ import { JewelerModule } from './jeweler/jeweler.module';
     CaptureSessionModule,
     AdminModule,
     EcommerceNotificationModule,
+    NotificationModule,
     CustomerModule,
     WarrantyModule,
     AuditModule,

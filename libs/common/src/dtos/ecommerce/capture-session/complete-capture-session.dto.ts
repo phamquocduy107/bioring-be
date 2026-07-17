@@ -9,7 +9,7 @@ export class CompleteCaptureSessionDto {
   @IsOptional()
   @IsNumber()
   @Min(0)
-  @Max(100)
+  @Max(1000)
   qualityScore?: number;
 
   @ApiPropertyOptional({

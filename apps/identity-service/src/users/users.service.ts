@@ -31,6 +31,11 @@ export class UsersService {
           user_roles: {
             include: { roles: { select: { name: true } } },
           },
+          refresh_tokens: {
+            orderBy: { created_at: 'desc' },
+            take: 1,
+            select: { created_at: true },
+          },
         },
         orderBy: { created_at: 'desc' },
       }),
@@ -49,6 +54,7 @@ export class UsersService {
         createdAt: u.created_at?.toISOString(),
         updatedAt: u.updated_at?.toISOString(),
         roles: u.user_roles.map((ur) => ur.roles.name),
+        lastLogin: u.refresh_tokens[0]?.created_at?.toISOString() ?? '',
       })),
       meta: {
         total,
@@ -64,6 +70,11 @@ export class UsersService {
       where: { id },
       include: {
         user_roles: { include: { roles: { select: { name: true } } } },
+        refresh_tokens: {
+          orderBy: { created_at: 'desc' },
+          take: 1,
+          select: { created_at: true },
+        },
       },
     });
 
@@ -83,6 +94,7 @@ export class UsersService {
       createdAt: user.created_at?.toISOString(),
       updatedAt: user.updated_at?.toISOString(),
       roles: user.user_roles.map((ur) => ur.roles.name),
+      lastLogin: user.refresh_tokens[0]?.created_at?.toISOString() ?? '',
     };
   }
 
@@ -165,6 +177,9 @@ export class UsersService {
     return this.findById(data.id);
   }
 
+  // ponytail: temporary — FE handles 1 role per user only.
+  // Deletes all existing roles then adds the new one.
+  // Future: change to multi-role assign when FE supports it.
   async assignRole(userId: string, roleId: string) {
     const user = await this.prisma.users.findUnique({ where: { id: userId } });
     if (!user) {
@@ -178,17 +193,10 @@ export class UsersService {
       throw new NotFoundException('Role not found');
     }
 
-    const existing = await this.prisma.user_roles.findUnique({
-      where: { user_id_role_id: { user_id: userId, role_id: roleId } },
-    });
-
-    if (existing) {
-      throw new ConflictException('User already has this role');
-    }
-
-    await this.prisma.user_roles.create({
-      data: { user_id: userId, role_id: roleId },
-    });
+    await this.prisma.$transaction([
+      this.prisma.user_roles.deleteMany({ where: { user_id: userId } }),
+      this.prisma.user_roles.create({ data: { user_id: userId, role_id: roleId } }),
+    ]);
 
     return { success: true };
   }

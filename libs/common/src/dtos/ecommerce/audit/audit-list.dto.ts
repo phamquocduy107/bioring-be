@@ -36,7 +36,7 @@ export class ListAuditLogsQueryDto {
   page?: number;
 
   @ApiPropertyOptional({ example: 50 })
-  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(200)
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(1000)
   limit?: number;
 
   @ApiPropertyOptional({ example: 'order' })

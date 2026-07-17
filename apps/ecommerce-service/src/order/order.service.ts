@@ -1202,6 +1202,7 @@ export class OrderService {
     status?: string;
     orderId?: string;
     jewelerId?: string;
+    all?: boolean;
   }) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
@@ -1209,6 +1210,14 @@ export class OrderService {
     if (query.status) where.status = query.status;
     if (query.orderId) where.order_id = query.orderId;
     if (query.jewelerId) where.assigned_jeweler_id = query.jewelerId;
+
+    // ponytail: default filter — only tasks from active orders (DEPOSIT_PAID onward).
+    // Manager can bypass with ?all=true to see tasks from any order status.
+    if (!query.all) {
+      where.orders = {
+        status: { in: ['DEPOSIT_PAID', 'IN_PRODUCTION', 'PENDING_QC', 'COMPLETED'] },
+      };
+    }
 
     const [data, total] = await Promise.all([
       this.prisma.production_tasks.findMany({
@@ -1989,7 +1998,7 @@ export class OrderService {
         where,
         include: {
           orders: { select: { order_code: true, total_price: true, paid_amount: true, remaining_amount: true } },
-          users: { select: { id: true, full_name: true, avatar_url: true, status: true } },
+          users: { select: { id: true, full_name: true, status: true } },
         },
         orderBy: { created_at: 'desc' },
         skip: (data.page - 1) * data.limit,
@@ -2037,7 +2046,7 @@ export class OrderService {
           ? {
               id: s.users.id,
               name: s.users.full_name ?? '',
-              avatar: s.users.avatar_url ?? '',
+              avatar: '',
               status: s.users.status ?? '',
               current_deliveries: staffCountMap.get(s.users.id) ?? 0,
             }

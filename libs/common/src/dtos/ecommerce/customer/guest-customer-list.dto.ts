@@ -8,7 +8,7 @@ export class ListGuestCustomersQueryDto {
   page?: number;
 
   @ApiPropertyOptional({ example: 20 })
-  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100)
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(1000)
   limit?: number;
 
   @ApiPropertyOptional({ example: 'nguyen' })

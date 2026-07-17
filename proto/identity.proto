@@ -80,6 +80,7 @@ message User {
   string createdAt = 9;
   string updatedAt = 10;
   repeated string roles = 11;
+  string lastLogin = 12;
 }
 
 message GetUsersRequest {

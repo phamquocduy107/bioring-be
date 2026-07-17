@@ -699,6 +699,7 @@ message GetProductionTasksRequest {
   string status = 3;
   string orderId = 4;
   string jewelerId = 5;
+  bool all = 6;
 }
 
 message GetProductionTasksResponse {

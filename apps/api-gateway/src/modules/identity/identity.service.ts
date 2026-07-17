@@ -16,6 +16,7 @@ export interface UserResponse {
   createdAt: string;
   updatedAt: string;
   roles: string[];
+  lastLogin: string;
 }
 
 export interface PermissionResponse {

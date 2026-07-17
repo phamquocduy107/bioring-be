@@ -13,7 +13,8 @@ export class UsersController {
 
   @GrpcMethod('IdentityService', 'GetUserById')
   async getUserById(data: { id: string }) {
-    return this.usersService.findById(data.id);
+    const user = await this.usersService.findById(data.id);
+    return { user };
   }
 
   @GrpcMethod('IdentityService', 'BanUser')
@@ -33,11 +34,13 @@ export class UsersController {
 
   @GrpcMethod('IdentityService', 'CreateUser')
   async createUser(data: { email: string; fullName: string; phone?: string; roleId?: string }) {
-    return this.usersService.createUser(data);
+    const user = await this.usersService.createUser(data);
+    return { user };
   }
 
   @GrpcMethod('IdentityService', 'UpdateUser')
   async updateUser(data: { id: string; email?: string; fullName?: string; phone?: string; status?: string }) {
-    return this.usersService.updateUser(data);
+    const user = await this.usersService.updateUser(data);
+    return { user };
   }
 }

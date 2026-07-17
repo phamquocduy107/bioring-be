@@ -1,4 +1,5 @@
-import { IsOptional, IsEnum, IsUUID } from 'class-validator';
+import { IsOptional, IsEnum, IsUUID, IsBoolean } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { PaginationDto } from '../../pagination.dto';
 import { ProductionTaskStatus } from '../../../enums/production-task-status.enum';
@@ -18,4 +19,10 @@ export class GetProductionTasksQueryDto extends PaginationDto {
   @IsOptional()
   @IsUUID('4')
   jewelerId?: string;
+
+  @ApiPropertyOptional({ description: 'Show all tasks (manager only)', default: false })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  all?: boolean;
 }

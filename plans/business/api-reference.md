@@ -89,7 +89,8 @@ Route prefix: `auth` (class-level @Public())
     "isVip": false,
     "createdAt": "2026-01-01T00:00:00.000Z",
     "updatedAt": "2026-01-01T00:00:00.000Z",
-    "roles": ["ADMIN"]
+    "roles": ["ADMIN"],
+    "lastLogin": "2026-07-16T09:00:00.000Z"
   },
   "permissions": ["user.read", "user.write", "order.read", "order.write", "dashboard.view"]
 }
@@ -125,7 +126,8 @@ Route prefix: `users` (@ApiBearerAuth class-level)
       "isVip": false,
       "createdAt": "2026-01-01T00:00:00.000Z",
       "updatedAt": "2026-01-01T00:00:00.000Z",
-      "roles": ["CUSTOMER"]
+      "roles": ["CUSTOMER"],
+      "lastLogin": "2026-07-15T14:30:00.000Z"
     }
   ],
   "meta": {
@@ -159,7 +161,8 @@ Route prefix: `users` (@ApiBearerAuth class-level)
     "isVip": false,
     "createdAt": "2026-01-01T00:00:00.000Z",
     "updatedAt": "2026-01-01T00:00:00.000Z",
-    "roles": ["CUSTOMER"]
+    "roles": ["CUSTOMER"],
+    "lastLogin": "2026-07-15T14:30:00.000Z"
   }
 }
 ```
@@ -2677,6 +2680,134 @@ Route prefix: `api/v1/track`
 | id | string | No | Email tracking ID |
 
 **Response:** 1×1 transparent GIF pixel (Content-Type: image/gif, Cache-Control: no-cache)
+
+---
+
+# 4. Business Validation Rules
+
+## 4.1 Order State Machine
+
+**Trạng thái:**
+```
+AWAITING_SUBMIT → PENDING_REVIEW → AWAITING_DEPOSIT → DEPOSIT_PAID
+→ IN_PRODUCTION → PENDING_QC → AWAITING_REMAINING → READY_FOR_DELIVERY
+→ SHIPPING / READY_FOR_PICKUP → DELIVERED → COMPLETED
+
+REVISION_REQUIRED (từ PENDING_REVIEW reject)
+CANCELLED (từ nhiều trạng thái)
+```
+
+**Quy tắc chuyển trạng thái:**
+
+| Hành động | Yêu cầu | Chuyển đến |
+|-----------|---------|-----------|
+| submitOrder | AWAITING_SUBMIT / REVISION_REQUIRED | PENDING_REVIEW |
+| reviewOrder (approve) | PENDING_REVIEW | AWAITING_DEPOSIT |
+| reviewOrder (reject) | PENDING_REVIEW | REVISION_REQUIRED |
+| assignJeweler | DEPOSIT_PAID | IN_PRODUCTION |
+| updateProductionStatus (complete) | IN_PRODUCTION | PENDING_QC |
+| qcAcceptOrder (PASS, remaining>0) | IN_PRODUCTION / PENDING_QC | AWAITING_REMAINING |
+| qcAcceptOrder (PASS, remaining ≤0) | IN_PRODUCTION / PENDING_QC | READY_FOR_DELIVERY |
+| qcAcceptOrder (FAIL) | IN_PRODUCTION / PENDING_QC | IN_PRODUCTION (reset task) |
+| initiateDelivery (PICKUP) | READY_FOR_DELIVERY | READY_FOR_PICKUP |
+| updateShipmentStatus → SHIPPING | READY_FOR_DELIVERY | SHIPPING |
+| updateShipmentStatus → DELIVERED (PICKUP) | READY_FOR_PICKUP | DELIVERED |
+| updateShipmentStatus → DELIVERED (DELIVERY) | SHIPPING | DELIVERED |
+| cancelOrder | (9 trạng thái cho phép) | CANCELLED |
+
+---
+
+## 4.2 Warranty State Machine
+
+```
+PENDING_REVIEW → PENDING_RECEIVE       (review: approve)
+PENDING_REVIEW → QUOTATION_SENT         (review: quotation)
+PENDING_REVIEW → REJECTED               (review: reject)
+QUOTATION_SENT → AWAITING_PAYMENT       (confirm: có fee)
+QUOTATION_SENT → PENDING_RECEIVE        (confirm: không fee)
+AWAITING_PAYMENT → ?                    (payment webhook)
+PENDING_RECEIVE → IN_SERVICE            (receive)
+IN_SERVICE → COMPLETED                  (return, sau khi ticket completed)
+```
+
+---
+
+## 4.3 Order Validations
+
+| Endpoint | Precondition | Error | Code |
+|----------|-------------|-------|------|
+| POST /orders | Engraving chưa có order | Engraving already has an order | 400 |
+| POST /orders | Phải chọn biometrics | No biometrics selected | 400 |
+| PATCH /orders/:id/submit | status ∈ [AWAITING_SUBMIT, REVISION_REQUIRED] | Order must be in AWAITING_SUBMIT or REVISION_REQUIRED to submit | 400 |
+| PATCH /orders/:id/submit | Tất cả biometrics đã CAPTURED | Missing biometric data: {types} | 400 |
+| PUT /orders/:id/review | status = PENDING_REVIEW | Order must be in PENDING_REVIEW status | 400 |
+| PUT /orders/:id/review | Order có engraving | Order has no engraving | 400 |
+| PUT /orders/:id/review | action ∈ [approve, reject] | Action must be "approve" or "reject" | 400 |
+| POST /orders/:id/assign-jeweler | status = DEPOSIT_PAID | Order must be DEPOSIT_PAID to assign jeweler | 400 |
+| POST /engravings/:id/biometrics | status = AWAITING_SUBMIT | Order must be in AWAITING_SUBMIT status to attach biometrics | 400 |
+| POST /engravings/:id/biometrics | biometricType ∈ package | Biometric type {type} not in package | 400 |
+| PUT /orders/production-tasks/:taskId/status | Task tồn tại | Production task not found | 404 |
+| PUT /orders/:id/qc-accept | status ∈ [IN_PRODUCTION, PENDING_QC] | Order must be IN_PRODUCTION or PENDING_QC | 400 |
+| PUT /orders/:id/qc-accept | Production task COMPLETED | Production task must be completed before QC | 400 |
+| POST /orders/:id/delivery | status = READY_FOR_DELIVERY | Order must be READY_FOR_DELIVERY to initiate delivery | 400 |
+| POST /orders/:id/delivery | remaining_amount = 0 | Order still has remaining payment | 400 |
+| POST /orders/:id/delivery | Chưa có shipment in progress | Shipment already in progress | 400 |
+| PUT /orders/:id/shipment/status | deliveryMethod = DELIVERY (nếu SHIPPING) | Only DELIVERY shipments can be set to SHIPPING | 400 |
+| PUT /orders/:id/shipment/status | status = READY_FOR_DELIVERY (nếu SHIPPING) | Order must be READY_FOR_DELIVERY to start shipping | 400 |
+| PUT /orders/:id/shipment/status | status = READY_FOR_PICKUP (nếu PICKUP → DELIVERED) | Order must be READY_FOR_PICKUP to confirm delivery | 400 |
+| PUT /orders/:id/shipment/status | status = SHIPPING (nếu DELIVERY → DELIVERED) | Order must be SHIPPING to confirm delivery | 400 |
+| PUT /orders/:id/shipment/status | status ∈ [SHIPPING, DELIVERED] | Status must be SHIPPING or DELIVERED | 400 |
+| POST /orders/:id/payments/manual | paymentPhase ∈ [DEPOSIT_1, DEPOSIT_2, REMAINING, FULL] | Invalid paymentPhase | 400 |
+| POST /orders/:id/payments | paymentPhase = FULL → chỉ guest | FULL payment is only available for walk-in guests | 400 |
+| POST /orders/:id/payments | phase = DEPOSIT_2 → chưa paid hết | Deposit already paid | 400 |
+| POST /orders/:id/payments | phase = REMAINING → còn nợ | No remaining amount to pay | 400 |
+| POST /orders/:id/payments/cancel | Có PENDING payment | No pending payment found to cancel | 400 |
+| POST /transactions/:id/refund | Chưa REFUNDED | Payment already refunded | 400 |
+| PATCH /orders/:id/cancel | status ∈ cancellable list | Order cannot be cancelled in status X | 400 |
+
+---
+
+## 4.4 Warranty Validations
+
+| Endpoint | Precondition | Error | Code |
+|----------|-------------|-------|------|
+| PATCH /warranty-claims/:id/review | status = PENDING_REVIEW | Claim must be PENDING_REVIEW | 400 |
+| PATCH /warranty-claims/:id/review | action = quotation → extraFee > 0 | extraFee required for quotation | 400 |
+| PATCH /warranty-claims/:id/review | action ∈ [approve, quotation, reject] | action must be approve, quotation, or reject | 400 |
+| PATCH /warranty-claims/:id/confirm | status = QUOTATION_SENT | Claim must be QUOTATION_SENT | 400 |
+| PATCH /warranty-claims/:id/confirm | Chủ claim | Not your claim | 403 |
+| POST /warranty-claims/:id/payments | status = AWAITING_PAYMENT | Claim not awaiting payment | 400 |
+| POST /warranty-claims/:id/payments | extraFee > 0 | No extra fee to pay | 400 |
+| POST /warranty-claims/:id/receive | status ∈ [PENDING_RECEIVE, APPROVED] | Claim must be PENDING_RECEIVE or APPROVED | 400 |
+| POST /warranty-claims/:id/receive | Jeweler tồn tại | Jeweler not found | 404 |
+| PATCH /warranty-claims/:id/complete | status = IN_SERVICE | Claim must be IN_SERVICE | 400 |
+| PATCH /warranty-claims/:id/complete | Có ticket RECEIVED | No active service ticket | 400 |
+| PATCH /warranty-claims/:id/return | status = IN_SERVICE | Claim must be IN_SERVICE | 400 |
+| PATCH /warranty-claims/:id/return | Ticket đã COMPLETED | Service ticket not completed yet | 400 |
+
+---
+
+## 4.5 Guest Validations
+
+| Endpoint | Precondition | Error | Code |
+|----------|-------------|-------|------|
+| POST /guest/orders | Tất cả biometrics đã CAPTURED | Missing biometric data: {types} | 400 |
+| PATCH /guest-tablet/orders/:orderId/submit | status ∈ [AWAITING_SUBMIT, REVISION_REQUIRED] | Order must be AWAITING_SUBMIT or REVISION_REQUIRED to submit | 400 |
+| PATCH /guest-tablet/orders/:orderId/submit | Biometrics ready | Missing biometric data | 400 |
+| PUT /guest-tablet/orders/:orderId/shipping-info | method ∈ [PICKUP, DELIVERY] | deliveryMethod must be PICKUP or DELIVERY | 400 |
+| PUT /guest-tablet/orders/:orderId/shipping-info | Chưa có shipment | Shipping info already set | 400 |
+
+---
+
+## 4.6 Engraving Validations
+
+| Endpoint | Precondition | Error | Code |
+|----------|-------------|-------|------|
+| PATCH /engravings/versions/:versionId/config | Chưa có order→cho phép đổi package | Cannot change package after order creation | 400 |
+| PATCH /engravings/versions/:versionId/config | status ∈ editable list | Cannot edit after order has been submitted | 400 |
+| POST /engravings/:id/cancel | Chưa có order | Cannot cancel — already has order | 400 |
+| POST /engravings/:id/cancel | Chưa cancelled | Already cancelled | 400 |
+| PUT /qr-memories/:engravingId | status = REVISION_REQUIRED (nếu có order) | Cannot edit memory card after order creation | 400 |
 
 ---
 

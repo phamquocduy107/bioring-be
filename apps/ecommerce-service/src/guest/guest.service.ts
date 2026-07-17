@@ -591,8 +591,8 @@ export class GuestService {
         include: {
           orders: {
             include: {
-              engravings: {
-                select: { qr_memories: { select: { status: true } } },
+              engraving: {
+                select: { qr_memories: { select: { is_locked: true, activated_at: true } } },
               },
               warranties: { select: { status: true, expiry_date: true } },
             },
@@ -631,7 +631,7 @@ export class GuestService {
           last_order_date: latestOrder?.created_at?.toISOString() ?? '',
           join_date: g.created_at?.toISOString() ?? '',
           digital_assets: this.computeDigitalAssets(g.biometric_capture_sessions),
-          qr_memory_status: latestOrder?.engravings?.qr_memories?.status ?? '',
+          qr_memory_status: latestOrder?.engraving?.qr_memories ? 'active' : '',
           service_tickets: g.warranty_claims.flatMap((wc) =>
             wc.service_tickets.map((st) => ({
               id: st.id,

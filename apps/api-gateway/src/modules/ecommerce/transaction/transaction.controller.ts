@@ -26,7 +26,7 @@ import {
 
 interface EcommerceGrpcService {
   listPayments(data: Record<string, unknown>): Observable<any>;
-  getTransactionOverview(): Observable<any>;
+  getTransactionOverview(data: Record<string, never>): Observable<any>;
   forcePaidPayment(data: { paymentId: string; adminId: string }): Observable<any>;
   syncPaymentStatus(data: { paymentId: string }): Observable<any>;
   refundPayment(data: { paymentId: string; adminId: string; reason: string }): Observable<any>;
@@ -79,7 +79,7 @@ export class TransactionController implements OnModuleInit {
   @Permissions(Permission.OrderRead)
   @ApiTransactionOverviewDocs()
   async transactionOverview() {
-    return this.call(() => this.grpc!.getTransactionOverview());
+    return this.call(() => this.grpc!.getTransactionOverview({}));
   }
 
   @Post(':id/force-paid')

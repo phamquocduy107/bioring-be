@@ -1,15 +1,18 @@
 import { IsOptional, IsInt, Min, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ListPaymentsQueryDto {
   @ApiPropertyOptional({ description: 'Page number', example: 1 })
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   page?: number;
 
   @ApiPropertyOptional({ description: 'Items per page', example: 20 })
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   limit?: number;

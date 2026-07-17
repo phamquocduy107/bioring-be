@@ -399,6 +399,7 @@ export class OrderController implements OnModuleInit {
       status: query.status,
       orderId: query.orderId,
       jewelerId: query.jewelerId,
+      all: query.all ?? false,
     });
   }
 
