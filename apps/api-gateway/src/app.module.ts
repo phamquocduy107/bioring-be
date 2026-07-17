@@ -18,6 +18,7 @@ import {
 import { BiometricModule } from './modules/biometric/biometric.module';
 import { EcommerceModule } from './modules/ecommerce/ecommerce.module';
 import { IdentityModule } from './modules/identity/identity.module';
+import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { IdentityModule } from './modules/identity/identity.module';
     BiometricModule,
     EcommerceModule,
     IdentityModule,
+    KnowledgeModule,
   ],
   providers: [
     {

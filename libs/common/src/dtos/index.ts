@@ -4,3 +4,4 @@ export * from './id.dto';
 export * from './pagination.dto';
 export * from './uuid.dto';
 export * from './ecommerce';
+export * from './knowledge';

@@ -1,0 +1,198 @@
+syntax = "proto3";
+
+package knowledge;
+
+service KnowledgeService {
+  // Documents
+  rpc UploadDocument (UploadDocumentRequest) returns (DocumentResponse);
+  rpc FindAllDocuments (FindAllDocumentsRequest) returns (DocumentListResponse);
+  rpc FindOneDocument (FindOneDocumentRequest) returns (DocumentResponse);
+  rpc GetDocumentStatus (GetDocumentStatusRequest) returns (DocumentStatusResponse);
+  rpc DeleteDocument (DeleteDocumentRequest) returns (DeleteDocumentResponse);
+
+  // Ingestion
+  rpc RetryIngestion (RetryIngestionRequest) returns (DocumentResponse);
+  rpc ReindexDocument (ReindexDocumentRequest) returns (DocumentResponse);
+
+  // Chat
+  rpc CreateChatSession (CreateChatSessionRequest) returns (ChatSessionResponse);
+  rpc FindChatSessions (FindChatSessionsRequest) returns (ChatSessionListResponse);
+  rpc GetChatMessages (GetChatMessagesRequest) returns (ChatMessageListResponse);
+  rpc AskQuestion (AskQuestionRequest) returns (AskQuestionResponse);
+}
+
+message UploadFile {
+  string originalname = 1;
+  string mimetype = 2;
+  int64 size = 3;
+  bytes buffer = 4;
+}
+
+message UploadDocumentRequest {
+  string userId = 1;
+  string workspaceId = 2;
+  UploadFile file = 3;
+}
+
+message FindAllDocumentsRequest {
+  string userId = 1;
+  string workspaceId = 2;
+}
+
+message FindOneDocumentRequest {
+  string userId = 1;
+  string documentId = 2;
+}
+
+message GetDocumentStatusRequest {
+  string userId = 1;
+  string documentId = 2;
+}
+
+message DeleteDocumentRequest {
+  string userId = 1;
+  string documentId = 2;
+}
+
+message RetryIngestionRequest {
+  string userId = 1;
+  string documentId = 2;
+}
+
+message ReindexDocumentRequest {
+  string userId = 1;
+  string documentId = 2;
+}
+
+message DocumentResponse {
+  Document document = 1;
+}
+
+message DocumentListResponse {
+  repeated Document documents = 1;
+}
+
+message DocumentStatusResponse {
+  string documentId = 1;
+  string status = 2;
+  string errorMessage = 3;
+  int32 chunkCount = 4;
+  string updatedAt = 5;
+}
+
+message DeleteDocumentResponse {
+  bool success = 1;
+}
+
+message Document {
+  string id = 1;
+  string workspaceId = 2;
+  string userId = 3;
+  string originalName = 4;
+  string mimetype = 5;
+  int64 size = 6;
+  string status = 7;
+  string createdAt = 8;
+  string updatedAt = 9;
+}
+
+message CreateChatSessionRequest {
+  string userId = 1;
+  string workspaceId = 2;
+  string title = 3;
+}
+
+message FindChatSessionsRequest {
+  string userId = 1;
+  string workspaceId = 2;
+}
+
+message GetChatMessagesRequest {
+  string userId = 1;
+  string sessionId = 2;
+}
+
+message AskQuestionRequest {
+  string userId = 1;
+  string workspaceId = 2;
+  string chatSessionId = 3;
+  repeated string documentIds = 4;
+  string question = 5;
+}
+
+message RagSource {
+  string documentId = 1;
+  string source = 2;
+  int32 page = 3;
+  int32 chunkIndex = 4;
+  double score = 5;
+  string contentPreview = 6;
+}
+
+message SuggestedProduct {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  int64 price = 4;
+  string material = 5;
+  string style = 6;
+  string purpose = 7;
+  string stoneName = 8;
+  string stoneColor = 9;
+  string imageUrl = 10;
+  repeated string tags = 11;
+  string reason = 12;
+}
+
+message SuggestedPackage {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  int64 price = 4;
+  repeated string includedServices = 5;
+  int32 estimatedDays = 6;
+  string warranty = 7;
+}
+
+message ChatSessionResponse {
+  ChatSession session = 1;
+}
+
+message ChatSessionListResponse {
+  repeated ChatSession sessions = 1;
+}
+
+message ChatMessageListResponse {
+  repeated ChatMessage messages = 1;
+}
+
+message AskQuestionResponse {
+  string messageId = 1;
+  string sessionId = 2;
+  string type = 3;
+  string intent = 4;
+  string answer = 5;
+  repeated RagSource sources = 6;
+  repeated SuggestedProduct suggestedProducts = 7;
+  repeated SuggestedPackage suggestedPackages = 8;
+  repeated string missingFields = 9;
+  string productFiltersJson = 10;
+  bool shouldAskClarifyingQuestion = 11;
+}
+
+message ChatSession {
+  string id = 1;
+  string workspaceId = 2;
+  string userId = 3;
+  string title = 4;
+  string createdAt = 5;
+  string updatedAt = 6;
+}
+
+message ChatMessage {
+  string id = 1;
+  string sessionId = 2;
+  string role = 3;
+  string content = 4;
+  string createdAt = 5;
+}
