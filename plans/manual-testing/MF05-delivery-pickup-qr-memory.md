@@ -231,6 +231,51 @@ SELECT * FROM shipments WHERE order_id = '{{ORDER_ID}}';
 ## 6. Staff: Confirm Pickup → DELIVERED → COMPLETED
 
 > Khách đến cửa hàng nhận. Staff xác nhận.
+>
+> Có 2 cách: (a) dùng endpoint mới `POST /confirm-pickup` (tạo warranty + lock QR tự động), hoặc (b) dùng `PUT /shipment/status` cũ.
+
+### 6a. Dùng endpoint mới (preferred)
+
+```http
+POST /api/v1/orders/{{ORDER_ID}}/confirm-pickup
+Authorization: Bearer {{staffJwt}}
+Content-Type: application/json
+
+{
+  "note": "Khách nhận tại quầy 17/07"
+}
+```
+
+**Expected Response (200):**
+```json
+{
+  "success": true,
+  "order": {
+    "id": "{{ORDER_ID}}",
+    "orderCode": "1720000000042",
+    "status": "COMPLETED",
+    ...
+  },
+  "warrantyCode": "WAR-1720000000042",
+  "warrantyExpiry": "2027-07-17T10:00:00.000Z",
+  "qrMemoryUnlocked": true
+}
+```
+
+**Verify DB:**
+```sql
+SELECT status FROM orders WHERE id = '{{ORDER_ID}}';
+-- COMPLETED
+
+SELECT * FROM warranties WHERE order_id = '{{ORDER_ID}}';
+-- warranty_code, status = ACTIVE, issue_date, expiry_date, engraving_id NOT NULL
+
+SELECT is_locked FROM qr_memories WHERE engraving_id =
+  (SELECT engraving_id FROM orders WHERE id = '{{ORDER_ID}}');
+-- false (đã unlock)
+```
+
+### 6b. Dùng endpoint cũ (shipment/status)
 
 ```http
 PUT /api/v1/orders/{{ORDER_ID}}/shipment/status
@@ -242,8 +287,7 @@ Content-Type: application/json
   "receiverName": "Nguyễn Văn A",
   "receiverPhone": "0909123456",
   "identityNote": "CMND 123456789",
-  "proofImageUrl": "https://res.cloudinary.com/.../pickup-proof.jpg",
-  "staffId": "{{STAFF_ID}}"
+  "proofImageUrl": "https://res.cloudinary.com/.../pickup-proof.jpg"
 }
 ```
 
@@ -328,8 +372,7 @@ Authorization: Bearer {{staffJwt}}
 Content-Type: application/json
 
 {
-  "status": "SHIPPING",
-  "staffId": "{{STAFF_ID}}"
+  "status": "SHIPPING"
 }
 ```
 
@@ -370,8 +413,7 @@ Content-Type: application/json
   "receiverPhone": "0987654321",
   "identityNote": "CMND 987654321",
   "proofImageUrl": "https://res.cloudinary.com/.../delivered-proof.jpg",
-  "trackingCode": "BIORING-DEL-002",
-  "staffId": "{{STAFF_ID}}"
+  "trackingCode": "BIORING-DEL-002"
 }
 ```
 
@@ -422,7 +464,7 @@ Authorization: Bearer {{customerJwt}}
   "trackingCode": "",
   "recipientName": "Nguyễn Văn A",
   "recipientPhone": "0909123456",
-  "estimatedDeliveryAt": null,
+  "estimatedDeliveryAt": "",
   "deliveredAt": null,
   "createdAt": "2026-07-07T..."
 }
@@ -555,7 +597,7 @@ Content-Type: application/json
 }
 ```
 
-> 🧪 **Test:** Gọi với `accessPin` sai → 403 "Invalid access PIN"
+> 🧪 **Test:** Gọi với `accessPin` sai → 404 "Invalid access PIN"
 > 🧪 **Test:** QR memory chưa được unlock (order chưa COMPLETED) → vẫn có thể xem sau khi nhập PIN đúng
 > 📌 QR memory được system **tự động unlock** khi order COMPLETED (`is_locked` → `false`).
 
@@ -599,11 +641,11 @@ Content-Type: application/json
 | 8 | UpdateShipmentStatus SHIPPING khi order không phải READY_FOR_DELIVERY | 400 |
 | 9 | UpdateShipmentStatus DELIVERED cho PICKUP khi order không phải READY_FOR_PICKUP | 400 |
 | 10 | UpdateShipmentStatus DELIVERED cho DELIVERY khi order không phải SHIPPING | 400 |
-| 11 | Warranty chỉ tạo 1 lần (test gọi DELIVERED 2 lần) | Lần 2 bị unique constraint error |
+| 11 | Warranty chỉ tạo 1 lần (test gọi DELIVERED 2 lần) | Lần 2 tạo warranty thứ 2 (không unique constraint) |
 | 12 | GET delivery info cho order chưa initiate delivery | 404 hoặc rỗng |
 | 13 | GET warranty info cho order chưa COMPLETED | 404 hoặc rỗng |
 | 14 | Lookup order với `orderCode` không tồn tại | 404 |
-| 15 | Activate QR memory với PIN sai | 403 |
+| 15 | Activate QR memory với PIN sai | 404 |
 | 16 | DELIVERED với staffId rỗng | 400 validation |
 | 17 | QC Accept FAIL → order về IN_PRODUCTION → Jeweler COMPLETED lại → QC Accept PASS | Flow đúng |
 

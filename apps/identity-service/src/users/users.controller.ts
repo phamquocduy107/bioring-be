@@ -7,8 +7,8 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @GrpcMethod('IdentityService', 'GetUsers')
-  async getUsers(data: { page?: number; limit?: number }) {
-    return this.usersService.findAll(data.page ?? 1, data.limit ?? 10);
+  async getUsers(data: { page?: number; limit?: number; role?: string }) {
+    return this.usersService.findAll(data.page ?? 1, data.limit ?? 10, data.role);
   }
 
   @GrpcMethod('IdentityService', 'GetUserById')

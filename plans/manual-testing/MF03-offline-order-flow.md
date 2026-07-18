@@ -72,7 +72,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 Content-Type: application/json
 
 {
-  "selectedBiometrics": "[\"SW\",\"FP\"]"
+  "selectedBiometrics": ["SW","FP"]
 }
 ```
 
@@ -100,6 +100,7 @@ Content-Type: application/json
 ## 4. Chỉnh sửa QR memory
 
 > Phải làm **trước** tạo order. Sau POST /orders không edit được qr_memories nữa.
+> `recipientEmail` hiện được lưu và trả về (trước đây bị silently drop).
 
 ```http
 PUT /api/v1/qr-memories/ENGRAVING_ID
@@ -110,6 +111,21 @@ Content-Type: application/json
   "cardTitle": "Our Special Ring",
   "greetingMessage": "Thank you for being with me!",
   "recipientEmail": "friend@example.com"
+}
+```
+
+**Response mẫu:**
+```json
+{
+  "qrMemory": {
+    "id": "QR_MEMORY_ID",
+    "engravingId": "ENGRAVING_ID",
+    "qrCode": "a1b2c3d4e5f6",
+    "cardTitle": "Our Special Ring",
+    "greetingMessage": "Thank you for being with me!",
+    "recipientEmail": "friend@example.com",
+    "isLocked": true
+  }
 }
 ```
 
@@ -136,13 +152,22 @@ Content-Type: application/json
 {
   "order": {
     "id": "ORDER_ID",
-    "orderCode": "BIORING-DEF456",
+    "orderCode": "1741234567890",
     "userId": "USER_ID",
+    "designDraftId": "DRAFT_ID",
+    "designSource": "CUSTOM",
     "captureRoute": "OFFLINE",
     "status": "AWAITING_DEPOSIT_1",
     "totalPrice": 13200000,
+    "subtotal": 12000000,
+    "serviceFee": 1000000,
+    "extraFee": 0,
+    "discountAmount": 0,
     "paidAmount": 0,
     "remainingAmount": 13200000,
+    "note": null,
+    "createdAt": "2026-07-18T10:00:00.000Z",
+    "updatedAt": "2026-07-18T10:00:00.000Z",
     "payments": []
   }
 }
@@ -423,7 +448,26 @@ Content-Type: application/json
 }
 ```
 
-**Kết quả:** Nếu còn nợ → `AWAITING_REMAINING`. Nếu hết → `COMPLETED`.
+**Kết quả:** Order → `PENDING_QC`.
+
+### 11c. QC kiểm tra (manager)
+
+```http
+PUT /api/v1/orders/ORDER_ID/qc-accept
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+Content-Type: application/json
+
+{
+  "result": "PASS",
+  "checklist": "{\"engraving\":true,\"material\":true,\"size\":true,\"finish\":true}",
+  "proofImages": [
+    "https://res.cloudinary.com/.../proof1.jpg"
+  ],
+  "note": "Sản phẩm đạt yêu cầu."
+}
+```
+
+**Kết quả:** Nếu còn nợ → `AWAITING_REMAINING`. Nếu hết → `READY_FOR_DELIVERY`.
 
 ---
 
@@ -443,7 +487,27 @@ Content-Type: application/json
 }
 ```
 
-**Kết quả (sau webhook):** `remainingAmount` = 0, order → `COMPLETED`.
+**PayOS webhook:**
+```http
+POST /api/v1/orders/payments/webhook
+Content-Type: application/json
+
+{
+  "code": "00",
+  "desc": "success",
+  "success": true,
+  "data": {
+    "orderCode": 123456789,
+    "amount": 9240000,
+    "description": "Thanh toán 1741234567890",
+    "reference": "txn_remaining_001",
+    "code": "00"
+  },
+  "signature": "<HMAC-SHA256 signature>"
+}
+```
+
+**Kết quả (sau webhook):** `remainingAmount` = 0, order → `READY_FOR_DELIVERY`.
 
 ---
 
@@ -508,11 +572,21 @@ Content-Type: application/json
      │    │             POST assign-jeweler → IN_PRODUCTION
      │    │                   │
      │    │                   ▼
-     │    │             PUT production status → COMPLETED
-     │    │                   │
-     │    │                   ▼
-     │    │             POST initiatePayment (REMAINING) ←── nếu còn nợ
-     │    │                   │
-     │    │                   ▼
-     └────┴─────────── PayOS webhook → COMPLETED
+      │    │             PUT production status → COMPLETED → PENDING_QC
+      │    │                   │
+      │    │                   ▼
+      │    │             PUT /orders/:id/qc-accept (PASS)
+      │    │                   │
+      │    │                   ├── còn nợ → AWAITING_REMAINING
+      │    │                   │         │
+      │    │                   │         ▼
+      │    │                   │    POST initiatePayment (REMAINING)
+      │    │                   │         │
+      │    │                   │         ▼
+      │    │                   │    PayOS webhook
+      │    │                   │         │
+      │    │                   │         ▼
+      │    │                   │    READY_FOR_DELIVERY
+      │    │                   │
+      │    │                   └── hết nợ → READY_FOR_DELIVERY
 ```

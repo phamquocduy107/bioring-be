@@ -86,6 +86,7 @@ message User {
 message GetUsersRequest {
   int32 page = 1;
   int32 limit = 2;
+  string role = 3;
 }
 
 message GetUsersResponse {

@@ -260,3 +260,58 @@ export function ApiAttachBiometricDocs() {
     ApiResponse({ status: 404, description: 'Engraving not found' }),
   );
 }
+
+function biometricExample() {
+  return {
+    id: '550e8400-e29b-41d4-a716-446655440050',
+    engravingId: '550e8400-e29b-41d4-a716-446655440003',
+    biometricType: 'FP',
+    requiredChannel: 'ENGRAVING',
+    rawFileUrl: 'https://res.cloudinary.com/.../fingerprint.png',
+    processedSvgUrl: 'https://res.cloudinary.com/.../fingerprint.svg',
+    extraData: '',
+    status: 'CAPTURED',
+  };
+}
+
+export function ApiAttachBiometricsBulkDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'Upload multiple biometric files at once',
+      description:
+        'Staff upload tất cả biometric files trong 1 call. ' +
+        'Endpoint này gọi cùng logic validate như single upload, nhưng xử lý đồng loạt. ' +
+        'Nếu 1 file lỗi → toàn bộ fail.',
+    }),
+    ApiParam({
+      name: 'id',
+      type: String,
+      format: 'uuid',
+      example: '550e8400-e29b-41d4-a716-446655440003',
+    }),
+    ApiBody({
+      schema: {
+        example: {
+          biometrics: [
+            { biometricType: 'FP', rawFileUrl: 'https://res.cloudinary.com/.../fp.png' },
+            { biometricType: 'SW', rawFileUrl: 'https://res.cloudinary.com/.../audio.mp3' },
+          ],
+        },
+      },
+    }),
+    ApiResponse({
+      status: 201,
+      description: 'All biometrics uploaded successfully.',
+      schema: {
+        example: {
+          count: 2,
+          biometrics: [biometricExample(), { ...biometricExample(), biometricType: 'SW' }],
+        },
+      },
+    }),
+    ApiResponse({ status: 400, description: 'Invalid input or validation failed' }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+    ApiResponse({ status: 404, description: 'Engraving not found' }),
+  );
+}

@@ -75,10 +75,45 @@ export class GuestService {
   async createGuestSession(data: {
     fullName: string;
     phone: string;
-    email?: string;
+    email: string;
     note?: string;
     staffId: string;
   }) {
+    // Check if email belongs to a registered member
+    const member = await this.prisma.users.findUnique({
+      where: { email: data.email },
+      select: { id: true },
+    });
+    if (member) {
+      return {
+        guest: {
+          id: '',
+          guestCode: '',
+          fullName: '',
+          phone: '',
+          email: data.email,
+          note: '',
+          createdAt: '',
+        },
+        isMember: true,
+        isExistingGuest: false,
+        message: 'Email already registered as member',
+      };
+    }
+
+    // Check if email already used by a previous guest
+    const existingGuest = await this.prisma.guest_customers.findFirst({
+      where: { email: data.email },
+    });
+    if (existingGuest) {
+      return {
+        guest: this.mapGuest(existingGuest as unknown as GuestRecord),
+        isMember: false,
+        isExistingGuest: true,
+        message: 'Guest already exists. Create new?',
+      };
+    }
+
     const guestCode = await this.generateGuestCode();
     const guest = (await this.prisma.guest_customers.create({
       data: {
@@ -90,22 +125,27 @@ export class GuestService {
         note: data.note,
       },
     })) as unknown as GuestRecord;
-    return { guest: this.mapGuest(guest) };
+    return {
+      guest: this.mapGuest(guest),
+      isMember: false,
+      isExistingGuest: false,
+      message: '',
+    };
   }
 
   async createGuestOrder(data: {
-    guestCustomerId: string;
+    guestCode: string;
     productId?: string;
     staffId: string;
   }) {
     const guest = await this.prisma.guest_customers.findUnique({
-      where: { id: data.guestCustomerId },
+      where: { guest_code: data.guestCode },
     });
     if (!guest) throw new NotFoundException('Guest not found');
 
     // Validate biometrics: nếu đã set selectedBiometrics, kiểm tra đủ file
     const existingSession = await this.prisma.orders.findFirst({
-      where: { guest_customer_id: data.guestCustomerId },
+      where: { guest_customer_id: guest.id },
       orderBy: { created_at: 'desc' },
       include: {
         engraving: {
@@ -184,7 +224,7 @@ export class GuestService {
         order_code: `${Date.now()}${Math.floor(Math.random() * 1000)}`,
         engraving_id: engraving.id,
         user_id: null,
-        guest_customer_id: data.guestCustomerId,
+        guest_customer_id: guest.id,
         created_by_staff_id: data.staffId,
         design_source: 'WALK_IN',
         status: 'AWAITING_SUBMIT',
@@ -315,8 +355,18 @@ export class GuestService {
     if (data.ringShape !== undefined) updateData.ring_shape = data.ringShape;
     if (data.customizationConfig !== undefined)
       updateData.customization_config = JSON.parse(data.customizationConfig);
-    if (data.selectedBiometrics !== undefined)
-      updateData.selected_biometrics = data.selectedBiometrics;
+    if (data.selectedBiometrics !== undefined) {
+      const raw = data.selectedBiometrics;
+      if (raw.startsWith('[')) {
+        try {
+          updateData.selected_biometrics = (JSON.parse(raw) as string[]).join(',');
+        } catch {
+          updateData.selected_biometrics = raw;
+        }
+      } else {
+        updateData.selected_biometrics = raw;
+      }
+    }
 
     const updated = (await this.prisma.engraving_versions.update({
       where: { id: engravingVersionId },

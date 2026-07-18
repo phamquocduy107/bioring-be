@@ -75,8 +75,47 @@ export function ApiCreateGuestSessionDocs() {
     }),
     ApiResponse({
       status: 201,
-      description: 'Guest session created',
-      schema: { example: { guest: guestCustomerExample() } },
+      description: 'Guest session created (normal)',
+      schema: {
+        example: {
+          guest: guestCustomerExample(),
+          isMember: false,
+          isExistingGuest: false,
+          message: '',
+        },
+      },
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Email is a registered member (not a walk-in)',
+      schema: {
+        example: {
+          guest: {
+            id: '',
+            guestCode: '',
+            fullName: '',
+            phone: '',
+            email: 'member@gmail.com',
+            note: '',
+            createdAt: '',
+          },
+          isMember: true,
+          isExistingGuest: false,
+          message: 'Email already registered as member',
+        },
+      },
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Email belongs to existing guest session',
+      schema: {
+        example: {
+          guest: guestCustomerExample(),
+          isMember: false,
+          isExistingGuest: true,
+          message: 'Guest already exists. Create new?',
+        },
+      },
     }),
     ApiResponse({ status: 400, description: 'Validation error' }),
     ApiResponse({ status: 401, description: 'Unauthorized' }),
@@ -94,7 +133,7 @@ export function ApiCreateGuestOrderDocs() {
     ApiBody({
       schema: {
         example: {
-          guestCustomerId: '550e8400-e29b-41d4-a716-446655440001',
+          guestCode: 'GUE-A7B9X2',
           productId: '550e8400-e29b-41d4-a716-446655440020',
         },
       },

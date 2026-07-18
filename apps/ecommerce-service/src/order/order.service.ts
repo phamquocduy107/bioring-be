@@ -471,6 +471,19 @@ export class OrderService {
     return { biometric };
   }
 
+  async attachBiometricsBulk(
+    engravingId: string,
+    biometrics: Array<{ biometricType: string; rawFileUrl: string; extraData?: string }>,
+  ) {
+    const results = await Promise.all(
+      biometrics.map((b) =>
+        this.attachBiometric(engravingId, b.biometricType, b.rawFileUrl, b.extraData),
+      ),
+    );
+    const items = results.map((r) => r.biometric);
+    return { count: items.length, biometrics: items };
+  }
+
   private async processBiometric(
     biometricType: string,
     rawFileUrl: string,
@@ -827,7 +840,7 @@ export class OrderService {
 
   async manualPayment(
     orderId: string,
-    data: { paymentPhase: string; amount: number; receivedBy: string },
+    data: { paymentPhase: string; amount: number; receivedBy: string; paymentMethod: string; reference?: string },
   ) {
     const order = await this.prisma.orders.findUnique({
       where: { id: orderId },
@@ -848,9 +861,10 @@ export class OrderService {
         payment_code: `MANUAL-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
         payment_phase: data.paymentPhase,
         amount: data.amount,
-        method: 'MANUAL',
+        method: data.paymentMethod,
         status: 'PAID',
         paid_at: new Date(),
+        payos_transaction_id: data.reference ?? null,
       },
     });
 
@@ -892,6 +906,65 @@ export class OrderService {
         createdAt: payment.created_at?.toISOString() ?? '',
       },
       order: await this.mapOrder(updated),
+    };
+  }
+
+  async confirmPickup(orderId: string, staffId: string, note?: string) {
+    const order = await this.prisma.orders.findUnique({
+      where: { id: orderId },
+      include: { engraving: { include: { qr_memories: true } } },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+
+    if (Number(order.remaining_amount ?? 0) > 0) {
+      throw new BadRequestException(
+        'Order still has remaining payment. Please collect before handover.',
+      );
+    }
+
+    if (order.status !== 'READY_FOR_DELIVERY' && order.status !== 'READY_FOR_PICKUP') {
+      throw new BadRequestException(
+        `Order must be READY_FOR_DELIVERY or READY_FOR_PICKUP, got ${order.status}`,
+      );
+    }
+
+    const updated = await this.prisma.orders.update({
+      where: { id: orderId },
+      data: {
+        status: 'COMPLETED',
+        updated_at: new Date(),
+      },
+    });
+
+    // Activate warranty
+    const warranty = await this.prisma.warranties.create({
+      data: {
+        id: randomUUID(),
+        engraving_id: order.engraving_id,
+        order_id: orderId,
+        warranty_code: `WAR-${Date.now()}`,
+        status: 'ACTIVE',
+        issue_date: new Date(),
+        expiry_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        activated_at: new Date(),
+      },
+    });
+
+    // Unlock QR memory
+    const qrMemory = order.engraving?.qr_memories;
+    if (qrMemory) {
+      await this.prisma.qr_memories.update({
+        where: { id: qrMemory.id },
+        data: { is_locked: false },
+      });
+    }
+
+    return {
+      success: true,
+      order: await this.mapOrder(updated),
+      warrantyCode: warranty.warranty_code ?? '',
+      warrantyExpiry: warranty.expiry_date?.toISOString() ?? '',
+      qrMemoryUnlocked: !!qrMemory,
     };
   }
 

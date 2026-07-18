@@ -62,6 +62,7 @@ interface IdentityGrpcService {
   getUsers(data: {
     page: number;
     limit: number;
+    role?: string;
   }): Observable<{ data: UserResponse[]; meta: PaginationMeta }>;
   getUserById(data: { id: string }): Observable<{ user: UserResponse }>;
   banUser(data: { id: string }): Observable<{ success: boolean }>;
@@ -155,8 +156,8 @@ export class IdentityService implements OnModuleInit {
   }
 
   // Users
-  getUsers(page: number, limit: number) {
-    return this.call(() => this.grpc!.getUsers({ page, limit }));
+  getUsers(page: number, limit: number, role?: string) {
+    return this.call(() => this.grpc!.getUsers({ page, limit, role: role ?? '' }));
   }
   getUserById(id: string) {
     return this.call(() => this.grpc!.getUserById({ id }));

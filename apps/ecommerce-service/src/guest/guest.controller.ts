@@ -10,7 +10,7 @@ export class GuestController {
   async createGuestSession(data: {
     fullName: string;
     phone: string;
-    email?: string;
+    email: string;
     note?: string;
     staffId: string;
   }) {
@@ -19,7 +19,7 @@ export class GuestController {
 
   @GrpcMethod('EcommerceService', 'CreateGuestOrder')
   async createGuestOrder(data: {
-    guestCustomerId: string;
+    guestCode: string;
     productId?: string;
     staffId: string;
   }) {

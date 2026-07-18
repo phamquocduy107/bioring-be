@@ -31,6 +31,13 @@ interface GuestCustomerResponse {
   createdAt: string;
 }
 
+interface CreateGuestSessionResponse {
+  guest: GuestCustomerResponse;
+  isMember: boolean;
+  isExistingGuest: boolean;
+  message: string;
+}
+
 interface GuestOrderResponse {
   order: {
     id: string;
@@ -70,12 +77,12 @@ interface EcommerceGrpcService {
   createGuestSession(data: {
     fullName: string;
     phone: string;
-    email?: string;
+    email: string;
     note?: string;
     staffId: string;
-  }): Observable<{ guest: GuestCustomerResponse }>;
+  }): Observable<CreateGuestSessionResponse>;
   createGuestOrder(data: {
-    guestCustomerId: string;
+    guestCode: string;
     productId?: string;
     staffId: string;
   }): Observable<GuestOrderResponse>;
@@ -129,7 +136,7 @@ export class GuestController implements OnModuleInit {
   ) {
     return this.call(() =>
       this.grpc!.createGuestOrder({
-        guestCustomerId: dto.guestCustomerId,
+        guestCode: dto.guestCode,
         productId: dto.productId,
         staffId: user.sub,
       }),

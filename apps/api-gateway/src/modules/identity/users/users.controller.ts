@@ -29,10 +29,11 @@ export class UsersController {
   @Get()
   @Permissions(Permission.UserRead)
   @ApiGetUsersDocs()
-  async getUsers(@Query('page') page?: string, @Query('limit') limit?: string) {
+  async getUsers(@Query('page') page?: string, @Query('limit') limit?: string, @Query('role') role?: string) {
     const result = await this.identityService.getUsers(
       page ? Number(page) : 1,
       limit ? Number(limit) : 10,
+      role,
     );
     return {
       data: result?.data ?? [],

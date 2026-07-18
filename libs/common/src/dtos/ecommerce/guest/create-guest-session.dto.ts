@@ -12,11 +12,10 @@ export class CreateGuestSessionDto {
   @MaxLength(50)
   phone!: string;
 
-  @ApiPropertyOptional({ description: 'Email', example: 'guest@example.com' })
-  @IsOptional()
+  @ApiProperty({ description: 'Email (định danh chính, check trùng)', example: 'guest@example.com' })
   @IsEmail()
   @MaxLength(255)
-  email?: string;
+  email!: string;
 
   @ApiPropertyOptional({ description: 'Ghi chú' })
   @IsOptional()

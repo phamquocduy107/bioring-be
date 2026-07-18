@@ -133,11 +133,11 @@ Content-Type: application/json
 **Response mẫu:**
 ```json
 {
+  "qrCode": "a1b2c3d4e5f6",
   "draft": {
     "id": "DRAFT_ID",
     "userId": "USER_ID_TỪ_JWT",
     "status": "CONVERTED",
-    "guestSessionId": null,
     ...
   },
   "engraving": {
@@ -156,6 +156,8 @@ Content-Type: application/json
 ```
 
 Ghi nhớ `engraving.id` (ENGRAVING_ID) và `engravingVersion.id` (VERSION_ID) — dùng cho MF02.
+
+> **Note:** Draft response thực tế gồm `userId`, `designSource`, `ringStyle`, `ringShape`, `ringSize`, `selectedMaterialId`, `selectedGemstoneId`, `product` (nested), `selectedMaterial` (nested), `selectedGemstone` (nested), `createdAt`, `updatedAt`.
 
 ---
 

@@ -147,3 +147,16 @@ proto/ecommerce.proto     # messages + RPCs
 -- 1. SW, required_channel = ENGRAVING, raw_file_url = audio.mp3, processed_svg_url = waveform.svg
 -- 2. FP, required_channel = MEMORY_CARD, raw_file_url = fingerprint.png, processed_svg_url = fingerprint.svg
 ```
+
+## 6. `plans/business/api-reference.md` phải sync khi API change
+
+- Mọi thay đổi về request body/params, response shape, status code, auth/permission, business rules trên bất kỳ endpoint nào PHẢI được cập nhật tương ứng trong `plans/business/api-reference.md`.
+- Bao gồm: thêm/sửa/xoá field trong request/response, thay đổi description, thêm query param, thêm error code, cập nhật ví dụ.
+- Rule này áp dụng song song với Rule 1 (Swagger sync) — cả `.swagger.ts` và `api-reference.md` đều phải được update, không loại trừ lẫn nhau.
+- Khi audit, cross-check: controller → swagger → api-reference.md.
+
+## 7. `plans/manual-testing/` phải sync khi API change
+
+- Mọi thay đổi về request body/params, response shape, HTTP method/path, status code, auth, business rules, flow step sequence PHẢI được cập nhật tương ứng trong file `.md` tương ứng trong `plans/manual-testing/`.
+- Bao gồm: thêm/xoá/sửa step, cập nhật request/response examples, sửa expected status codes, cập nhật DB verify queries.
+- Không để manual test reference endpoint/field khác với thực tế. Khi audit, cross-check: controller/service → swagger → api-reference.md → manual-testing files.

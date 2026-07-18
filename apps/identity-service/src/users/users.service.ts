@@ -11,11 +11,17 @@ import { randomUUID } from 'node:crypto';
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(page = 1, limit = 10) {
+  async findAll(page = 1, limit = 10, role?: string) {
     const skip = (page - 1) * limit;
+
+    const where: Record<string, unknown> = {};
+    if (role) {
+      where.user_roles = { some: { roles: { name: role } } };
+    }
 
     const [data, total] = await Promise.all([
       this.prisma.users.findMany({
+        where,
         skip,
         take: limit,
         select: {
@@ -39,7 +45,7 @@ export class UsersService {
         },
         orderBy: { created_at: 'desc' },
       }),
-      this.prisma.users.count(),
+      this.prisma.users.count({ where }),
     ]);
 
     return {

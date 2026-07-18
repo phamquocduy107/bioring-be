@@ -298,7 +298,7 @@ export function ApiUpdateProductionStatusDocs() {
     ApiOperation({
       summary: 'Update production task status (manager)',
       description:
-        'Sets task to COMPLETED, IN_PROGRESS, etc. COMPLETED → order moves to AWAITING_REMAINING or COMPLETED.',
+        'Sets task to COMPLETED, IN_PROGRESS, etc. COMPLETED → order moves to PENDING_QC (QC decides next status).',
     }),
     ApiResponse({
       status: 200,
@@ -561,6 +561,49 @@ export function ApiGetProductionInfoDocs() {
     }),
     ApiResponse({ status: 401, description: 'Unauthorized' }),
     ApiResponse({ status: 404, description: 'Not found' }),
+  );
+}
+
+export function ApiConfirmPickupDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'Confirm pickup (staff)',
+      description:
+        'Xác nhận khách đã nhận hàng tại quầy. ' +
+        'Tự động tạo warranty + unlock QR memory. ' +
+        'Chuyển từ READY_FOR_PICKUP/READY_FOR_DELIVERY → COMPLETED.',
+    }),
+    ApiParam({
+      name: 'id',
+      type: String,
+      format: 'uuid',
+      example: '550e8400-e29b-41d4-a716-446655440001',
+    }),
+    ApiBody({
+      schema: {
+        example: { note: 'Khách nhận tại quầy 17/07' },
+      },
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Pickup confirmed',
+      schema: {
+        example: {
+          success: true,
+          order: {
+            id: '550e8400-e29b-41d4-a716-446655440001',
+            status: 'COMPLETED',
+          },
+          warrantyCode: 'WAR-1720000000042',
+          warrantyExpiry: '2027-07-17T10:00:00.000Z',
+          qrMemoryUnlocked: true,
+        },
+      },
+    }),
+    ApiResponse({ status: 400, description: 'Wrong status / remaining amount > 0' }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+    ApiResponse({ status: 404, description: 'Order not found' }),
   );
 }
 

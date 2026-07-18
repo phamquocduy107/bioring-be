@@ -36,7 +36,7 @@ SW_URL = "https://res.cloudinary.com/dpm0zc06s/video/upload/v123/audio.mp3"
 
 ## 1. Staff: Tạo Guest Session
 
-> Staff nhập thông tin khách → hệ thống sinh `guest_code`.
+> Staff nhập thông tin khách → hệ thống check trùng email → sinh `guest_code`.
 
 ```http
 POST /api/v1/guest/sessions
@@ -51,7 +51,7 @@ Content-Type: application/json
 }
 ```
 
-**Expected Response (201):**
+**Expected Response (201) — tạo mới:**
 ```json
 {
   "guest": {
@@ -62,16 +62,39 @@ Content-Type: application/json
     "email": "guest@example.com",
     "note": "Khách muốn nhẫn bạc",
     "createdAt": "2026-07-07T..."
-  }
+  },
+  "isMember": false,
+  "isExistingGuest": false,
+  "message": ""
+}
+```
+
+**Expected Response (200) — email đã là Member:**
+```json
+{
+  "guest": { "id": "", "guestCode": "", "fullName": "", "phone": "", "email": "member@gmail.com", "note": "", "createdAt": "" },
+  "isMember": true,
+  "isExistingGuest": false,
+  "message": "Email already registered as member"
+}
+```
+
+**Expected Response (200) — email đã có guest cũ:**
+```json
+{
+  "guest": { "id": "{{OLD_GUEST_ID}}", "guestCode": "GUE-XXXXXX", ... },
+  "isMember": false,
+  "isExistingGuest": true,
+  "message": "Guest already exists. Create new?"
 }
 ```
 
 **Verify DB:**
 ```sql
-SELECT * FROM guest_customers WHERE guest_code = 'GUE-XXXXXX';
+SELECT * FROM guest_customers WHERE email = 'guest@example.com';
 ```
 
-> 📌 **Ghi chú:** `guest_code` format `GUE-` + 6 ký tự (không có 0/O/1/I). Dùng `guest_code` này cho tất cả tablet endpoints bên dưới.
+> 📌 **Ghi chú:** `guest_code` format `GUE-` + 6 ký tự (không có 0/O/1/I). Dùng `guest_code` này cho tất cả tablet endpoints bên dưới. Email bắt buộc — FE xử lý 3 case dựa trên `isMember` / `isExistingGuest`.
 
 ---
 
@@ -85,7 +108,7 @@ Authorization: Bearer {{staffJwt}}
 Content-Type: application/json
 
 {
-  "guestCustomerId": "{{GUEST_ID}}",
+  "guestCode": "{{GUEST_CODE}}",
   "productId": "{{PRODUCT_ID}}"
 }
 ```
@@ -121,8 +144,12 @@ Content-Type: application/json
 ```
 
 **Verify DB:**
+> Tra `GUEST_ID` từ `guest_customers` bằng `guest_code`:
+> ```sql
+> SELECT id FROM guest_customers WHERE guest_code = '{{GUEST_CODE}}';
+> ```
 ```sql
-SELECT * FROM orders WHERE guest_customer_id = '{{GUEST_ID}}';
+SELECT * FROM orders WHERE guest_customer_id = (SELECT id FROM guest_customers WHERE guest_code = '{{GUEST_CODE}}');
 -- status = AWAITING_SUBMIT, user_id IS NULL, design_source = WALK_IN
 
 SELECT * FROM engravings WHERE id = '{{ENGRAVING_ID}}';
@@ -147,7 +174,7 @@ Authorization: Bearer {{staffJwt}}
 Content-Type: application/json
 
 {
-  "selectedBiometrics": "SW,FP"
+  "selectedBiometrics": ["SW", "FP"]
 }
 ```
 
@@ -156,17 +183,21 @@ Content-Type: application/json
 {
   "version": {
     "id": "{{VERSION_ID}}",
-    "selectedBiometrics": "SW,FP",
+    "selectedBiometrics": ["SW", "FP"],
     "status": "PENDING"
   }
 }
 ```
 
-> 📌 `selectedBiometrics` dạng CSV: `"SW"`, `"FP"`, `"HB"`, `"SW,FP"`, `"SW,FP,HB"`...
+> 📌 DTO `@IsEnum(PackageType, { each: true })` expects array. Controller `JSON.stringify`s array → gRPC receives `'["SW","FP"]'` → service parses and stores as `"SW,FP"` in DB.
 
 ---
 
-## 4. Staff: Upload Biometric — Finger Print (FP)
+## 4. Staff: Upload Biometric(s)
+
+> Có 2 cách: upload từng cái (steps 4a–4b) hoặc bulk 1 lần (step 4c).
+
+### 4a. Upload Finger Print (FP)
 
 > Upload vân tay → Python process → tạo `engraving_biometrics` row.
 
@@ -205,7 +236,7 @@ SELECT * FROM engraving_biometrics WHERE engraving_id = '{{ENGRAVING_ID}}' AND b
 
 ---
 
-## 5. Staff: Upload Biometric — Sound Wave (SW)
+### 4b. Upload Sound Wave (SW)
 
 ```http
 POST /api/v1/engravings/{{ENGRAVING_ID}}/biometrics
@@ -235,6 +266,60 @@ Content-Type: application/json
 ```
 
 > 📌 Nếu package có HB: upload tương tự, `requiredChannel` sẽ là `MEMORY_CARD` (HB không khắc lên nhẫn).
+
+### 4c. Bulk Upload (thay thế 4a+4b)
+
+> Upload tất cả biometrics trong 1 call.
+
+```http
+POST /api/v1/engravings/{{ENGRAVING_ID}}/biometrics/bulk
+Authorization: Bearer {{staffJwt}}
+Content-Type: application/json
+
+{
+  "biometrics": [
+    {
+      "biometricType": "FP",
+      "rawFileUrl": "{{FP_URL}}"
+    },
+    {
+      "biometricType": "SW",
+      "rawFileUrl": "{{SW_URL}}"
+    }
+  ]
+}
+```
+
+**Expected Response (201):**
+```json
+{
+  "count": 2,
+  "biometrics": [
+    {
+      "id": "{{FP_BIOMETRIC_ID}}",
+      "engravingId": "{{ENGRAVING_ID}}",
+      "biometricType": "FP",
+      "status": "CAPTURED",
+      "processedSvgUrl": "https://res.cloudinary.com/.../fp.svg"
+    },
+    {
+      "id": "{{SW_BIOMETRIC_ID}}",
+      "engravingId": "{{ENGRAVING_ID}}",
+      "biometricType": "SW",
+      "status": "CAPTURED",
+      "processedSvgUrl": "https://res.cloudinary.com/.../waveform.svg"
+    }
+  ]
+}
+```
+
+**Verify DB:**
+```sql
+SELECT engraving_id, biometric_type, status, processed_svg_url
+FROM engraving_biometrics
+WHERE engraving_id = '{{ENGRAVING_ID}}';
+-- Ít nhất 2 rows, status = CAPTURED, processed_svg_url NOT NULL
+```
 
 ---
 
@@ -294,7 +379,7 @@ GET /api/v1/guest-tablet/sessions/{{GUEST_CODE}}
 
 ---
 
-## 7. Guest Tablet: Simple Design
+## 27. Guest Tablet: Simple Design
 
 > Guest chọn vật liệu, đá, size, style, shape. Có thể PATCH từng field hoặc nhiều field cùng lúc.
 
@@ -331,7 +416,7 @@ Content-Type: application/json
 
 ---
 
-## 8. Guest Tablet: Advanced Design (chọn engravedType + vị trí)
+## 27. Guest Tablet: Advanced Design (chọn engravedType + vị trí)
 
 > Chọn loại khắc lên nhẫn (FP hoặc SW), điều chỉnh vị trí.
 
@@ -359,7 +444,7 @@ Content-Type: application/json
 
 ---
 
-## 9. Guest Tablet: Memory Card
+## 27. Guest Tablet: Memory Card
 
 > Guest thiết kế thiệp kỷ niệm.
 
@@ -389,9 +474,11 @@ Content-Type: application/json
 }
 ```
 
+> 📌 `recipientEmail` returns the actual email from DB (no longer hardcoded `""`). `accessPinHash` removed from response (security fix).
+
 ---
 
-## 10. Guest Tablet: Shipping Info
+## 27. Guest Tablet: Shipping Info
 
 > Chọn hình thức nhận hàng. Nếu DELIVERY → nhập địa chỉ.
 
@@ -432,7 +519,7 @@ SELECT * FROM shipments WHERE order_id = '{{ORDER_ID}}';
 
 ---
 
-## 11. Guest Tablet: Submit Design
+## 27. Guest Tablet: Submit Design
 
 > Guest gửi thiết kế cho Manager duyệt.
 
@@ -465,10 +552,10 @@ SELECT status FROM orders WHERE id = '{{ORDER_ID}}';
 
 ---
 
-## 12. Manager: Review Order — Approve
+## 27. Manager: Review Order — Approve
 
 ```http
-PATCH /api/v1/orders/{{ORDER_ID}}/review
+PUT /api/v1/orders/{{ORDER_ID}}/review
 Authorization: Bearer {{managerJwt}}
 Content-Type: application/json
 
@@ -502,12 +589,12 @@ SELECT status, version_number FROM engraving_versions WHERE engraving_id = '{{EN
 
 ---
 
-## 13. Manager: Review Order — Reject (test riêng)
+## 27. Manager: Review Order — Reject (test riêng)
 
 > Tạo guest mới, làm lại bước 1-11, sau đó reject.
 
 ```http
-PATCH /api/v1/orders/{{ORDER_ID}}/review
+PUT /api/v1/orders/{{ORDER_ID}}/review
 Authorization: Bearer {{managerJwt}}
 Content-Type: application/json
 
@@ -542,7 +629,7 @@ SELECT status, version_number FROM engraving_versions WHERE engraving_id = '{{EN
 
 ---
 
-## 14. Guest Tablet: Resubmit sau Reject
+## 27. Guest Tablet: Resubmit sau Reject
 
 > Guest quay lại (bước 6) → thấy order REVISION_REQUIRED + version 2 PENDING.
 > Sửa design (bước 7-8) → submit lại.
@@ -580,7 +667,7 @@ SELECT status FROM engravings WHERE id = '{{ENGRAVING_ID}}';
 
 ---
 
-## 15. Guest Tablet: Thanh toán FULL
+## 27. Guest Tablet: Thanh toán FULL
 
 > Manager đã approve, order AWAITING_DEPOSIT → guest thanh toán 100%.
 
@@ -614,20 +701,27 @@ Content-Type: application/json
 }
 ```
 
-> 📌 Guest quét QR PayOS hoặc mở `paymentUrl` để thanh toán. Sau đó PayOS gọi webhook.
+> 📌 `qrCode` now returned in both `payment` and top-level. Guest quét QR PayOS hoặc mở `paymentUrl` để thanh toán. Sau đó PayOS gọi webhook.
 
 ---
 
-## 16. PayOS Webhook: FULL paid → DEPOSIT_PAID
+## 27. PayOS Webhook: FULL paid → DEPOSIT_PAID
 
-> Giả lập webhook từ PayOS. Dùng tool postman hoặc curl tới callback URL.
+> Giả lập webhook từ PayOS. Gửi raw JSON payload PayOS (không wrap trong `{ webhookBody }`).
 
 ```http
-POST /api/v1/orders/payments/payos-callback
+POST /api/v1/orders/payments/webhook
 Content-Type: application/json
 
 {
-  "webhookBody": "{\"code\":\"00\",\"desc\":\"success\",\"success\":true,\"data\":{\"orderCode\":{{PAYOS_ORDER_CODE}},\"amount\":13200000},\"signature\":\"...\"}"
+  "code": "00",
+  "desc": "success",
+  "success": true,
+  "data": {
+    "orderCode": {{PAYOS_ORDER_CODE}},
+    "amount": 13200000
+  },
+  "signature": "..."
 }
 ```
 
@@ -649,7 +743,7 @@ SELECT status FROM payments WHERE order_id = '{{ORDER_ID}}' AND payment_phase = 
 
 ---
 
-## 17. Manager: Assign Jeweler (MF-05)
+## 27. Manager: Assign Jeweler (MF-05)
 
 ```http
 POST /api/v1/orders/{{ORDER_ID}}/assign-jeweler
@@ -685,10 +779,10 @@ SELECT * FROM production_tasks WHERE order_id = '{{ORDER_ID}}';
 
 ---
 
-## 18. Jeweler: Complete Production
+## 27. Jeweler: Complete Production
 
 ```http
-PUT /api/v1/production-tasks/{{TASK_ID}}/status
+PUT /api/v1/orders/production-tasks/{{TASK_ID}}/status
 Authorization: Bearer {{jewelerJwt}}
 Content-Type: application/json
 
@@ -717,7 +811,7 @@ SELECT status FROM orders WHERE id = '{{ORDER_ID}}';
 
 ---
 
-## 19. Manager: QC Accept (MF-05)
+## 27. Manager: QC Accept (MF-05)
 
 ```http
 PUT /api/v1/orders/{{ORDER_ID}}/qc-accept
@@ -757,7 +851,7 @@ SELECT * FROM qa_checks WHERE order_id = '{{ORDER_ID}}';
 
 ---
 
-## 20. Staff: Kích hoạt Delivery (MF-05)
+## 27. Staff: Kích hoạt Delivery (MF-05)
 
 > Shipment đã có sẵn từ bước 10 (status=PENDING). Manager/staff gọi initiateDelivery → system dùng lại shipment.
 
@@ -792,7 +886,7 @@ Content-Type: application/json
 
 ---
 
-## 21. Staff: Start Delivery (chỉ DELIVERY)
+## 27. Staff: Start Delivery (chỉ DELIVERY)
 
 ```http
 PUT /api/v1/orders/{{ORDER_ID}}/shipment/status
@@ -817,7 +911,7 @@ Content-Type: application/json
 
 ---
 
-## 22. Staff: Confirm Delivered → COMPLETED
+## 27. Staff: Confirm Delivered → COMPLETED
 
 ```http
 PUT /api/v1/orders/{{ORDER_ID}}/shipment/status
@@ -858,7 +952,7 @@ SELECT is_locked FROM qr_memories WHERE engraving_id = '{{ENGRAVING_ID}}';
 
 ---
 
-## 23. Guest: Tra cứu đơn hàng (đã có MF-05)
+## 27. Guest: Tra cứu đơn hàng (đã có MF-05)
 
 ```http
 POST /api/v1/orders/lookup
@@ -884,7 +978,7 @@ Content-Type: application/json
 
 ---
 
-## 24. Test Edge Cases Tổng Hợp
+## 27. Test Edge Cases Tổng Hợp
 
 | # | Test case | Expected |
 |---|-----------|----------|
@@ -898,12 +992,12 @@ Content-Type: application/json
 | 8 | FULL payment trên order không có `guest_customer_id` (non-guest) | 400 "only for walk-in guests" |
 | 9 | Biometric upload với `biometricType` không có trong package | 400 |
 | 10 | Gọi initiateDelivery trước khi order READY_FOR_DELIVERY | 400 |
-| 11 | Guest submit với `selectedBiometrics` rỗng | 400 |
+| 11 | Guest submit với `selectedBiometrics` rỗng | 200 (silently allowed, validateBiometricsReady returns early) |
 | 12 | Gọi lookup với `orderCode` sai | 404 |
 
 ---
 
-## 25. Variable Reference
+## 27. Variable Reference
 
 | Variable | Nguồn | Ghi chú |
 |----------|-------|---------|

@@ -66,6 +66,7 @@ import {
   ApiGetWarrantyInfoDocs,
   ApiGetProductionInfoDocs,
   ApiLookupOrderDocs,
+  ApiConfirmPickupDocs,
 } from './order.swagger';
 
 interface EngravingBioMetricResponse {
@@ -311,11 +312,18 @@ interface EcommerceGrpcService {
     id: string;
     reason: string;
   }): Observable<{ order: OrderResponse }>;
+  confirmPickup(data: {
+    orderId: string;
+    staffId: string;
+    note?: string;
+  }): Observable<{ success: boolean; order: Record<string, unknown>; warrantyCode: string; warrantyExpiry: string; qrMemoryUnlocked: boolean }>;
   manualPayment(data: {
     orderId: string;
     paymentPhase: string;
     amount: number;
     receivedBy: string;
+    paymentMethod: string;
+    reference?: string;
   }): Observable<unknown>;
   getPaymentStatus(data: { orderId: string }): Observable<unknown>;
   listDeliveries(data: Record<string, unknown>): Observable<unknown>;
@@ -687,6 +695,19 @@ export class OrderController implements OnModuleInit {
     return this.call(() => this.grpc!.getProductionInfo({ orderId: id }));
   }
 
+  @Post(':id/confirm-pickup')
+  @Permissions(Permission.OrderWrite)
+  @ApiConfirmPickupDocs()
+  confirmPickup(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() body: { note?: string },
+  ) {
+    return this.call(() =>
+      this.grpc!.confirmPickup({ orderId: id, staffId: user.sub, note: body.note }),
+    );
+  }
+
   @Get(':id/payment-status')
   @Permissions(Permission.OrderWrite)
   getPaymentStatus(
@@ -700,7 +721,7 @@ export class OrderController implements OnModuleInit {
   manualPayment(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @Body()
-    body: { paymentPhase: string; amount: number },
+    body: { paymentPhase: string; amount: number; paymentMethod: string; reference?: string },
     @CurrentUser() user: JwtPayload,
   ) {
     return this.call(() =>
@@ -709,6 +730,8 @@ export class OrderController implements OnModuleInit {
         paymentPhase: body.paymentPhase,
         amount: body.amount,
         receivedBy: user.sub,
+        paymentMethod: body.paymentMethod,
+        reference: body.reference ?? '',
       }),
     );
   }

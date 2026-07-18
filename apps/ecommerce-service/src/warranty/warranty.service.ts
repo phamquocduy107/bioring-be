@@ -168,7 +168,7 @@ export class WarrantyService {
       if (!extraFee || extraFee <= 0) throw new BadRequestException('extraFee required for quotation');
       updateData.status = 'QUOTATION_SENT';
       updateData.extra_fee = extraFee;
-      updateData.chargede_status = 'PAID';
+      updateData.charge_status = 'PAID';
     } else if (action === 'reject') {
       updateData.status = 'REJECTED';
     } else {
@@ -396,6 +396,21 @@ export class WarrantyService {
     const tickets = (c.service_tickets as unknown[]) ?? [];
     const payments = (c.payments as unknown[]) ?? [];
     return {
+      payments: payments.map((p: unknown) => {
+        const pm = p as Record<string, unknown>;
+        return {
+          id: pm.id,
+          orderId: pm.order_id ?? '',
+          paymentPhase: pm.payment_phase ?? '',
+          amount: Number(pm.amount ?? 0),
+          method: pm.method ?? '',
+          status: pm.status ?? '',
+          payosTransactionId: pm.payos_transaction_id ?? '',
+          paymentUrl: pm.payment_url ?? '',
+          paidAt: (pm.paid_at as Date)?.toISOString() ?? '',
+          createdAt: (pm.created_at as Date)?.toISOString() ?? '',
+        };
+      }),
       id: c.id,
       claimCode: c.claim_code ?? '',
       warrantyId: c.warranty_id ?? '',

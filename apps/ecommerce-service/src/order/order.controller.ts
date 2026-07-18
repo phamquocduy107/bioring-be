@@ -31,6 +31,14 @@ export class OrderController {
     );
   }
 
+  @GrpcMethod('EcommerceService', 'AttachBiometricsBulk')
+  async attachBiometricsBulk(data: {
+    engravingId: string;
+    biometrics: Array<{ biometricType: string; rawFileUrl: string; extraData?: string }>;
+  }) {
+    return this.orderService.attachBiometricsBulk(data.engravingId, data.biometrics);
+  }
+
   @GrpcMethod('EcommerceService', 'GetOrder')
   async getOrder(data: { id: string }) {
     return this.orderService.getOrder(data.id);
@@ -194,12 +202,19 @@ export class OrderController {
     return this.orderService.cancelOrder(data.id, data.reason);
   }
 
+  @GrpcMethod('EcommerceService', 'ConfirmPickup')
+  async confirmPickup(data: { orderId: string; staffId: string; note?: string }) {
+    return this.orderService.confirmPickup(data.orderId, data.staffId, data.note);
+  }
+
   @GrpcMethod('EcommerceService', 'ManualPayment')
   async manualPayment(data: {
     orderId: string;
     paymentPhase: string;
     amount: number;
     receivedBy: string;
+    paymentMethod: string;
+    reference?: string;
   }) {
     return this.orderService.manualPayment(data.orderId, data);
   }

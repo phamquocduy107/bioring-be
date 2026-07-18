@@ -107,10 +107,11 @@ Route prefix: `users` (@ApiBearerAuth class-level)
 **Auth:** `user.read`
 **Description:** List users (paginated)
 
-| Query | Type | Required | Example |
-|-------|------|----------|---------|
-| page | number | No | 1 |
-| limit | number | No | 10 |
+| Query | Type | Required | Example | Description |
+|-------|------|----------|---------|-------------|
+| page | number | No | 1 | |
+| limit | number | No | 10 | |
+| role | string | No | JEWELER | Filter by role name (JEWELER, MANAGER, DELIVERY_STAFF, ...) |
 
 **Response:**
 ```json
@@ -1376,9 +1377,20 @@ data: { "status": "PAID", "transactionId": "txn_abc123", "orderCode": "172000000
 ```json
 {
   "paymentPhase": "DEPOSIT_2",
-  "amount": 3960000
+  "amount": 3960000,
+  "paymentMethod": "CASH",
+  "reference": "BIENLAI-001"
 }
 ```
+
+**Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| paymentPhase | string (enum) | Yes | `DEPOSIT_1`, `DEPOSIT_2`, `REMAINING`, `FULL` |
+| amount | number | Yes | Số tiền |
+| paymentMethod | string (enum) | No | `CASH`, `TRANSFER`, `CARD` (mặc định `CASH`) |
+| reference | string | No | Số biên lai / mã tham chiếu (optional) |
 
 **Response:** Raw gRPC response
 
@@ -1680,7 +1692,7 @@ Route prefix: `api/v1/guest`
 
 ### 84. POST `/api/v1/guest/sessions`
 **Auth:** `order.write`
-**Description:** Tạo guest session cho khách vãng lai. Staff nhập thông tin khách → sinh guest_code GUE-XXXXXX.
+**Description:** Tạo guest session cho khách vãng lai. Email bắt buộc — hệ thống check trùng với users (member) và guest_customers trước khi tạo.
 
 **Request:**
 ```json
@@ -1692,7 +1704,14 @@ Route prefix: `api/v1/guest`
 }
 ```
 
-**Response:**
+| Body | Type | Required | Description |
+|------|------|----------|-------------|
+| fullName | string | Yes | Họ tên khách |
+| phone | string | Yes | Số điện thoại |
+| email | string | Yes | Email (định danh chính, kiểm tra trùng) |
+| note | string | No | Ghi chú |
+
+**Response — trường hợp tạo mới (201):**
 ```json
 {
   "guest": {
@@ -1703,7 +1722,34 @@ Route prefix: `api/v1/guest`
     "email": "guest@example.com",
     "note": "Khách muốn nhẫn bạc",
     "createdAt": "2026-07-07T10:00:00.000Z"
-  }
+  },
+  "isMember": false,
+  "isExistingGuest": false,
+  "message": ""
+}
+```
+
+**Response — email là Member (200):** `isMember = true`, FE thông báo không tạo walk-in được. `guest` trả về rỗng.
+```json
+{
+  "guest": { "id": "", "guestCode": "", "fullName": "", "phone": "", "email": "member@gmail.com", "note": "", "createdAt": "" },
+  "isMember": true,
+  "isExistingGuest": false,
+  "message": "Email already registered as member"
+}
+```
+
+**Response — email đã có guest cũ (200):** `isExistingGuest = true`, FE confirm trước khi tạo mới.
+```json
+{
+  "guest": {
+    "id": "550e8400-...",
+    "guestCode": "GUE-A7B9X2",
+    "fullName": "Nguyễn Văn A", ...
+  },
+  "isMember": false,
+  "isExistingGuest": true,
+  "message": "Guest already exists. Create new?"
 }
 ```
 
@@ -1716,10 +1762,15 @@ Route prefix: `api/v1/guest`
 **Request:**
 ```json
 {
-  "guestCustomerId": "550e8400-...",
+  "guestCode": "GUE-A7B9X2",
   "productId": "550e8400-..."
 }
 ```
+
+| Body | Type | Required | Description |
+|------|------|----------|-------------|
+| guestCode | string | Yes | Guest code (GUE-XXXXXX), lấy từ create session response |
+| productId | string | No | Product UUID |
 
 **Response:**
 ```json
@@ -1864,7 +1915,8 @@ Route prefix: `api/v1/guest-tablet` (class-level @Public())
     "status": "PENDING",
     "paymentUrl": "https://pay.payos.vn/..."
   },
-  "paymentUrl": "https://pay.payos.vn/..."
+  "paymentUrl": "https://pay.payos.vn/...",
+  "qrCode": "000201010212..."
 }
 ```
 
@@ -2683,6 +2735,115 @@ Route prefix: `api/v1/track`
 
 ---
 
+### 114. POST `/api/v1/engravings/:id/biometrics/bulk`
+**Auth:** `order.write`
+**Description:** Bulk attach biometrics (tối đa 10 items). Dùng khi staff upload nhiều biometric cùng lúc.
+
+**Param:** `id` (UUID v4) — engraving ID
+
+**Request:**
+```json
+{
+  "biometrics": [
+    {
+      "biometricType": "FP",
+      "rawFileUrl": "https://res.cloudinary.com/.../fingerprint.png"
+    },
+    {
+      "biometricType": "SW",
+      "rawFileUrl": "https://res.cloudinary.com/.../soundwave.mp3",
+      "extraData": "{\"startMs\":0,\"endMs\":1000}"
+    }
+  ]
+}
+```
+
+**Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| biometrics[].biometricType | string (enum) | Yes | `FP`, `SW`, `HB` |
+| biometrics[].rawFileUrl | string | Yes | Cloudinary URL |
+| biometrics[].extraData | string | No | JSON string (`{"startMs":0,"endMs":1000}` for SW) |
+
+**Response (201):**
+```json
+{
+  "count": 2,
+  "biometrics": [
+    {
+      "id": "550e8400-...",
+      "engravingId": "550e8400-...",
+      "biometricType": "FP",
+      "status": "CAPTURED",
+      "processedSvgUrl": "https://res.cloudinary.com/.../fp.svg"
+    },
+    {
+      "id": "550e8400-...",
+      "engravingId": "550e8400-...",
+      "biometricType": "SW",
+      "status": "CAPTURED",
+      "processedSvgUrl": "https://res.cloudinary.com/.../sw.svg"
+    }
+  ]
+}
+```
+
+**Errors:**
+
+| Precondition | Error | Code |
+|-------------|-------|------|
+| Engraving không tồn tại | Engraving not found | 404 |
+| Order không ở AWAITING_SUBMIT | Order must be in AWAITING_SUBMIT | 400 |
+| Biometric type không trong package | Biometric type {type} not in package | 400 |
+| Quá 10 items | Max 10 items per bulk request | 400 |
+
+---
+
+### 115. POST `/api/v1/orders/:id/confirm-pickup`
+**Auth:** `order.write`
+**Description:** Staff xác nhận khách đã nhận hàng tại quầy. Chuyển order từ `READY_FOR_PICKUP`/`READY_FOR_DELIVERY` → `COMPLETED`.
+
+**Param:** `id` (UUID v4) — order ID
+
+**Request:**
+```json
+{
+  "note": "Khách đã nhận tại quầy 17/07"
+}
+```
+
+**Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| note | string | No | Ghi chú pickup |
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "order": {
+    "id": "550e8400-...",
+    "status": "COMPLETED",
+    ...
+  },
+  "warrantyCode": "WAR-1720000000042",
+  "warrantyExpiry": "2027-07-17T10:00:00.000Z",
+  "qrMemoryUnlocked": true
+}
+```
+
+**Errors:**
+
+| Precondition | Error | Code |
+|-------------|-------|------|
+| Order không tồn tại | Order not found | 404 |
+| Order không ở READY_FOR_PICKUP hoặc READY_FOR_DELIVERY | Order must be READY_FOR_DELIVERY or READY_FOR_PICKUP | 400 |
+| Còn remaining amount | Order still has remaining payment | 400 |
+
+---
+
 # 4. Business Validation Rules
 
 ## 4.1 Order State Machine
@@ -2821,8 +2982,8 @@ IN_SERVICE → COMPLETED                  (return, sau khi ticket completed)
 | Biometric | Biometric | 2 |
 | Ecommerce | Catalog | 7 |
 | Ecommerce | Design | 5 |
-| Ecommerce | Engraving | 6 |
-| Ecommerce | Order | 24 |
+| Ecommerce | Engraving | 7 |
+| Ecommerce | Order | 25 |
 | Ecommerce | QR Memory | 3 |
 | Ecommerce | Card Theme | 5 |
 | Ecommerce | Guest | 2 |
@@ -2836,4 +2997,4 @@ IN_SERVICE → COMPLETED                  (return, sau khi ticket completed)
 | Ecommerce | Warranty | 10 |
 | Ecommerce | Jeweler | 1 |
 | Track | Track | 1 |
-| **Total** | **21 controllers** | **118 endpoints** |
+| **Total** | **21 controllers** | **120 endpoints** |

@@ -35,6 +35,7 @@ service EcommerceService {
   // Orders — MF-03
   rpc SubmitOrder (SubmitOrderRequest) returns (SubmitOrderResponse);
   rpc AttachBiometric (AttachBiometricRequest) returns (AttachBiometricResponse);
+  rpc AttachBiometricsBulk (AttachBiometricsBulkRequest) returns (AttachBiometricsBulkResponse);
 
   // Payments
   rpc InitiatePayment (InitiatePaymentRequest) returns (InitiatePaymentResponse);
@@ -44,6 +45,7 @@ service EcommerceService {
 
   // Manual payment (POS)
   rpc ManualPayment (ManualPaymentRequest) returns (ManualPaymentResponse);
+  rpc ConfirmPickup (ConfirmPickupRequest) returns (ConfirmPickupResponse);
   rpc GetPaymentStatus (GetPaymentStatusRequest) returns (GetPaymentStatusResponse);
 
 // Production
@@ -168,6 +170,7 @@ message ClaimDesignDraftResponse {
   DesignDraft draft = 1;
   Engraving engraving = 2;
   EngravingVersion engravingVersion = 3;
+  string qrCode = 4;
 }
 
 // ===== Generic =====
@@ -459,6 +462,22 @@ message AttachBiometricResponse {
   EngravingBioMetric biometric = 1;
 }
 
+message AttachBiometricsBulkRequest {
+  string engravingId = 1;
+  repeated BulkBiometricItem biometrics = 2;
+}
+
+message BulkBiometricItem {
+  string biometricType = 1;
+  string rawFileUrl = 2;
+  string extraData = 3;
+}
+
+message AttachBiometricsBulkResponse {
+  int32 count = 1;
+  repeated EngravingBioMetric biometrics = 2;
+}
+
 // === Engraving messages ===
 message Engraving {
   string id = 1;
@@ -557,6 +576,8 @@ message ManualPaymentRequest {
   string paymentPhase = 2;
   double amount = 3;
   string receivedBy = 4;
+  string paymentMethod = 5;
+  string reference = 6;
 }
 
 message ManualPaymentResponse {
@@ -600,6 +621,20 @@ message UpdateShippingFeeRequest {
 
 message UpdateShippingFeeResponse {
   bool success = 1;
+}
+
+message ConfirmPickupRequest {
+  string orderId = 1;
+  string staffId = 2;
+  string note = 3;
+}
+
+message ConfirmPickupResponse {
+  bool success = 1;
+  Order order = 2;
+  string warrantyCode = 3;
+  string warrantyExpiry = 4;
+  bool qrMemoryUnlocked = 5;
 }
 
 message GetPaymentStatusRequest { string orderId = 1; }
@@ -914,10 +949,13 @@ message CreateGuestSessionRequest {
 
 message CreateGuestSessionResponse {
   GuestCustomer guest = 1;
+  bool isMember = 2;
+  bool isExistingGuest = 3;
+  string message = 4;
 }
 
 message CreateGuestOrderRequest {
-  string guestCustomerId = 1;
+  string guestCode = 1;
   string productId = 2;
   string staffId = 3;
 }
@@ -994,6 +1032,7 @@ message GuestInitiatePaymentRequest {
 message GuestInitiatePaymentResponse {
   Payment payment = 1;
   string paymentUrl = 2;
+  string qrCode = 3;
 }
 
 // MF-04 Guest Shipping Info — guest chọn delivery method + nhập địa chỉ trên tablet

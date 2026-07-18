@@ -27,6 +27,7 @@ import {
   AttachBiometricDto,
   Permission,
   Permissions,
+  AttachBiometricsBulkDto,
 } from '@app/common';
 import type { JwtPayload } from '@app/common';
 import {
@@ -35,6 +36,7 @@ import {
   ApiGetMyEngravingsDocs,
   ApiGetEngravingDocs,
   ApiAttachBiometricDocs,
+  ApiAttachBiometricsBulkDocs,
   ApiCancelEngravingDocs,
 } from './engraving.swagger';
 
@@ -77,6 +79,10 @@ interface EcommerceGrpcService {
     rawFileUrl: string;
     extraData?: string;
   }): Observable<{ biometric: EngravingBioMetricResponse }>;
+  attachBiometricsBulk(data: {
+    engravingId: string;
+    biometrics: Array<{ biometricType: string; rawFileUrl: string; extraData?: string }>;
+  }): Observable<{ count: number; biometrics: EngravingBioMetricResponse[] }>;
   cancelEngraving(data: {
     id: string;
     user_id: string;
@@ -179,6 +185,25 @@ export class EngravingController implements OnModuleInit {
         biometricType: body.biometricType,
         rawFileUrl: body.rawFileUrl,
         extraData: body.extraData,
+      }),
+    );
+  }
+
+  @Post(':id/biometrics/bulk')
+  @Permissions(Permission.OrderWrite)
+  @ApiAttachBiometricsBulkDocs()
+  attachBiometricsBulk(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() body: AttachBiometricsBulkDto,
+  ) {
+    return this.call(() =>
+      this.grpc!.attachBiometricsBulk({
+        engravingId: id,
+        biometrics: body.biometrics.map((b) => ({
+          biometricType: b.biometricType,
+          rawFileUrl: b.rawFileUrl,
+          extraData: b.extraData,
+        })),
       }),
     );
   }

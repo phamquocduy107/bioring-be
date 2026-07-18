@@ -29,7 +29,8 @@ Content-Type: application/json
   "orderId": "{{ORDER_ID}}",
   "serviceType": "WARRANTY",
   "issueDescription": "Nhẫn bị trầy xước sau 2 tháng sử dụng",
-  "proofImages": ["https://res.cloudinary.com/dpm0zc06s/image/upload/v1/scratch.jpg"]
+  "proofImages": ["https://res.cloudinary.com/dpm0zc06s/image/upload/v1/scratch.jpg"],
+  "proofVideos": []
 }
 ```
 
@@ -41,6 +42,7 @@ Content-Type: application/json
     "claimCode": "WCL-XXXXXX",
     "warrantyId": "{{WARRANTY_ID}}",
     "orderId": "{{ORDER_ID}}",
+    "engravingId": "{{ENGRAVING_ID}}",
     "serviceType": "WARRANTY",
     "issueDescription": "Nhẫn bị trầy xước sau 2 tháng sử dụng",
     "proofImages": ["https://res.cloudinary.com/..."],
@@ -50,6 +52,7 @@ Content-Type: application/json
     "managerNote": "",
     "customerConfirmedAt": "",
     "createdAt": "2026-07-19T...",
+    "updatedAt": "2026-07-19T...",
     "serviceTickets": [
       {
         "id": "{{TICKET_ID}}",
@@ -85,7 +88,8 @@ Content-Type: application/json
   "orderCode": "{{ORDER_CODE_GUEST}}",
   "serviceType": "REPAIR",
   "issueDescription": "Cần chỉnh lại size từ 7 lên 8",
-  "proofImages": []
+  "proofImages": [],
+  "proofVideos": []
 }
 ```
 
@@ -97,6 +101,8 @@ Content-Type: application/json
     "claimCode": "WCL-YYYYYY",
     "status": "PENDING_REVIEW",
     "serviceType": "REPAIR",
+    "engravingId": "{{ENGRAVING_ID}}",
+    "updatedAt": "2026-07-19T...",
     "serviceTickets": [{ "status": "PENDING" }]
   }
 }
@@ -126,10 +132,12 @@ Content-Type: application/json
 {
   "claim": {
     "id": "{{CLAIM_ID}}",
+    "engravingId": "{{ENGRAVING_ID}}",
     "status": "PENDING_RECEIVE",
     "chargeStatus": "FREE",
     "extraFee": 0,
-    "managerNote": "Trong phạm vi bảo hành, xử lý miễn phí"
+    "managerNote": "Trong phạm vi bảo hành, xử lý miễn phí",
+    "updatedAt": "2026-07-19T..."
   }
 }
 ```
@@ -163,9 +171,11 @@ Content-Type: application/json
 {
   "claim": {
     "id": "{{CLAIM_ID_GUEST}}",
+    "engravingId": "{{ENGRAVING_ID}}",
     "status": "QUOTATION_SENT",
     "extraFee": 500000,
-    "managerNote": "Chỉnh size không thuộc bảo hành. Chi phí: 500,000 VND"
+    "managerNote": "Chỉnh size không thuộc bảo hành. Chi phí: 500,000 VND",
+    "updatedAt": "2026-07-19T..."
   }
 }
 ```
@@ -192,8 +202,10 @@ Content-Type: application/json
 {
   "claim": {
     "id": "{{CLAIM_ID_GUEST}}",
+    "engravingId": "{{ENGRAVING_ID}}",
     "status": "AWAITING_PAYMENT",
-    "customerConfirmedAt": "2026-07-19T..."
+    "customerConfirmedAt": "2026-07-19T...",
+    "updatedAt": "2026-07-19T..."
   }
 }
 ```
@@ -230,7 +242,7 @@ Authorization: Bearer {{customerJwt}}
 }
 ```
 
-> 📌 Sau khi PayOS webhook callback: `payments.status = PAID`, `warranty_claims.status = PENDING_RECEIVE`
+> 📌 Sau khi PayOS webhook callback: `payments.status = PAID`, `warranty_claims.status = PENDING_RECEIVE`, `warranty_claims.charge_status = PAID` (bug `chargede_status` đã được fix)
 
 **Verify DB sau webhook:**
 ```sql
@@ -276,7 +288,9 @@ Content-Type: application/json
 {
   "claim": {
     "id": "{{CLAIM_ID}}",
+    "engravingId": "{{ENGRAVING_ID}}",
     "status": "IN_SERVICE",
+    "updatedAt": "2026-07-19T...",
     "serviceTickets": [
       {
         "id": "{{TICKET_ID}}",
@@ -323,7 +337,9 @@ Content-Type: application/json
 {
   "claim": {
     "id": "{{CLAIM_ID}}",
+    "engravingId": "{{ENGRAVING_ID}}",
     "status": "IN_SERVICE",
+    "updatedAt": "2026-07-19T...",
     "serviceTickets": [
       {
         "id": "{{TICKET_ID}}",
@@ -359,7 +375,9 @@ Authorization: Bearer {{staffJwt}}
 {
   "claim": {
     "id": "{{CLAIM_ID}}",
-    "status": "COMPLETED"
+    "engravingId": "{{ENGRAVING_ID}}",
+    "status": "COMPLETED",
+    "updatedAt": "2026-07-19T..."
   }
 }
 ```
@@ -390,6 +408,8 @@ Authorization: Bearer {{customerJwt}}
       "claimCode": "WCL-XXXXXX",
       "status": "COMPLETED",
       "serviceType": "WARRANTY",
+      "engravingId": "{{ENGRAVING_ID}}",
+      "updatedAt": "2026-07-19T...",
       "serviceTickets": [{ "status": "COMPLETED" }]
     }
   ],
@@ -420,8 +440,23 @@ Authorization: Bearer {{customerJwt}}
     "id": "{{CLAIM_ID}}",
     "claimCode": "WCL-XXXXXX",
     "status": "COMPLETED",
+    "engravingId": "{{ENGRAVING_ID}}",
+    "updatedAt": "2026-07-19T...",
     "serviceTickets": [...],
-    "payments": []
+    "payments": [
+      {
+        "id": "{{PAYMENT_ID}}",
+        "orderId": "{{ORDER_ID}}",
+        "paymentPhase": "EXTRA_FEE",
+        "amount": 500000,
+        "method": "PAYOS",
+        "status": "PAID",
+        "payosTransactionId": "12345678",
+        "paymentUrl": "https://pay.payos.vn/...",
+        "paidAt": "2026-07-19T12:00:00.000Z",
+        "createdAt": "2026-07-19T11:59:00.000Z"
+      }
+    ]
   }
 }
 ```
@@ -463,3 +498,4 @@ Authorization: Bearer {{customerJwt}}
 | `{{TICKET_ID}}` | Response bước 1 | UUID service_tickets |
 | `{{JEWELER_ID}}` | Users table | UUID jeweler |
 | `{{PAYMENT_ID}}` | Response bước 6 | UUID payments |
+| `{{ENGRAVING_ID}}` | Order details | UUID engravings |

@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '@app/prisma';
@@ -50,6 +51,8 @@ export class MemoryCardService {
     if (data.greetingMessage !== undefined)
       updateData.greeting_message = data.greetingMessage;
     if (data.cardThemeId !== undefined) updateData.theme_id = data.cardThemeId;
+    if (data.recipientEmail !== undefined)
+      updateData.recipient_email = data.recipientEmail;
     if (data.customImages !== undefined)
       updateData.custom_images = JSON.parse(data.customImages);
     if (data.biometricDisplaySettings !== undefined)
@@ -84,7 +87,7 @@ export class MemoryCardService {
 
     const hash = createHash('sha256').update(accessPin).digest('hex');
     if (qrMemory.access_pin_hash !== hash) {
-      throw new NotFoundException('Invalid access PIN');
+      throw new ForbiddenException('Invalid access PIN');
     }
 
     const updated = await this.prisma.qr_memories.update({
@@ -103,12 +106,11 @@ export class MemoryCardService {
       qrCode: qr.qr_code,
       cardTitle: qr.card_title ?? '',
       greetingMessage: qr.greeting_message ?? '',
-      recipientEmail: '',
+      recipientEmail: qr.recipient_email ?? '',
       customImages: qr.custom_images ? JSON.stringify(qr.custom_images) : '',
       biometricDisplaySettings: qr.biometric_display_settings
         ? JSON.stringify(qr.biometric_display_settings)
         : '',
-      accessPinHash: qr.access_pin_hash ?? '',
       isLocked: qr.is_locked ?? false,
       cardTheme: qr.card_themes
         ? {

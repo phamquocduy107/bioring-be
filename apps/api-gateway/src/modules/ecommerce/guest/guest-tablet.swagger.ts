@@ -72,6 +72,7 @@ function paymentExample() {
       createdAt: '2026-07-07T10:00:00.000Z',
     },
     paymentUrl: 'https://pay.payos.vn/...',
+    qrCode: '000201010212...',
   };
 }
 

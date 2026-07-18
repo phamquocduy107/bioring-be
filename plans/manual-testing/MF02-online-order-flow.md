@@ -69,9 +69,9 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 Content-Type: application/json
 
 {
-  "selectedBiometrics": ["SW"]
-}
+  "selectedBiometrics": ["SW","FP"]
 ```
+
 
 **Response mẫu:**
 ```json
@@ -173,7 +173,22 @@ Content-Type: application/json
 }
 ```
 
-> **Kết quả:** `isLocked` → `false`. Nếu sai PIN → 403.
+**Response mẫu:**
+```json
+{
+  "qrMemory": {
+    "id": "QR_MEMORY_ID",
+    "engravingId": "ENGRAVING_ID",
+    "qrCode": "a1b2c3d4e5f6",
+    "cardTitle": "Our Special Ring",
+    "greetingMessage": "Thank you for being with me!",
+    "recipientEmail": "friend@example.com",
+    "isLocked": false
+  }
+}
+```
+
+> **Kết quả:** `isLocked` → `false`. Nếu sai PIN → 404.
 
 ---
 
@@ -200,13 +215,22 @@ Content-Type: application/json
 {
   "order": {
     "id": "ORDER_ID",
-    "orderCode": "BIORING-ABC123",
+    "orderCode": "1741234567890",
     "userId": "USER_ID",
+    "designDraftId": "DRAFT_ID",
+    "designSource": "CUSTOM",
     "captureRoute": "ONLINE",
     "status": "AWAITING_SUBMIT",
     "totalPrice": 13200000,
+    "subtotal": 12000000,
+    "serviceFee": 1000000,
+    "extraFee": 0,
+    "discountAmount": 0,
     "paidAmount": 0,
     "remainingAmount": 13200000,
+    "note": null,
+    "createdAt": "2026-07-18T10:00:00.000Z",
+    "updatedAt": "2026-07-18T10:00:00.000Z",
     "payments": []
   }
 }
@@ -389,6 +413,8 @@ Content-Type: application/json
 
 > Mở `paymentUrl` trong browser để test thanh toán (hoặc dùng PayOS sandbox).
 
+> **Note:** `InitiatePayment` cũng hỗ trợ `DEPOSIT_1` (IoT fee 100k → unlocks `AWAITING_SUBMIT` cho offline flow) và `FULL` (guest walk-in thanh toán 100% → thẳng `READY_FOR_DELIVERY`). Xem MF03 và MF04.
+
 ### 11b. Webhook callback (PayOS → server)
 
 Sau khi thanh toán xong, PayOS gọi webhook. Có thể giả lập:
@@ -434,7 +460,27 @@ Content-Type: application/json
 }
 ```
 
-Sau webhook → `remainingAmount` = 0, order → `COMPLETED`.
+**PayOS webhook:**
+```http
+POST /api/v1/orders/payments/webhook
+Content-Type: application/json
+
+{
+  "code": "00",
+  "desc": "success",
+  "success": true,
+  "data": {
+    "orderCode": 123456789,
+    "amount": 9240000,
+    "description": "Thanh toán 1741234567890",
+    "reference": "txn_remaining_001",
+    "code": "00"
+  },
+  "signature": "<HMAC-SHA256 signature>"
+}
+```
+
+Sau webhook → `remainingAmount` = 0, order → `READY_FOR_DELIVERY`.
 
 ---
 
@@ -467,8 +513,27 @@ Content-Type: application/json
 }
 ```
 
+**Kết quả:** Order → `PENDING_QC`.
+
+### 12c. QC kiểm tra (manager)
+
+```http
+PUT /api/v1/orders/ORDER_ID/qc-accept
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+Content-Type: application/json
+
+{
+  "result": "PASS",
+  "checklist": "{\"engraving\":true,\"material\":true,\"size\":true,\"finish\":true}",
+  "proofImages": [
+    "https://res.cloudinary.com/.../proof1.jpg"
+  ],
+  "note": "Sản phẩm đạt yêu cầu."
+}
+```
+
 **Kết quả:** Nếu còn `remainingAmount` > 0 → order → `AWAITING_REMAINING`.  
-Nếu đã thanh toán hết → order → `COMPLETED`.
+Nếu đã thanh toán hết → order → `READY_FOR_DELIVERY`.
 
 ---
 
@@ -528,11 +593,21 @@ Nếu đã thanh toán hết → order → `COMPLETED`.
      │              POST assign-jeweler → IN_PRODUCTION
      │                    │
      │                    ▼
-     │              PUT production status → COMPLETED
-     │                    │
-     │                    ▼
-     │              POST initiatePayment (REMAINING) ←─── nếu còn nợ
-     │                    │
-     │                    ▼
-     └────────── PayOS webhook → COMPLETED
+              │              PUT production status → COMPLETED → PENDING_QC
+              │                    │
+              │                    ▼
+              │              PUT /orders/:id/qc-accept (PASS)
+              │                    │
+              │                    ├── còn nợ → AWAITING_REMAINING
+              │                    │         │
+              │                    │         ▼
+              │                    │    POST initiatePayment (REMAINING)
+              │                    │         │
+              │                    │         ▼
+              │                    │    PayOS webhook
+              │                    │         │
+              │                    │         ▼
+              │                    │    READY_FOR_DELIVERY
+              │                    │
+              │                    └── hết nợ → READY_FOR_DELIVERY
 ```
