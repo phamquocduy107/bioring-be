@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { APP_FILTER, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import {
   CommonModule,
@@ -15,9 +16,19 @@ import { EngravingModule } from './engraving/engraving.module';
 import { MemoryCardModule } from './memory-card/memory-card.module';
 import { CardThemeModule } from './card-theme/card-theme.module';
 import { GuestModule } from './guest/guest.module';
+import { AdminModule } from './admin/admin.module';
+import { CaptureSessionModule } from './capture-session/capture-session.module';
+import { NotificationModule as EcommerceNotificationModule } from './notification/notification.module';
+import { NotificationModule } from '@app/common';
+import { CustomerModule } from './customer/customer.module';
+import { WarrantyModule } from './warranty/warranty.module';
+import { AuditModule } from './audit/audit.module';
+import { DeviceModule } from './device/device.module';
+import { JewelerModule } from './jeweler/jeweler.module';
 
 @Module({
   imports: [
+    EventEmitterModule.forRoot(),
     CommonModule,
     PrismaModule,
     CatalogModule,
@@ -27,6 +38,15 @@ import { GuestModule } from './guest/guest.module';
     MemoryCardModule,
     CardThemeModule,
     GuestModule,
+    CaptureSessionModule,
+    AdminModule,
+    EcommerceNotificationModule,
+    NotificationModule,
+    CustomerModule,
+    WarrantyModule,
+    AuditModule,
+    DeviceModule,
+    JewelerModule,
   ],
   providers: [
     {

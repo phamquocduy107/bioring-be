@@ -30,4 +30,25 @@ export class CatalogController {
   async getGemstones() {
     return this.catalogService.getGemstones();
   }
+
+  @GrpcMethod('EcommerceService', 'CreateProduct')
+  async createProduct(data: {
+    name: string; description?: string; base_material_id?: string;
+    base_price?: number; thumbnail_url?: string; model_3d_url?: string;
+  }) {
+    return this.catalogService.createProduct(data);
+  }
+
+  @GrpcMethod('EcommerceService', 'UpdateProduct')
+  async updateProduct(data: {
+    id: string; name?: string; description?: string; base_material_id?: string;
+    base_price?: number; thumbnail_url?: string; model_3d_url?: string;
+  }) {
+    return this.catalogService.updateProduct(data);
+  }
+
+  @GrpcMethod('EcommerceService', 'DeleteProduct')
+  async deleteProduct(data: { id: string }) {
+    return this.catalogService.deleteProduct(data.id);
+  }
 }

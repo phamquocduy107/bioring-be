@@ -298,7 +298,7 @@ export function ApiUpdateProductionStatusDocs() {
     ApiOperation({
       summary: 'Update production task status (manager)',
       description:
-        'Sets task to COMPLETED, IN_PROGRESS, etc. COMPLETED → order moves to AWAITING_REMAINING or COMPLETED.',
+        'Sets task to COMPLETED, IN_PROGRESS, etc. COMPLETED → order moves to PENDING_QC (QC decides next status).',
     }),
     ApiResponse({
       status: 200,
@@ -391,7 +391,8 @@ const warrantyExample = {
   expiryDate: '2027-07-03T10:00:00.000Z',
   activatedAt: '2026-07-03T10:00:00.000Z',
   status: 'ACTIVE',
-  warrantyScope: '{"description":"1 năm bảo hành chính hãng","coverage":["manufacturing_defect"]}',
+  warrantyScope:
+    '{"description":"1 năm bảo hành chính hãng","coverage":["manufacturing_defect"]}',
 };
 
 export function ApiQcAcceptOrderDocs() {
@@ -520,8 +521,7 @@ export function ApiGetProductionInfoDocs() {
     ApiBearerAuth('access-token'),
     ApiOperation({
       summary: 'Get production & QC info',
-      description:
-        'Returns production task + latest QA check for an order.',
+      description: 'Returns production task + latest QA check for an order.',
     }),
     ApiParam({
       name: 'id',
@@ -564,6 +564,49 @@ export function ApiGetProductionInfoDocs() {
   );
 }
 
+export function ApiConfirmPickupDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'Confirm pickup (staff)',
+      description:
+        'Xác nhận khách đã nhận hàng tại quầy. ' +
+        'Tự động tạo warranty + unlock QR memory. ' +
+        'Chuyển từ READY_FOR_PICKUP/READY_FOR_DELIVERY → COMPLETED.',
+    }),
+    ApiParam({
+      name: 'id',
+      type: String,
+      format: 'uuid',
+      example: '550e8400-e29b-41d4-a716-446655440001',
+    }),
+    ApiBody({
+      schema: {
+        example: { note: 'Khách nhận tại quầy 17/07' },
+      },
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Pickup confirmed',
+      schema: {
+        example: {
+          success: true,
+          order: {
+            id: '550e8400-e29b-41d4-a716-446655440001',
+            status: 'COMPLETED',
+          },
+          warrantyCode: 'WAR-1720000000042',
+          warrantyExpiry: '2027-07-17T10:00:00.000Z',
+          qrMemoryUnlocked: true,
+        },
+      },
+    }),
+    ApiResponse({ status: 400, description: 'Wrong status / remaining amount > 0' }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+    ApiResponse({ status: 404, description: 'Order not found' }),
+  );
+}
+
 export function ApiLookupOrderDocs() {
   return applyDecorators(
     ApiOperation({
@@ -577,5 +620,134 @@ export function ApiLookupOrderDocs() {
       schema: { example: { order: orderExample() } },
     }),
     ApiResponse({ status: 404, description: 'Order not found' }),
+  );
+}
+
+export function ApiListDeliveriesDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'List deliveries',
+      description: 'Paginated delivery list with filter by status, date range, search.',
+    }),
+    ApiQuery({ name: 'page', required: false, example: 1 }),
+    ApiQuery({ name: 'limit', required: false, example: 20 }),
+    ApiQuery({ name: 'status', required: false, example: 'in_transit' }),
+    ApiQuery({ name: 'from_date', required: false, example: '2026-07-01' }),
+    ApiQuery({ name: 'to_date', required: false, example: '2026-07-14' }),
+    ApiQuery({ name: 'search', required: false, example: 'DH001' }),
+    ApiResponse({
+      status: 200,
+      description: 'Delivery list',
+      schema: {
+        example: {
+          data: [
+            {
+              id: 'uuid-ship-1',
+              order_code: 'DH001',
+              tracking_code: 'VNPOST123456',
+              customer: { name: 'Nguyen Van A', phone: '0901234567', address: '123 Nguyen Hue, Q1, HCM' },
+              payment_status: 'paid',
+              delivery_staff: { id: 'uuid-staff-1', name: 'Tran Van C', avatar: '', status: 'busy', current_deliveries: 3 },
+              status: 'in_transit',
+              proof_of_delivery: null,
+              created_at: '2026-07-14T10:00:00.000Z',
+            },
+          ],
+          total: 1,
+          page: 1,
+          limit: 20,
+          last_page: 1,
+          stats: { ready_for_delivery: 5, in_transit: 3, waiting_for_pickup: 2 },
+        },
+      },
+    }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+    ApiResponse({ status: 403, description: 'Forbidden' }),
+  );
+}
+
+export function ApiListPickupsDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'List in-store pickups',
+      description: 'Returns pickups (paginated). Filter by status (waiting/completed) and search by order code or customer name.',
+    }),
+    ApiQuery({ name: 'limit', required: false, example: 200 }),
+    ApiQuery({ name: 'status', required: false, example: 'waiting' }),
+    ApiQuery({ name: 'search', required: false, example: 'ORD' }),
+    ApiResponse({
+      status: 200,
+      description: 'Pickup list',
+      schema: {
+        example: {
+          data: [
+            {
+              id: 'pic-1',
+              order_code: 'ORD-005',
+              customer_name: 'David Chen',
+              customer_phone: '0945678901',
+              payment_status: 'final_pending',
+              status: 'waiting',
+              handover_staff_name: null,
+              handover_note: null,
+              proof_image: null,
+            },
+          ],
+        },
+      },
+    }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+    ApiResponse({ status: 403, description: 'Forbidden' }),
+  );
+}
+
+export function ApiBulkReviewOrderDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'Bulk review orders (manager)',
+      description:
+        'Review multiple orders at once. Each item: approve → AWAITING_DEPOSIT, reject → REVISION_REQUIRED. Returns per-item result.',
+    }),
+    ApiBody({
+      schema: {
+        example: {
+          items: [
+            {
+              id: '550e8400-e29b-41d4-a716-446655440001',
+              action: 'approve',
+            },
+            {
+              id: '550e8400-e29b-41d4-a716-446655440002',
+              action: 'reject',
+              note: 'Need revision',
+            },
+          ],
+        },
+      },
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Orders reviewed',
+      schema: {
+        example: {
+          results: [
+            {
+              id: '550e8400-e29b-41d4-a716-446655440001',
+              success: true,
+              order: orderExample(),
+            },
+            {
+              id: '550e8400-e29b-41d4-a716-446655440002',
+              success: false,
+              error: 'Order not in PENDING_REVIEW status',
+            },
+          ],
+        },
+      },
+    }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
   );
 }

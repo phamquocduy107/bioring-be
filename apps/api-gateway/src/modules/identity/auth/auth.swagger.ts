@@ -1,5 +1,6 @@
 import { applyDecorators } from '@nestjs/common';
 import {
+  ApiBearerAuth,
   ApiCookieAuth,
   ApiOperation,
   ApiQuery,
@@ -91,5 +92,39 @@ export function ApiLogoutDocs() {
         example: { message: 'Logged out successfully' },
       },
     }),
+  );
+}
+
+export function ApiGetMeDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'Get current user profile + permissions',
+      description:
+        'Returns the authenticated user\'s profile and permission slugs for UI rendering.',
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Current user info',
+      schema: {
+        example: {
+          user: {
+            id: '550e8400-e29b-41d4-a716-446655440000',
+            email: 'admin@bioring.com',
+            fullName: 'Admin',
+            phone: '0909123456',
+            avatarUrl: null,
+            status: 'ACTIVE',
+            customerType: null,
+            isVip: false,
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+            roles: ['ADMIN'],
+          },
+          permissions: ['user.read', 'user.write', 'order.read', 'order.write', 'dashboard.view'],
+        },
+      },
+    }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
   );
 }

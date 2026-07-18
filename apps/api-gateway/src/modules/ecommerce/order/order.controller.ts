@@ -32,6 +32,7 @@ import {
   Permission,
   CreateOrderDto,
   ReviewOrderDto,
+  BulkReviewOrderDto,
   InitiatePaymentDto,
   GetMyOrdersQueryDto,
   AssignJewelerDto,
@@ -41,13 +42,17 @@ import {
   InitiateDeliveryDto,
   UpdateShipmentStatusDto,
   OrderLookupDto,
+  ListDeliveriesQueryDto,
 } from '@app/common';
 import type { JwtPayload } from '@app/common';
 import {
   ApiCreateOrderDocs,
   ApiGetOrderDocs,
   ApiGetMyOrdersDocs,
+  ApiListDeliveriesDocs,
+  ApiListPickupsDocs,
   ApiReviewOrderDocs,
+  ApiBulkReviewOrderDocs,
   ApiInitiatePaymentDocs,
   ApiPayOSWebhookDocs,
   ApiSubmitOrderDocs,
@@ -61,6 +66,7 @@ import {
   ApiGetWarrantyInfoDocs,
   ApiGetProductionInfoDocs,
   ApiLookupOrderDocs,
+  ApiConfirmPickupDocs,
 } from './order.swagger';
 
 interface EngravingBioMetricResponse {
@@ -293,9 +299,39 @@ interface EcommerceGrpcService {
     staffId: string;
   }): Observable<{ order: OrderResponse }>;
   getDeliveryInfo(data: { orderId: string }): Observable<DeliveryResponse>;
-  getWarrantyInfo(data: { orderId: string }): Observable<{ warranty: WarrantyInfoResponse }>;
-  getProductionInfo(data: { orderId: string }): Observable<ProductionInfoResponse>;
-  lookupOrder(data: { orderCode: string }): Observable<{ order: OrderResponse }>;
+  getWarrantyInfo(data: {
+    orderId: string;
+  }): Observable<{ warranty: WarrantyInfoResponse }>;
+  getProductionInfo(data: {
+    orderId: string;
+  }): Observable<ProductionInfoResponse>;
+  lookupOrder(data: {
+    orderCode: string;
+  }): Observable<{ order: OrderResponse }>;
+  cancelOrder(data: {
+    id: string;
+    reason: string;
+  }): Observable<{ order: OrderResponse }>;
+  confirmPickup(data: {
+    orderId: string;
+    staffId: string;
+    note?: string;
+  }): Observable<{ success: boolean; order: Record<string, unknown>; warrantyCode: string; warrantyExpiry: string; qrMemoryUnlocked: boolean }>;
+  manualPayment(data: {
+    orderId: string;
+    paymentPhase: string;
+    amount: number;
+    receivedBy: string;
+    paymentMethod: string;
+    reference?: string;
+  }): Observable<unknown>;
+  getPaymentStatus(data: { orderId: string }): Observable<unknown>;
+  listDeliveries(data: Record<string, unknown>): Observable<unknown>;
+  listPickups(data: {
+    limit?: number;
+    status?: string;
+    search?: string;
+  }): Observable<unknown>;
 }
 
 @Controller('api/v1/orders')
@@ -371,6 +407,7 @@ export class OrderController implements OnModuleInit {
       status: query.status,
       orderId: query.orderId,
       jewelerId: query.jewelerId,
+      all: query.all ?? false,
     });
   }
 
@@ -417,6 +454,36 @@ export class OrderController implements OnModuleInit {
         managerId: user.sub,
       }),
     );
+  }
+
+  @Put('bulk/review')
+  @Permissions(Permission.OrderWrite)
+  @ApiBulkReviewOrderDocs()
+  async bulkReviewOrder(
+    @Body() body: BulkReviewOrderDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const results: { id: string; success: boolean; order?: OrderResponse; error?: string }[] = [];
+    for (const item of body.items) {
+      try {
+        const order = await this.call(() =>
+          this.grpc!.reviewOrder({
+            id: item.id,
+            action: item.action,
+            note: item.note ?? '',
+            managerId: user.sub,
+          }),
+        );
+        results.push({ id: item.id, success: true, order: order.order });
+      } catch (e) {
+        results.push({
+          id: item.id,
+          success: false,
+          error: (e as Error).message,
+        });
+      }
+    }
+    return { results };
   }
 
   @Post(':id/payments')
@@ -628,6 +695,81 @@ export class OrderController implements OnModuleInit {
     return this.call(() => this.grpc!.getProductionInfo({ orderId: id }));
   }
 
+  @Post(':id/confirm-pickup')
+  @Permissions(Permission.OrderWrite)
+  @ApiConfirmPickupDocs()
+  confirmPickup(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() body: { note?: string },
+  ) {
+    return this.call(() =>
+      this.grpc!.confirmPickup({ orderId: id, staffId: user.sub, note: body.note }),
+    );
+  }
+
+  @Get(':id/payment-status')
+  @Permissions(Permission.OrderWrite)
+  getPaymentStatus(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+  ) {
+    return this.call(() => this.grpc!.getPaymentStatus({ orderId: id }));
+  }
+
+  @Post(':id/payments/manual')
+  @Permissions(Permission.OrderWrite)
+  manualPayment(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body()
+    body: { paymentPhase: string; amount: number; paymentMethod: string; reference?: string },
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.call(() =>
+      this.grpc!.manualPayment({
+        orderId: id,
+        paymentPhase: body.paymentPhase,
+        amount: body.amount,
+        receivedBy: user.sub,
+        paymentMethod: body.paymentMethod,
+        reference: body.reference ?? '',
+      }),
+    );
+  }
+
+  @Get('deliveries')
+  @Permissions(Permission.OrderRead)
+  @ApiListDeliveriesDocs()
+  async listDeliveries(@Query() query: ListDeliveriesQueryDto) {
+    return this.call(() =>
+      this.grpc!.listDeliveries({
+        page: query.page ?? 1,
+        limit: query.limit ?? 20,
+        status: query.status ?? '',
+        from_date: query.from_date ?? '',
+        to_date: query.to_date ?? '',
+        search: query.search ?? '',
+      }),
+    );
+  }
+
+  @Get('pickups')
+  @Permissions(Permission.OrderRead)
+  @ApiListPickupsDocs()
+  async listPickups(
+    @Query('limit') limit: string,
+    @Query('status') status: string,
+    @Query('search') search: string,
+  ) {
+    const result = await this.call(() =>
+      this.grpc!.listPickups({
+        limit: Number(limit) || 200,
+        status: status ?? '',
+        search: search ?? '',
+      }),
+    );
+    return { data: ((result as Record<string, unknown>)?.data as unknown[]) ?? [] };
+  }
+
   @Post('lookup')
   @Public()
   @ApiLookupOrderDocs()
@@ -636,5 +778,15 @@ export class OrderController implements OnModuleInit {
       this.grpc!.lookupOrder({ orderCode: body.orderCode }),
     );
   }
-}
 
+  @Patch(':id/cancel')
+  @Permissions(Permission.OrderWrite)
+  cancelOrder(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body('reason') reason: string,
+  ) {
+    return this.call(() =>
+      this.grpc!.cancelOrder({ id, reason: reason ?? '' }),
+    );
+  }
+}

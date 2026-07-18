@@ -75,10 +75,45 @@ export class GuestService {
   async createGuestSession(data: {
     fullName: string;
     phone: string;
-    email?: string;
+    email: string;
     note?: string;
     staffId: string;
   }) {
+    // Check if email belongs to a registered member
+    const member = await this.prisma.users.findUnique({
+      where: { email: data.email },
+      select: { id: true },
+    });
+    if (member) {
+      return {
+        guest: {
+          id: '',
+          guestCode: '',
+          fullName: '',
+          phone: '',
+          email: data.email,
+          note: '',
+          createdAt: '',
+        },
+        isMember: true,
+        isExistingGuest: false,
+        message: 'Email already registered as member',
+      };
+    }
+
+    // Check if email already used by a previous guest
+    const existingGuest = await this.prisma.guest_customers.findFirst({
+      where: { email: data.email },
+    });
+    if (existingGuest) {
+      return {
+        guest: this.mapGuest(existingGuest as unknown as GuestRecord),
+        isMember: false,
+        isExistingGuest: true,
+        message: 'Guest already exists. Create new?',
+      };
+    }
+
     const guestCode = await this.generateGuestCode();
     const guest = (await this.prisma.guest_customers.create({
       data: {
@@ -90,18 +125,63 @@ export class GuestService {
         note: data.note,
       },
     })) as unknown as GuestRecord;
-    return { guest: this.mapGuest(guest) };
+    return {
+      guest: this.mapGuest(guest),
+      isMember: false,
+      isExistingGuest: false,
+      message: '',
+    };
   }
 
   async createGuestOrder(data: {
-    guestCustomerId: string;
+    guestCode: string;
     productId?: string;
     staffId: string;
   }) {
     const guest = await this.prisma.guest_customers.findUnique({
-      where: { id: data.guestCustomerId },
+      where: { guest_code: data.guestCode },
     });
     if (!guest) throw new NotFoundException('Guest not found');
+
+    // Validate biometrics: nếu đã set selectedBiometrics, kiểm tra đủ file
+    const existingSession = await this.prisma.orders.findFirst({
+      where: { guest_customer_id: guest.id },
+      orderBy: { created_at: 'desc' },
+      include: {
+        engraving: {
+          include: {
+            engraving_versions_engraving_versions_engraving_idToengravings: {
+              orderBy: { version_number: 'desc' },
+              take: 1,
+            },
+          },
+        },
+      },
+    });
+
+    if (existingSession?.engraving) {
+      const version =
+        existingSession.engraving
+          .engraving_versions_engraving_versions_engraving_idToengravings[0];
+      const selected =
+        version?.selected_biometrics?.split(',').filter(Boolean) ?? [];
+      if (selected.length > 0) {
+        const uploaded = await this.prisma.engraving_biometrics.findMany({
+          where: {
+            engraving_id: existingSession.engraving.id,
+            status: 'CAPTURED',
+          },
+          select: { biometric_type: true },
+        });
+        const uploadedTypes = new Set(uploaded.map((b) => b.biometric_type));
+        const missing = selected.filter((t) => !uploadedTypes.has(t));
+        if (missing.length > 0) {
+          throw new BadRequestException(
+            `Missing biometric data: ${missing.join(', ')}. Please upload before creating order.`,
+          );
+        }
+      }
+    }
 
     const engraving = (await this.prisma.engravings.create({
       data: {
@@ -144,7 +224,7 @@ export class GuestService {
         order_code: `${Date.now()}${Math.floor(Math.random() * 1000)}`,
         engraving_id: engraving.id,
         user_id: null,
-        guest_customer_id: data.guestCustomerId,
+        guest_customer_id: guest.id,
         created_by_staff_id: data.staffId,
         design_source: 'WALK_IN',
         status: 'AWAITING_SUBMIT',
@@ -210,6 +290,9 @@ export class GuestService {
     if (!order) throw new NotFoundException('Order not found');
 
     if (order.status === 'AWAITING_SUBMIT') {
+      // Validate: tất cả biometric trong package đã được upload chưa
+      await this.validateBiometricsReady(orderId);
+
       const updated = (await this.prisma.orders.update({
         where: { id: orderId },
         data: { status: 'PENDING_REVIEW' },
@@ -218,6 +301,8 @@ export class GuestService {
     }
 
     if (order.status === 'REVISION_REQUIRED') {
+      // Validate biometrics cho resubmit
+      await this.validateBiometricsReady(orderId);
       await this.prisma.$transaction([
         this.prisma.engravings.updateMany({
           where: { order: { id: orderId } },
@@ -270,8 +355,18 @@ export class GuestService {
     if (data.ringShape !== undefined) updateData.ring_shape = data.ringShape;
     if (data.customizationConfig !== undefined)
       updateData.customization_config = JSON.parse(data.customizationConfig);
-    if (data.selectedBiometrics !== undefined)
-      updateData.selected_biometrics = data.selectedBiometrics;
+    if (data.selectedBiometrics !== undefined) {
+      const raw = data.selectedBiometrics;
+      if (raw.startsWith('[')) {
+        try {
+          updateData.selected_biometrics = (JSON.parse(raw) as string[]).join(',');
+        } catch {
+          updateData.selected_biometrics = raw;
+        }
+      } else {
+        updateData.selected_biometrics = raw;
+      }
+    }
 
     const updated = (await this.prisma.engraving_versions.update({
       where: { id: engravingVersionId },
@@ -369,6 +464,47 @@ export class GuestService {
 
   // =========== HELPERS ===========
 
+  private async validateBiometricsReady(orderId: string) {
+    const orderWithEngraving = await this.prisma.orders.findUnique({
+      where: { id: orderId },
+      include: {
+        engraving: {
+          include: {
+            engraving_versions_engraving_versions_engraving_idToengravings: {
+              orderBy: { version_number: 'desc' },
+              take: 1,
+            },
+          },
+        },
+      },
+    });
+
+    const engraving = orderWithEngraving?.engraving;
+    if (!engraving) return;
+
+    const version =
+      engraving
+        .engraving_versions_engraving_versions_engraving_idToengravings[0];
+    const selected =
+      version?.selected_biometrics?.split(',').filter(Boolean) ?? [];
+    if (selected.length === 0) return;
+
+    const uploaded = await this.prisma.engraving_biometrics.findMany({
+      where: {
+        engraving_id: engraving.id,
+        status: 'CAPTURED',
+      },
+      select: { biometric_type: true },
+    });
+    const uploadedTypes = new Set(uploaded.map((b) => b.biometric_type));
+    const missing = selected.filter((t: string) => !uploadedTypes.has(t));
+    if (missing.length > 0) {
+      throw new BadRequestException(
+        `Missing biometric data: ${missing.join(', ')}. Please upload before submitting.`,
+      );
+    }
+  }
+
   async validateGuestOwnership(
     guestCode: string,
     target: {
@@ -383,14 +519,21 @@ export class GuestService {
     if (!guest) throw new NotFoundException('Invalid guest code');
 
     if (target.engravingVersionId) {
-      const version = await this.prisma.engraving_versions.findUnique({
+      const versionRecord = (await this.prisma.engraving_versions.findUnique({
         where: { id: target.engravingVersionId },
-        include: {
-          engraving: { include: { order: true } },
-        },
-      });
-      if (!version) throw new NotFoundException('Version not found');
-      const order = version.engraving.order;
+      })) as unknown as { engraving_id: string } | null;
+      if (!versionRecord) throw new NotFoundException('Version not found');
+
+      const engravingWithOrder = (await this.prisma.engravings.findUnique({
+        where: { id: versionRecord.engraving_id },
+        include: { order: true },
+      })) as unknown as {
+        order?: { guest_customer_id: string | null } | null;
+      } | null;
+
+      if (!engravingWithOrder)
+        throw new NotFoundException('Engraving not found');
+      const order = engravingWithOrder.order;
       if (!order || order.guest_customer_id !== guest.id) {
         throw new ForbiddenException('Guest does not own this engraving');
       }
@@ -402,7 +545,12 @@ export class GuestService {
         include: { order: true },
       });
       if (!engraving) throw new NotFoundException('Engraving not found');
-      if (!engraving.order || engraving.order.guest_customer_id !== guest.id) {
+      const engOrder = (
+        engraving as unknown as {
+          order?: { guest_customer_id: string | null } | null;
+        }
+      ).order;
+      if (!engOrder || engOrder.guest_customer_id !== guest.id) {
         throw new ForbiddenException('Guest does not own this engraving');
       }
     }
@@ -471,6 +619,101 @@ export class GuestService {
       paidAmount: Number(order.paid_amount ?? 0),
       remainingAmount: Number(order.remaining_amount ?? 0),
       createdAt: order.created_at?.toISOString() ?? '',
+    };
+  }
+
+  async listGuestCustomers(params: { page: number; limit: number; search?: string }) {
+    const where: any = {};
+    if (params.search) {
+      where.OR = [
+        { full_name: { contains: params.search, mode: 'insensitive' } },
+        { phone: { contains: params.search } },
+        { email: { contains: params.search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [rows, total] = await Promise.all([
+      this.prisma.guest_customers.findMany({
+        where,
+        skip: (params.page - 1) * params.limit,
+        take: params.limit,
+        orderBy: { created_at: 'desc' },
+        include: {
+          orders: {
+            include: {
+              engraving: {
+                select: { qr_memories: { select: { is_locked: true, activated_at: true } } },
+              },
+              warranties: { select: { status: true, expiry_date: true } },
+            },
+          },
+          biometric_capture_sessions: {
+            include: { biometric_capture_items: { select: { capture_type: true } } },
+          },
+          warranty_claims: {
+            include: {
+              service_tickets: {
+                select: { id: true, ticket_code: true, service_type: true, status: true, created_at: true },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.guest_customers.count({ where }),
+    ]);
+
+    return {
+      data: rows.map((g) => {
+        const totalSpent = g.orders.reduce((s, o) => s + Number(o.total_price ?? 0), 0);
+        const sorted = [...g.orders].sort((a, b) => (b.created_at?.getTime() ?? 0) - (a.created_at?.getTime() ?? 0));
+        const latestOrder = sorted[0];
+        const warrantyOrder = g.orders.find((o) => o.warranties.length > 0);
+        const warranty = warrantyOrder?.warranties[0];
+
+        return {
+          id: g.id,
+          name: g.full_name ?? '',
+          email: g.email ?? '',
+          phone: g.phone ?? '',
+          status: 'active',
+          total_orders: g.orders.length,
+          total_spent: totalSpent,
+          last_order_date: latestOrder?.created_at?.toISOString() ?? '',
+          join_date: g.created_at?.toISOString() ?? '',
+          digital_assets: this.computeDigitalAssets(g.biometric_capture_sessions),
+          qr_memory_status: latestOrder?.engraving?.qr_memories ? 'active' : '',
+          service_tickets: g.warranty_claims.flatMap((wc) =>
+            wc.service_tickets.map((st) => ({
+              id: st.id,
+              ticket_code: st.ticket_code ?? '',
+              service_type: st.service_type ?? '',
+              status: st.status ?? '',
+              created_at: st.created_at?.toISOString() ?? '',
+            })),
+          ),
+          warranty: warranty
+            ? { is_active: warranty.status === 'ACTIVE', expiry_date: warranty.expiry_date?.toISOString() ?? '', used_free_count: 0 }
+            : { is_active: false, expiry_date: '', used_free_count: 0 },
+        };
+      }),
+      total,
+      page: params.page,
+      limit: params.limit,
+      last_page: Math.ceil(total / params.limit),
+    };
+  }
+
+  private computeDigitalAssets(
+    sessions: Array<{ biometric_capture_items: Array<{ capture_type: string | null }> }>,
+  ) {
+    const types = new Set<string>();
+    for (const s of sessions)
+      for (const item of s.biometric_capture_items)
+        if (item.capture_type) types.add(item.capture_type);
+    return {
+      has_voice: types.has('VOICE'),
+      has_fingerprint: types.has('FINGERPRINT'),
+      has_heartbeat: types.has('HEARTBEAT'),
     };
   }
 
