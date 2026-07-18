@@ -16,6 +16,8 @@ model ai_messages {
   metadata      Json?
   created_at    DateTime?   @db.Timestamptz(6)
   ai_sessions   ai_sessions @relation(fields: [ai_session_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([ai_session_id, created_at], map: "ai_messages_session_created_idx")
 }
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
@@ -26,11 +28,18 @@ model ai_sessions {
   topic                String?         @db.VarChar(255)
   summary              String?
   final_recommendation Json?
+  workspace_id         String?         @db.VarChar(255)
+  user_preferences     Json?
+  last_intent          String?         @db.VarChar(100)
+  current_intent       String?         @db.VarChar(100)
+  last_message         String?
   created_at           DateTime?       @db.Timestamptz(6)
   updated_at           DateTime?       @db.Timestamptz(6)
   ai_messages          ai_messages[]
   users                users?          @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   design_drafts        design_drafts[]
+
+  @@index([user_id, workspace_id, updated_at(sort: Desc)], map: "ai_sessions_user_workspace_updated_idx")
 }
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
@@ -777,6 +786,7 @@ model users {
   refresh_tokens                                                           refresh_tokens[]
   warranty_claims_warranty_claims_manager_idTousers                        warranty_claims[]            @relation("warranty_claims_manager_idTousers")
   warranty_claims_warranty_claims_requested_by_user_idTousers              warranty_claims[]            @relation("warranty_claims_requested_by_user_idTousers")
+  knowledge_documents                                                      knowledge_documents[]
 
   @@index([phone])
 }
@@ -851,4 +861,26 @@ model refresh_tokens {
 
   @@index([user_id])
   @@index([token])
+}
+
+model knowledge_documents {
+  id              String   @id @db.Uuid
+  workspace_id    String   @db.VarChar(255)
+  user_id         String   @db.Uuid
+  original_name   String   @db.VarChar(500)
+  mimetype        String   @db.VarChar(100)
+  size            Int
+  storage_key     String   @db.VarChar(1000)
+  status          String   @default("PENDING") @db.VarChar(50)
+  chunk_count     Int      @default(0)
+  error_message   String?
+  document_type   String   @default("general") @db.VarChar(100)
+  retrieval_types Json     @default("[]")
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @updatedAt @db.Timestamptz(6)
+  users           users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([workspace_id, user_id, created_at(sort: Desc)])
+  @@index([workspace_id, document_type])
+  @@index([status])
 }

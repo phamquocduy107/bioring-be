@@ -1,11 +1,15 @@
 import 'dotenv/config';
+import { join } from 'node:path';
+import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const logger = new Logger('API Gateway');
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   // =========================================================
   // 1. COOKIE PARSER
@@ -46,11 +50,17 @@ async function bootstrap() {
   });
 
   // =========================================================
-  // 4. CORS
+  // 4. CORS — reflect request Origin (works with credentials locally)
+  // Prefer same-origin demo: /demo/knowledge-chat-demo.html
   // =========================================================
   app.enableCors({
-    origin: process.env.FRONTEND_URL ?? '*',
+    origin: true,
     credentials: true,
+  });
+
+  // Static knowledge chat demo (same-origin → no CORS issues)
+  app.useStaticAssets(join(process.cwd(), 'docs'), {
+    prefix: '/demo/',
   });
 
   // =========================================================
@@ -60,7 +70,8 @@ async function bootstrap() {
   const port = Number(process.env.PORT ?? 3000);
   await app.listen(port);
 
-  console.log(`[API Gateway] HTTP Server running on port ${port}`);
-  console.log(`[API Gateway] Swagger docs at http://localhost:${port}/docs`);
+  logger.log(`HTTP Server running on port ${port}`);
+  logger.log(`Swagger docs at http://localhost:${port}/docs`);
+  logger.log(`Chat demo at http://localhost:${port}/demo/knowledge-chat-demo.html`);
 }
 void bootstrap();

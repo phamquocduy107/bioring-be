@@ -18,7 +18,8 @@
     "start:ecommerce": "nest start ecommerce-service --watch",
     "start:identity": "nest start identity-service --watch",
     "start:biometric": "nest start biometric-service --watch",
-    "dev": "concurrently -k -p \"[{name}]\" -n \"GATEWAY,IDENTITY,ECOMMERCE,BIOMETRIC\" -c \"cyan,green,yellow,blue\" \"npm run start:gateway\" \"npm run start:identity\" \"npm run start:ecommerce\" \"npm run start:biometric\"",
+    "start:rag": "nest start rag-service --watch",
+    "dev": "concurrently -k -p \"[{name}]\" -n \"GATEWAY,IDENTITY,ECOMMERCE,BIOMETRIC,RAG\" -c \"cyan,green,yellow,blue,magenta\" \"npm run start:gateway\" \"npm run start:identity\" \"npm run start:ecommerce\" \"npm run start:biometric\" \"npm run start:rag\"",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -29,7 +30,10 @@
     "prisma:pull": "prisma db pull --schema=./libs/prisma/prisma/schema.prisma",
     "prisma:migrate": "prisma migrate dev --schema=./libs/prisma/prisma/schema.prisma",
     "sync:permissions": "ts-node -r tsconfig-paths/register scripts/sync-permissions.ts",
-    "prisma:seed": "ts-node -r tsconfig-paths/register libs/prisma/prisma/seed.ts"
+    "prisma:seed": "ts-node -r tsconfig-paths/register libs/prisma/prisma/seed.ts",
+    "rag:worker": "cd rag-python && .\\.venv\\Scripts\\python.exe -m ingestion_worker.rabbitmq_worker",
+    "rag:engine": "cd rag-python && .\\.venv\\Scripts\\python.exe -m uvicorn rag_engine.main:app --host 0.0.0.0 --port 8000 --reload",
+    "rag:python": "concurrently -n worker,engine -c yellow,cyan \"npm run rag:worker\" \"npm run rag:engine\""
   },
   "prisma": {
     "seed": "ts-node -r tsconfig-paths/register libs/prisma/prisma/seed.ts"
@@ -53,6 +57,7 @@
     "@nestjs/swagger": "^11.2.5",
     "@payos/node": "^2.0.5",
     "@prisma/client": "^6.19.2",
+    "@qdrant/js-client-rest": "^1.18.0",
     "@sendgrid/mail": "^8.1.6",
     "amqp-connection-manager": "^5.0.0",
     "amqplib": "^0.10.9",
@@ -62,9 +67,11 @@
     "cloudinary": "^2.10.0",
     "cookie-parser": "^1.4.7",
     "ioredis": "^5.9.2",
+    "minio": "^8.0.7",
     "mongoose": "^9.3.0",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
+    "pdf-parse": "^2.4.5",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },
@@ -81,6 +88,7 @@
     "@types/node": "^24.0.0",
     "@types/passport": "^1.0.17",
     "@types/passport-google-oauth20": "^2.0.17",
+    "@types/pdf-parse": "^1.1.5",
     "@types/supertest": "^7.0.0",
     "concurrently": "^9.2.1",
     "eslint": "^9.18.0",
