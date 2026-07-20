@@ -31,6 +31,14 @@ export class OrderController {
     );
   }
 
+  @GrpcMethod('EcommerceService', 'AttachBiometricsBulk')
+  async attachBiometricsBulk(data: {
+    engravingId: string;
+    biometrics: Array<{ biometricType: string; rawFileUrl: string; extraData?: string }>;
+  }) {
+    return this.orderService.attachBiometricsBulk(data.engravingId, data.biometrics);
+  }
+
   @GrpcMethod('EcommerceService', 'GetOrder')
   async getOrder(data: { id: string }) {
     return this.orderService.getOrder(data.id);
@@ -187,5 +195,86 @@ export class OrderController {
   @GrpcMethod('EcommerceService', 'LookupOrder')
   async lookupOrder(data: { orderCode: string }) {
     return this.orderService.lookupOrder(data.orderCode);
+  }
+
+  @GrpcMethod('EcommerceService', 'CancelOrder')
+  async cancelOrder(data: { id: string; reason: string }) {
+    return this.orderService.cancelOrder(data.id, data.reason);
+  }
+
+  @GrpcMethod('EcommerceService', 'ConfirmPickup')
+  async confirmPickup(data: { orderId: string; staffId: string; note?: string }) {
+    return this.orderService.confirmPickup(data.orderId, data.staffId, data.note);
+  }
+
+  @GrpcMethod('EcommerceService', 'ManualPayment')
+  async manualPayment(data: {
+    orderId: string;
+    paymentPhase: string;
+    amount: number;
+    receivedBy: string;
+    paymentMethod: string;
+    reference?: string;
+  }) {
+    return this.orderService.manualPayment(data.orderId, data);
+  }
+
+  @GrpcMethod('EcommerceService', 'GetPaymentStatus')
+  async getPaymentStatus(data: { orderId: string }) {
+    return this.orderService.getPaymentStatus(data.orderId);
+  }
+
+  @GrpcMethod('EcommerceService', 'ListPayments')
+  async listPayments(data: {
+    page: number;
+    limit: number;
+    status?: string;
+    method?: string;
+  }) {
+    return this.orderService.listPayments(data);
+  }
+
+  @GrpcMethod('EcommerceService', 'GetTransactionOverview')
+  async getTransactionOverview() {
+    return this.orderService.getTransactionOverview();
+  }
+
+  @GrpcMethod('EcommerceService', 'ListDeliveries')
+  async listDeliveries(data: {
+    page: number;
+    limit: number;
+    status?: string;
+    from_date?: string;
+    to_date?: string;
+    search?: string;
+  }) {
+    return this.orderService.listDeliveries(data);
+  }
+
+  // ===== Finance Mutations =====
+
+  @GrpcMethod('EcommerceService', 'ForcePaidPayment')
+  async forcePaidPayment(data: { paymentId: string; adminId: string }) {
+    return this.orderService.forcePaidPayment(data.paymentId, data.adminId);
+  }
+
+  @GrpcMethod('EcommerceService', 'SyncPaymentStatus')
+  async syncPaymentStatus(data: { paymentId: string }) {
+    return this.orderService.syncPaymentStatus(data.paymentId);
+  }
+
+  @GrpcMethod('EcommerceService', 'RefundPayment')
+  async refundPayment(data: { paymentId: string; adminId: string; reason: string }) {
+    return this.orderService.refundPayment(data.paymentId, data.adminId, data.reason);
+  }
+
+  @GrpcMethod('EcommerceService', 'UpdateShippingFee')
+  async updateShippingFee(data: { paymentId: string; amount: number }) {
+    return this.orderService.updateShippingFee(data.paymentId, data.amount);
+  }
+
+  @GrpcMethod('EcommerceService', 'ListPickups')
+  async listPickups(data: { limit?: number; status?: string; search?: string }) {
+    return this.orderService.listPickups(data);
   }
 }

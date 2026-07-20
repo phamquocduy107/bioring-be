@@ -1,5 +1,5 @@
 import { applyDecorators } from '@nestjs/common';
-import { ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
+import { ApiOperation, ApiParam, ApiBody, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 
 export function ApiGetProductsDocs() {
   return applyDecorators(
@@ -122,6 +122,38 @@ export function ApiGetMaterialsDocs() {
         },
       },
     }),
+  );
+}
+
+export function ApiCreateProductDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({ summary: 'Create product', description: 'Admin creates a new catalog product.' }),
+    ApiBody({ schema: { example: { name: 'Classic Band', base_price: 5000000 } } }),
+    ApiResponse({ status: 201, description: 'Created', schema: { example: { success: true, id: 'uuid' } } }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+    ApiResponse({ status: 403, description: 'Forbidden' }),
+  );
+}
+
+export function ApiUpdateProductDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({ summary: 'Update product', description: 'Admin updates a catalog product.' }),
+    ApiParam({ name: 'id' }),
+    ApiBody({ schema: { example: { name: 'Classic Band Updated', base_price: 6000000 } } }),
+    ApiResponse({ status: 200, description: 'Updated', schema: { example: { success: true } } }),
+    ApiResponse({ status: 404, description: 'Not found' }),
+  );
+}
+
+export function ApiDeleteProductDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({ summary: 'Delete product', description: 'Soft-delete a catalog product.' }),
+    ApiParam({ name: 'id' }),
+    ApiResponse({ status: 200, description: 'Deleted', schema: { example: { success: true } } }),
+    ApiResponse({ status: 404, description: 'Not found' }),
   );
 }
 

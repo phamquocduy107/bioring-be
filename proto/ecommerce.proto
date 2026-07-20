@@ -3,6 +3,9 @@ syntax = "proto3";
 package ecommerce;
 
 service EcommerceService {
+  // Customers (B4)
+  rpc ListCustomers (ListCustomersRequest) returns (ListCustomersResponse);
+
   // Catalog
   rpc GetProducts (GetProductsRequest) returns (GetProductsResponse);
   rpc GetProductById (GetProductByIdRequest) returns (GetProductByIdResponse);
@@ -32,11 +35,18 @@ service EcommerceService {
   // Orders — MF-03
   rpc SubmitOrder (SubmitOrderRequest) returns (SubmitOrderResponse);
   rpc AttachBiometric (AttachBiometricRequest) returns (AttachBiometricResponse);
+  rpc AttachBiometricsBulk (AttachBiometricsBulkRequest) returns (AttachBiometricsBulkResponse);
 
   // Payments
   rpc InitiatePayment (InitiatePaymentRequest) returns (InitiatePaymentResponse);
   rpc HandlePayOSWebhook (PayOSWebhookRequest) returns (PayOSWebhookResponse);
   rpc CancelPayment (CancelPaymentRequest) returns (CancelPaymentResponse);
+  rpc CancelOrder (CancelOrderRequest) returns (GetOrderResponse);
+
+  // Manual payment (POS)
+  rpc ManualPayment (ManualPaymentRequest) returns (ManualPaymentResponse);
+  rpc ConfirmPickup (ConfirmPickupRequest) returns (ConfirmPickupResponse);
+  rpc GetPaymentStatus (GetPaymentStatusRequest) returns (GetPaymentStatusResponse);
 
 // Production
 rpc AssignJeweler (AssignJewelerRequest) returns (AssignJewelerResponse);
@@ -74,6 +84,79 @@ rpc GetProductionTasks (GetProductionTasksRequest) returns (GetProductionTasksRe
   rpc GuestGetOrder (GuestGetOrderRequest) returns (GetOrderResponse);
   rpc GuestInitiatePayment (GuestInitiatePaymentRequest) returns (GuestInitiatePaymentResponse);
   rpc GuestSetShippingInfo (GuestSetShippingInfoRequest) returns (GuestSetShippingInfoResponse);
+
+  // Capture Session (P4)
+  rpc CreateCaptureSession (CreateCaptureSessionRequest) returns (CreateCaptureSessionResponse);
+  rpc CompleteCaptureSession (CompleteCaptureSessionRequest) returns (CreateCaptureSessionResponse);
+  rpc GetCaptureSessions (GetCaptureSessionsRequest) returns (GetCaptureSessionsResponse);
+  rpc GetCaptureSession (GetCaptureSessionRequest) returns (CreateCaptureSessionResponse);
+
+  // Admin Dashboard (P5)
+  rpc GetDashboardSummary (Empty) returns (DashboardSummaryResponse);
+  rpc GetOrdersByStatus (Empty) returns (OrdersByStatusResponse);
+  rpc GetRevenueTimeline (RevenueTimelineRequest) returns (RevenueTimelineResponse);
+  rpc GetTopProducts (TopProductsRequest) returns (TopProductsResponse);
+
+  // MF-06: Warranty & Service Claim
+  rpc CreateWarrantyClaim (CreateWarrantyClaimRequest) returns (CreateWarrantyClaimResponse);
+  rpc CreateWarrantyClaimByLookup (CreateWarrantyClaimByLookupRequest) returns (CreateWarrantyClaimResponse);
+  rpc GetWarrantyClaim (GetWarrantyClaimRequest) returns (GetWarrantyClaimResponse);
+  rpc GetMyWarrantyClaims (GetMyWarrantyClaimsRequest) returns (GetMyWarrantyClaimsResponse);
+  rpc ReviewWarrantyClaim (ReviewWarrantyClaimRequest) returns (GetWarrantyClaimResponse);
+  rpc ConfirmWarrantyClaim (ConfirmWarrantyClaimRequest) returns (GetWarrantyClaimResponse);
+  rpc InitiateClaimPayment (InitiateClaimPaymentRequest) returns (InitiatePaymentResponse);
+  rpc ReceiveServiceTicket (ReceiveServiceTicketRequest) returns (GetWarrantyClaimResponse);
+  rpc CompleteServiceTicket (CompleteServiceTicketRequest) returns (GetWarrantyClaimResponse);
+  rpc ReturnWarrantyClaim (ReturnWarrantyClaimRequest) returns (GetWarrantyClaimResponse);
+
+  // Customer lookup (Staff Dashboard)
+  rpc LookupCustomer (LookupCustomerRequest) returns (LookupCustomerResponse);
+
+  // FE API Gaps — Transactions (B1 + B2)
+  rpc ListPayments (ListPaymentsRequest) returns (ListPaymentsResponse);
+  rpc GetTransactionOverview (Empty) returns (TransactionOverviewResponse);
+
+  // Finance mutations
+  rpc ForcePaidPayment (ForcePaidPaymentRequest) returns (ForcePaidPaymentResponse);
+  rpc SyncPaymentStatus (SyncPaymentStatusRequest) returns (SyncPaymentStatusResponse);
+  rpc RefundPayment (RefundPaymentRequest) returns (RefundPaymentResponse);
+  rpc UpdateShippingFee (UpdateShippingFeeRequest) returns (UpdateShippingFeeResponse);
+
+  // FE API Gaps — Monthly Growth (B3)
+  rpc GetMonthlyGrowth (GetMonthlyGrowthRequest) returns (GetMonthlyGrowthResponse);
+
+  // FE API Gaps — Audit Logs (B5)
+  rpc ListAuditLogs (ListAuditLogsRequest) returns (ListAuditLogsResponse);
+
+  // FE API Gaps — Devices (B6)
+  rpc ListDevices (ListDevicesRequest) returns (ListDevicesResponse);
+  rpc GetDevice (GetDeviceRequest) returns (GetDeviceResponse);
+  rpc CreateDevice (CreateDeviceRequest) returns (MutateDeviceResponse);
+  rpc UpdateDevice (UpdateDeviceRequest) returns (MutateDeviceResponse);
+  rpc DeleteDevice (DeleteDeviceRequest) returns (DeleteDeviceResponse);
+
+  // FE API Gaps — Engraving Cancel (B7)
+  rpc CancelEngraving (CancelEngravingRequest) returns (CancelEngravingResponse);
+
+  // FE API Gaps — Product CRUD (B8)
+  rpc CreateProduct (CreateProductRequest) returns (MutateProductResponse);
+  rpc UpdateProduct (UpdateProductRequest) returns (MutateProductResponse);
+  rpc DeleteProduct (DeleteProductRequest) returns (MutateProductResponse);
+
+  // FE API Gaps — Guest Customer Listing
+  rpc ListGuestCustomers (ListGuestCustomersRequest) returns (ListGuestCustomersResponse);
+
+  // FE API Gaps — Delivery Listing
+  rpc ListDeliveries (ListDeliveriesRequest) returns (ListDeliveriesResponse);
+
+  // Pickups (In-Store)
+  rpc ListPickups (ListPickupsRequest) returns (ListPickupsResponse);
+
+  // FE API Gaps — Production Stats
+  rpc GetProductionStats (Empty) returns (ProductionStatsResponse);
+
+  // FE API Gaps — Jeweler Performance
+  rpc GetMyPerformance (GetMyPerformanceRequest) returns (GetMyPerformanceResponse);
 }
 
 // ===== Messages =====
@@ -87,6 +170,7 @@ message ClaimDesignDraftResponse {
   DesignDraft draft = 1;
   Engraving engraving = 2;
   EngravingVersion engravingVersion = 3;
+  string qrCode = 4;
 }
 
 // ===== Generic =====
@@ -378,6 +462,22 @@ message AttachBiometricResponse {
   EngravingBioMetric biometric = 1;
 }
 
+message AttachBiometricsBulkRequest {
+  string engravingId = 1;
+  repeated BulkBiometricItem biometrics = 2;
+}
+
+message BulkBiometricItem {
+  string biometricType = 1;
+  string rawFileUrl = 2;
+  string extraData = 3;
+}
+
+message AttachBiometricsBulkResponse {
+  int32 count = 1;
+  repeated EngravingBioMetric biometrics = 2;
+}
+
 // === Engraving messages ===
 message Engraving {
   string id = 1;
@@ -470,6 +570,126 @@ message CancelPaymentResponse {
   string orderCode = 2;
 }
 
+// === Manual Payment (POS) ===
+message ManualPaymentRequest {
+  string orderId = 1;
+  string paymentPhase = 2;
+  double amount = 3;
+  string receivedBy = 4;
+  string paymentMethod = 5;
+  string reference = 6;
+}
+
+message ManualPaymentResponse {
+  Payment payment = 1;
+  Order order = 2;
+}
+
+message ForcePaidPaymentRequest {
+  string paymentId = 1;
+  string adminId = 2;
+}
+
+message ForcePaidPaymentResponse {
+  Payment payment = 1;
+}
+
+message SyncPaymentStatusRequest {
+  string paymentId = 1;
+}
+
+message SyncPaymentStatusResponse {
+  Payment payment = 1;
+  string payosStatus = 2;
+  string orderCode = 3;
+}
+
+message RefundPaymentRequest {
+  string paymentId = 1;
+  string adminId = 2;
+  string reason = 3;
+}
+
+message RefundPaymentResponse {
+  Payment payment = 1;
+}
+
+message UpdateShippingFeeRequest {
+  string paymentId = 1;
+  double amount = 2;
+}
+
+message UpdateShippingFeeResponse {
+  bool success = 1;
+}
+
+message ConfirmPickupRequest {
+  string orderId = 1;
+  string staffId = 2;
+  string note = 3;
+}
+
+message ConfirmPickupResponse {
+  bool success = 1;
+  Order order = 2;
+  string warrantyCode = 3;
+  string warrantyExpiry = 4;
+  bool qrMemoryUnlocked = 5;
+}
+
+message GetPaymentStatusRequest { string orderId = 1; }
+
+message PaymentPhaseInfo {
+  string phase = 1;
+  string status = 2;
+  double amount = 3;
+  string method = 4;
+  string paidAt = 5;
+}
+
+message GetPaymentStatusResponse {
+  string orderId = 1;
+  string orderCode = 2;
+  double totalPrice = 3;
+  double paidAmount = 4;
+  double remainingAmount = 5;
+  repeated PaymentPhaseInfo phases = 6;
+}
+
+// === Customer Lookup ===
+message LookupCustomerRequest { string email = 1; }
+
+message LookupCustomerResponse {
+  string type = 1;
+  MemberInfo member = 2;
+  GuestInfo guest = 3;
+}
+
+message MemberInfo {
+  string id = 1;
+  string fullName = 2;
+  string email = 3;
+  string phone = 4;
+  int32 orderCount = 5;
+  int32 activeOrders = 6;
+}
+
+message GuestInfo {
+  string id = 1;
+  string guestCode = 2;
+  string fullName = 3;
+  string phone = 4;
+  string email = 5;
+  int32 orderCount = 6;
+  string lastOrderAt = 7;
+  string convertedAt = 8;
+}
+
+message CancelOrderRequest {
+  string id = 1;
+  string reason = 2;
+}
+
 // === Production ===
 message ProductionTask {
   string id = 1;
@@ -484,6 +704,9 @@ message ProductionTask {
   string createdAt = 10;
   string taskName = 11;
   string taskDescription = 12;
+  string orderCode = 13;
+  string customerName = 14;
+  string ringSize = 15;
 }
 
 message AssignJewelerRequest {
@@ -511,6 +734,7 @@ message GetProductionTasksRequest {
   string status = 3;
   string orderId = 4;
   string jewelerId = 5;
+  bool all = 6;
 }
 
 message GetProductionTasksResponse {
@@ -725,10 +949,13 @@ message CreateGuestSessionRequest {
 
 message CreateGuestSessionResponse {
   GuestCustomer guest = 1;
+  bool isMember = 2;
+  bool isExistingGuest = 3;
+  string message = 4;
 }
 
 message CreateGuestOrderRequest {
-  string guestCustomerId = 1;
+  string guestCode = 1;
   string productId = 2;
   string staffId = 3;
 }
@@ -805,6 +1032,7 @@ message GuestInitiatePaymentRequest {
 message GuestInitiatePaymentResponse {
   Payment payment = 1;
   string paymentUrl = 2;
+  string qrCode = 3;
 }
 
 // MF-04 Guest Shipping Info — guest chọn delivery method + nhập địa chỉ trên tablet
@@ -826,4 +1054,575 @@ message GuestSetShippingInfoResponse {
   string recipientName = 5;
   string recipientPhone = 6;
   string shippingAddressText = 7;
+}
+
+// === Admin Dashboard (P5) ===
+message DashboardSummaryResponse {
+  int32 totalOrders = 1;
+  int32 completedOrders = 2;
+  double totalRevenue = 3;
+  int32 activeUsers = 4;
+}
+
+message OrdersByStatusResponse {
+  message StatusCount {
+    string status = 1;
+    int32 count = 2;
+  }
+  repeated StatusCount data = 1;
+}
+
+message RevenueTimelineRequest {
+  int32 days = 1;
+}
+
+message RevenueTimelineResponse {
+  message DayRevenue {
+    string date = 1;
+    double revenue = 2;
+  }
+  repeated DayRevenue data = 1;
+}
+
+message TopProductsRequest {
+  int32 limit = 1;
+}
+
+message TopProductsResponse {
+  message ProductSales {
+    string id = 1;
+    string name = 2;
+    int32 orderCount = 3;
+  }
+  repeated ProductSales data = 1;
+}
+
+// === Capture Session (P4) ===
+message CreateCaptureSessionRequest {
+  string orderId = 1;
+  string staffId = 2;
+  string deviceId = 3;
+}
+
+message CreateCaptureSessionResponse {
+  CaptureSession session = 1;
+}
+
+message CompleteCaptureSessionRequest {
+  string id = 1;
+  double qualityScore = 2;
+  string staffNote = 3;
+}
+
+message GetCaptureSessionsRequest {
+  string orderId = 1;
+}
+
+message GetCaptureSessionsResponse {
+  repeated CaptureSession data = 1;
+}
+
+message GetCaptureSessionRequest {
+  string id = 1;
+}
+
+message CaptureSession {
+  string id = 1;
+  string orderId = 2;
+  string engravingId = 3;
+  string customerId = 4;
+  string guestCustomerId = 5;
+  string staffId = 6;
+  string deviceId = 7;
+  string status = 8;
+  double qualityScore = 9;
+  string staffNote = 10;
+  string startedAt = 11;
+  string completedAt = 12;
+}
+
+// === MF-06: Warranty & Service Claim ===
+message WarrantyClaim {
+  string id = 1;
+  string claimCode = 2;
+  string warrantyId = 3;
+  string orderId = 4;
+  string engravingId = 5;
+  string serviceType = 6;
+  string issueDescription = 7;
+  repeated string proofImages = 8;
+  string status = 9;
+  string chargeStatus = 10;
+  double extraFee = 11;
+  string managerNote = 12;
+  string customerConfirmedAt = 13;
+  string createdAt = 14;
+  string updatedAt = 15;
+  repeated ServiceTicketMessage serviceTickets = 16;
+}
+
+message ServiceTicketMessage {
+  string id = 1;
+  string ticketCode = 2;
+  string warrantyClaimId = 3;
+  string assignedStaffId = 4;
+  string assignedJewelerId = 5;
+  string assignedJewelerName = 6;
+  string status = 7;
+  string receivedProductAt = 8;
+  string serviceCompletedAt = 9;
+  string resultNote = 10;
+  double costUpdate = 11;
+}
+
+message CreateWarrantyClaimRequest {
+  string warrantyId = 1;
+  string orderId = 2;
+  string serviceType = 3;
+  string issueDescription = 4;
+  repeated string proofImages = 5;
+  repeated string proofVideos = 6;
+  string userId = 7;
+}
+
+message CreateWarrantyClaimByLookupRequest {
+  string orderCode = 1;
+  string serviceType = 2;
+  string issueDescription = 3;
+  repeated string proofImages = 4;
+  repeated string proofVideos = 5;
+}
+
+message CreateWarrantyClaimResponse {
+  WarrantyClaim claim = 1;
+}
+
+message GetWarrantyClaimRequest {
+  string id = 1;
+}
+
+message GetWarrantyClaimResponse {
+  WarrantyClaim claim = 1;
+}
+
+message GetMyWarrantyClaimsRequest {
+  string userId = 1;
+  int32 page = 2;
+  int32 limit = 3;
+  bool viewAll = 4;
+}
+
+message GetMyWarrantyClaimsResponse {
+  repeated WarrantyClaim data = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 lastPage = 5;
+}
+
+message ReviewWarrantyClaimRequest {
+  string id = 1;
+  string action = 2;
+  double extraFee = 3;
+  string managerNote = 4;
+  string managerId = 5;
+}
+
+message ConfirmWarrantyClaimRequest {
+  string id = 1;
+  string userId = 2;
+}
+
+message InitiateClaimPaymentRequest {
+  string claimId = 1;
+  string userId = 2;
+  string returnUrl = 3;
+  string cancelUrl = 4;
+}
+
+message ReceiveServiceTicketRequest {
+  string claimId = 1;
+  string conditionNote = 2;
+  repeated string receivedImages = 3;
+  string jewelerId = 4;
+  string staffId = 5;
+}
+
+message CompleteServiceTicketRequest {
+  string claimId = 1;
+  string resultNote = 2;
+  double costUpdate = 3;
+  string jewelerId = 4;
+}
+
+message ReturnWarrantyClaimRequest {
+  string id = 1;
+  string staffId = 2;
+}
+
+// === Transactions (B1 + B2) ===
+message ListPaymentsRequest {
+  int32 page = 1;
+  int32 limit = 2;
+  string status = 3;
+  string method = 4;
+}
+
+message CustomerBrief {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+}
+
+message PaymentTransaction {
+  string id = 1;
+  string transaction_id = 2;
+  string order_id = 3;
+  string order_number = 4;
+  CustomerBrief customer = 5;
+  string method = 6;
+  double amount = 7;
+  string status = 8;
+  string created_at = 9;
+}
+
+message ListPaymentsResponse {
+  repeated PaymentTransaction data = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 last_page = 5;
+}
+
+message TransactionOverviewResponse {
+  double gross_revenue = 1;
+  double net_revenue = 2;
+  double pending_cod = 3;
+  double refunded = 4;
+  double gross_change = 5;
+  double net_change = 6;
+  double pending_change = 7;
+  double refunded_change = 8;
+}
+
+// === Monthly Growth (B3) ===
+message GetMonthlyGrowthRequest {
+  int32 months = 1;
+}
+
+message MonthlyRevenue {
+  string month = 1;
+  double revenue = 2;
+}
+
+message GetMonthlyGrowthResponse {
+  repeated MonthlyRevenue data = 1;
+}
+
+// === Customer Listing (B4) ===
+message ListCustomersRequest {
+  int32 page = 1;
+  int32 limit = 2;
+  string search = 3;
+  string status = 4;
+  string sort_by = 5;
+  string sort_order = 6;
+}
+
+message CustomerInfo {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+  string phone = 4;
+  string avatar = 5;
+  string status = 6;
+  int32 total_orders = 7;
+  double total_spent = 8;
+  string last_order_date = 9;
+  string join_date = 10;
+  string location = 11;
+}
+
+message ListCustomersResponse {
+  repeated CustomerInfo data = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 last_page = 5;
+}
+
+// === Audit Logs (B5) ===
+message ListAuditLogsRequest {
+  int32 page = 1;
+  int32 limit = 2;
+  string resource = 3;
+  string from_date = 4;
+  string to_date = 5;
+}
+
+message AuditLogActor {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+}
+
+message AuditLogEntry {
+  string id = 1;
+  string timestamp = 2;
+  AuditLogActor actor = 3;
+  string action = 4;
+  string resource = 5;
+  string resource_id = 6;
+  string description = 7;
+  string result = 8;
+  string metadata = 9;
+}
+
+message ListAuditLogsResponse {
+  repeated AuditLogEntry data = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 last_page = 5;
+}
+
+// === Devices (B6) ===
+message ListDevicesRequest {
+  int32 page = 1;
+  int32 limit = 2;
+  string status = 3;
+  string search = 4;
+}
+
+message DeviceInfo {
+  string id = 1;
+  string serial_number = 2;
+  string model = 3;
+  string status = 4;
+  string firmware = 5;
+  string last_seen = 6;
+  double rssi = 7;
+  double uptime = 8;
+  double cpu = 9;
+  double memory = 10;
+}
+
+message ListDevicesResponse {
+  repeated DeviceInfo data = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 last_page = 5;
+}
+
+message GetDeviceRequest { string id = 1; }
+message GetDeviceResponse { DeviceInfo device = 1; }
+
+message CreateDeviceRequest {
+  string device_name = 1;
+  string mac_address = 2;
+  string device_type = 3;
+}
+
+message UpdateDeviceRequest {
+  string id = 1;
+  string device_name = 2;
+  string device_type = 3;
+  string status = 4;
+  string firmware_version = 5;
+}
+
+message MutateDeviceResponse { DeviceInfo device = 1; }
+message DeleteDeviceRequest { string id = 1; }
+message DeleteDeviceResponse { bool success = 1; }
+
+// === Engraving Cancel (B7) ===
+message CancelEngravingRequest {
+  string id = 1;
+  string user_id = 2;
+}
+
+message CancelEngravingResponse {
+  bool success = 1;
+}
+
+// === Product CRUD (B8) ===
+message CreateProductRequest {
+  string name = 1;
+  string description = 2;
+  string base_material_id = 3;
+  double base_price = 4;
+  string thumbnail_url = 5;
+  string model_3d_url = 6;
+}
+
+message UpdateProductRequest {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string base_material_id = 4;
+  double base_price = 5;
+  string thumbnail_url = 6;
+  string model_3d_url = 7;
+}
+
+message DeleteProductRequest {
+  string id = 1;
+}
+
+message MutateProductResponse {
+  bool success = 1;
+}
+
+// === Guest Customer Listing ===
+message ListGuestCustomersRequest {
+  int32 page = 1;
+  int32 limit = 2;
+  string search = 3;
+}
+
+message GuestCustomerInfo {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+  string phone = 4;
+  string status = 5;
+  int32 total_orders = 6;
+  double total_spent = 7;
+  string last_order_date = 8;
+  string join_date = 9;
+  DigitalAssetsSummary digital_assets = 10;
+  string qr_memory_status = 11;
+  repeated ServiceTicketInfo service_tickets = 12;
+  WarrantyInfo warranty = 13;
+}
+
+message DigitalAssetsSummary {
+  bool has_voice = 1;
+  bool has_fingerprint = 2;
+  bool has_heartbeat = 3;
+}
+
+message ServiceTicketInfo {
+  string id = 1;
+  string ticket_code = 2;
+  string service_type = 3;
+  string status = 4;
+  string created_at = 5;
+}
+
+message WarrantyInfo {
+  bool is_active = 1;
+  string expiry_date = 2;
+  int32 used_free_count = 3;
+}
+
+message ListGuestCustomersResponse {
+  repeated GuestCustomerInfo data = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 last_page = 5;
+}
+
+// === Delivery Listing ===
+message ListDeliveriesRequest {
+  int32 page = 1;
+  int32 limit = 2;
+  string status = 3;
+  string from_date = 4;
+  string to_date = 5;
+  string search = 6;
+}
+
+message DeliveryRecord {
+  string id = 1;
+  string order_code = 2;
+  string tracking_code = 3;
+  DeliveryCustomer customer = 4;
+  string payment_status = 5;
+  DeliveryStaffInfo delivery_staff = 6;
+  string status = 7;
+  string proof_of_delivery = 8;
+  string created_at = 9;
+}
+
+message DeliveryCustomer {
+  string name = 1;
+  string phone = 2;
+  string address = 3;
+}
+
+message DeliveryStaffInfo {
+  string id = 1;
+  string name = 2;
+  string avatar = 3;
+  string status = 4;
+  int32 current_deliveries = 5;
+}
+
+message DeliveryStats {
+  int32 ready_for_delivery = 1;
+  int32 in_transit = 2;
+  int32 waiting_for_pickup = 3;
+}
+
+message ListDeliveriesResponse {
+  repeated DeliveryRecord data = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 last_page = 5;
+  DeliveryStats stats = 6;
+}
+
+// === Production Stats ===
+message ProductionStatsResponse {
+  int32 total_jewelers = 1;
+  int32 in_progress = 2;
+  int32 pending_qa = 3;
+}
+
+// === Jeweler Performance ===
+message GetMyPerformanceRequest {
+  string from_date = 1;
+}
+
+message GetMyPerformanceResponse {
+  int32 completed_today = 1;
+  int32 completed_shift = 2;
+  double qa_pass_rate = 3;
+  double avg_hours = 4;
+  repeated CompletedTask recent_tasks = 5;
+}
+
+message CompletedTask {
+  string id = 1;
+  string order_code = 2;
+  string completed_at = 3;
+  string qa_result = 4;
+  double duration_hours = 5;
+}
+
+// === Pickups ===
+message ListPickupsRequest {
+  int32 limit = 1;
+  string status = 2;
+  string search = 3;
+}
+
+message PickupInfo {
+  string id = 1;
+  string order_code = 2;
+  string customer_name = 3;
+  string customer_phone = 4;
+  string payment_status = 5;
+  string status = 6;
+  string handover_staff_name = 7;
+  string handover_note = 8;
+  string proof_image = 9;
+}
+
+message ListPickupsResponse {
+  repeated PickupInfo data = 1;
 }

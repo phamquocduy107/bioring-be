@@ -2,7 +2,11 @@ import { IsIn, IsOptional, IsString, IsUUID } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class InitiateDeliveryDto {
-  @ApiProperty({ description: 'Delivery method', example: 'PICKUP', enum: ['PICKUP', 'DELIVERY'] })
+  @ApiProperty({
+    description: 'Delivery method',
+    example: 'PICKUP',
+    enum: ['PICKUP', 'DELIVERY'],
+  })
   @IsIn(['PICKUP', 'DELIVERY'])
   deliveryMethod!: string;
 
@@ -14,17 +18,26 @@ export class InitiateDeliveryDto {
   @IsString()
   recipientPhone!: string;
 
-  @ApiPropertyOptional({ description: 'Address ID (for DELIVERY)', format: 'uuid' })
+  @ApiPropertyOptional({
+    description: 'Address ID (for DELIVERY)',
+    format: 'uuid',
+  })
   @IsOptional()
   @IsUUID('4')
   addressId?: string;
 
-  @ApiPropertyOptional({ description: 'Shipping address text (for DELIVERY)', example: '123 đường ABC' })
+  @ApiPropertyOptional({
+    description: 'Shipping address text (for DELIVERY)',
+    example: '123 đường ABC',
+  })
   @IsOptional()
   @IsString()
   shippingAddressText?: string;
 
-  @ApiPropertyOptional({ description: 'Assigned delivery staff ID (for DELIVERY)', format: 'uuid' })
+  @ApiPropertyOptional({
+    description: 'Assigned delivery staff ID (for DELIVERY)',
+    format: 'uuid',
+  })
   @IsOptional()
   @IsUUID('4')
   assignedDeliveryStaffId?: string;

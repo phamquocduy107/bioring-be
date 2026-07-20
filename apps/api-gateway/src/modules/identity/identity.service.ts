@@ -16,6 +16,7 @@ export interface UserResponse {
   createdAt: string;
   updatedAt: string;
   roles: string[];
+  lastLogin: string;
 }
 
 export interface PermissionResponse {
@@ -61,6 +62,7 @@ interface IdentityGrpcService {
   getUsers(data: {
     page: number;
     limit: number;
+    role?: string;
   }): Observable<{ data: UserResponse[]; meta: PaginationMeta }>;
   getUserById(data: { id: string }): Observable<{ user: UserResponse }>;
   banUser(data: { id: string }): Observable<{ success: boolean }>;
@@ -69,6 +71,19 @@ interface IdentityGrpcService {
     userId: string;
     roleId: string;
   }): Observable<{ success: boolean }>;
+  createUser(data: {
+    email: string;
+    fullName: string;
+    phone?: string;
+    roleId?: string;
+  }): Observable<{ user: UserResponse }>;
+  updateUser(data: {
+    id: string;
+    email?: string;
+    fullName?: string;
+    phone?: string;
+    status?: string;
+  }): Observable<{ user: UserResponse }>;
   getRoles(data: Record<string, never>): Observable<{ roles: RoleResponse[] }>;
   getRoleWithPermissions(data: {
     id: string;
@@ -141,8 +156,8 @@ export class IdentityService implements OnModuleInit {
   }
 
   // Users
-  getUsers(page: number, limit: number) {
-    return this.call(() => this.grpc!.getUsers({ page, limit }));
+  getUsers(page: number, limit: number, role?: string) {
+    return this.call(() => this.grpc!.getUsers({ page, limit, role: role ?? '' }));
   }
   getUserById(id: string) {
     return this.call(() => this.grpc!.getUserById({ id }));
@@ -155,6 +170,12 @@ export class IdentityService implements OnModuleInit {
   }
   assignRole(userId: string, roleId: string) {
     return this.call(() => this.grpc!.assignRole({ userId, roleId }));
+  }
+  createUser(dto: { email: string; fullName: string; phone?: string; roleId?: string }) {
+    return this.call(() => this.grpc!.createUser(dto));
+  }
+  updateUser(dto: { id: string; email?: string; fullName?: string; phone?: string; status?: string }) {
+    return this.call(() => this.grpc!.updateUser(dto));
   }
 
   // RBAC

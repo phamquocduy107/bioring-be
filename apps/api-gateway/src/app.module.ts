@@ -19,11 +19,15 @@ import { BiometricModule } from './modules/biometric/biometric.module';
 import { EcommerceModule } from './modules/ecommerce/ecommerce.module';
 import { IdentityModule } from './modules/identity/identity.module';
 import { KnowledgeModule } from './modules/knowledge/knowledge.module';
+import { TrackController } from './modules/track/track.controller';
+import { PrismaModule } from '@app/prisma';
+
 
 @Module({
   imports: [
     CommonModule,
     RedisModule,
+    PrismaModule,
     BullConfigModule,
     BullBoardModule.forRoot({
       route: '/admin/queues',
@@ -64,6 +68,7 @@ import { KnowledgeModule } from './modules/knowledge/knowledge.module';
       provide: APP_INTERCEPTOR,
       useClass: TransformInterceptor,
     },
+    TrackController,
   ],
 })
 export class AppModule {}

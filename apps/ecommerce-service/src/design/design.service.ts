@@ -57,7 +57,6 @@ export class DesignService {
       } catch {
         throw new BadRequestException('customizationConfig must be valid JSON');
       }
-      this.validateCustomizationConfig(customizationConfig);
     }
 
     let designCode = generateDesignCode();
@@ -181,7 +180,6 @@ export class DesignService {
       } catch {
         throw new BadRequestException('customizationConfig must be valid JSON');
       }
-      this.validateCustomizationConfig(customizationConfig);
     }
 
     const updateData: Prisma.design_draftsUncheckedUpdateInput = {};
@@ -324,68 +322,6 @@ export class DesignService {
       },
       qrCode: result.qrCode,
     };
-  }
-
-  private validateCustomizationConfig(config: Record<string, unknown>): void {
-    if (
-      config === null ||
-      typeof config !== 'object' ||
-      Array.isArray(config)
-    ) {
-      throw new BadRequestException('customizationConfig must be an object');
-    }
-
-    if (
-      config.engravedType !== undefined &&
-      config.engravedType !== null &&
-      config.engravedType !== 'fp' &&
-      config.engravedType !== 'sw'
-    ) {
-      throw new BadRequestException('engravedType must be "fp", "sw", or null');
-    }
-
-    const positions = config.engravingPositions as
-      | Record<string, unknown>
-      | undefined;
-    if (
-      positions &&
-      typeof positions === 'object' &&
-      !Array.isArray(positions)
-    ) {
-      const fp = positions.fp as Record<string, unknown> | undefined;
-      if (fp && typeof fp === 'object') {
-        const pos = fp.position as Record<string, unknown> | undefined;
-        if (pos && typeof pos === 'object') {
-          if (typeof pos.x !== 'number' || pos.x < 0 || pos.x > 1)
-            throw new BadRequestException(
-              'fp.position.x must be a number between 0 and 1',
-            );
-          if (typeof pos.y !== 'number' || pos.y < 0 || pos.y > 1)
-            throw new BadRequestException(
-              'fp.position.y must be a number between 0 and 1',
-            );
-        }
-      }
-
-      const sw = positions.sw as Record<string, unknown> | undefined;
-      if (sw && typeof sw === 'object') {
-        const pos = sw.position as Record<string, unknown> | undefined;
-        if (pos && typeof pos === 'object') {
-          if (
-            typeof pos.startAngle !== 'number' ||
-            pos.startAngle < 0 ||
-            pos.startAngle > 360
-          )
-            throw new BadRequestException(
-              'sw.position.startAngle must be a number between 0 and 360',
-            );
-          if (typeof pos.width !== 'number' || pos.width < 0 || pos.width > 360)
-            throw new BadRequestException(
-              'sw.position.width must be a number between 0 and 360',
-            );
-        }
-      }
-    }
   }
 
   private mapProduct(product: ProductWithRelations) {

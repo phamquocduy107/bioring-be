@@ -1,0 +1,7 @@
+export enum ServiceType {
+  WARRANTY = 'WARRANTY',
+  CLEANING = 'CLEANING',
+  ADJUST_SIZE = 'ADJUST_SIZE',
+  REPAIR = 'REPAIR',
+  OTHER = 'OTHER',
+}

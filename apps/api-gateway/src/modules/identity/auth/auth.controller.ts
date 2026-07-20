@@ -6,9 +6,10 @@ import {
   Res,
   UnauthorizedException,
   UseGuards,
+  SetMetadata,
 } from '@nestjs/common';
-import { Public } from '@app/common';
-import type { RequestWithUser } from '@app/common';
+import { Public, CurrentUser } from '@app/common';
+import type { JwtPayload, RequestWithUser } from '@app/common';
 import type { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { IdentityService } from '../identity.service';
@@ -18,6 +19,7 @@ import {
   ApiGoogleAuthCallbackDocs,
   ApiRefreshTokenDocs,
   ApiLogoutDocs,
+  ApiGetMeDocs,
 } from './auth.swagger';
 
 @Controller('auth')
@@ -118,5 +120,19 @@ export class AuthController {
     });
 
     return { message: 'Logged out successfully' };
+  }
+
+  @Get('me')
+  @SetMetadata('isPublic', false)
+  @ApiGetMeDocs()
+  async getMe(@CurrentUser() user: JwtPayload) {
+    const [userResp, permissionSlugs] = await Promise.all([
+      this.identityService.getUserById(user.sub),
+      this.identityService.getUserPermissions(user.sub),
+    ]);
+    return {
+      user: userResp,
+      permissions: permissionSlugs.permissionSlugs,
+    };
   }
 }

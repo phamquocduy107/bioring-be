@@ -1,7 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
-});
 
 async function main() {
   console.log('Syncing permissions and roles...');
@@ -34,6 +33,16 @@ async function main() {
 
     // Design
     { slug: 'design.write', description: 'Claim & manage design drafts' },
+
+    // Audit
+    { slug: 'audit.read', description: 'View audit logs' },
+
+    // IoT Devices
+    { slug: 'device.read', description: 'View IoT devices' },
+    { slug: 'device.write', description: 'Create/Update/Delete IoT devices' },
+
+    // Catalog
+    { slug: 'catalog.write', description: 'Manage catalogs' },
   ];
 
   // Upsert permissions
@@ -60,13 +69,12 @@ async function main() {
       description: 'Store manager',
       permissionSlugs: [
         'user.read',
+        'user.block',
         'role.read',
-        'product.read',
-        'product.write',
         'order.read',
         'order.write',
         'dashboard.view',
-        'settings.read',
+        'catalog.write',
       ],
     },
     {
@@ -85,6 +93,8 @@ async function main() {
       permissionSlugs: [
         'order.read',
         'product.read',
+        'order.write',
+        'dashboard.view',
       ],
     },
     {
@@ -92,6 +102,7 @@ async function main() {
       description: 'Delivery staff',
       permissionSlugs: [
         'order.read',
+        'order.write',
       ],
     },
     {

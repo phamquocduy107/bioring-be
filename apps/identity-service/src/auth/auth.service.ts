@@ -6,6 +6,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '@app/prisma';
+import SendGrid from '@sendgrid/mail';
 
 @Injectable()
 export class AuthService {
@@ -49,6 +50,10 @@ export class AuthService {
         },
         include: { user_roles: { include: { roles: true } } },
       });
+
+      // Hook: Convert guest → registered user
+      await this.convertGuest(user.id, dto.email);
+      await this.shareQrMemories(user.id, dto.email);
     }
 
     const tokens = await this.generateTokens(user.id, user.email ?? '');
@@ -214,5 +219,106 @@ export class AuthService {
       updatedAt: user.updated_at?.toISOString(),
       roles: user.user_roles?.map((ur: any) => ur.roles.name) ?? [],
     };
+  }
+
+  private async convertGuest(userId: string, email: string) {
+    try {
+      const guest = await this.prisma.guest_customers.findFirst({
+        where: { email },
+      });
+
+      if (guest) {
+        await this.prisma.$transaction([
+          this.prisma.guest_customers.update({
+            where: { id: guest.id },
+            data: { converted_user_id: userId },
+          }),
+          this.prisma.orders.updateMany({
+            where: { guest_customer_id: guest.id },
+            data: { user_id: userId },
+          }),
+        ]);
+      }
+    } catch (error) {
+      // ponytail: fail silently, don't block registration
+      console.warn('[GuestConvert] Failed to convert guest:', error);
+    }
+  }
+
+  private async shareQrMemories(userId: string, email: string) {
+    try {
+      const memories = await this.prisma.qr_memories.findMany({
+        where: { recipient_email: email, shared_user_id: null },
+        include: {
+          engravings: {
+            include: {
+              order: {
+                include: {
+                  users_orders_user_idTousers: { select: { full_name: true } },
+                  guest_customers: { select: { full_name: true } },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (memories.length === 0) return;
+
+      await this.prisma.qr_memories.updateMany({
+        where: { recipient_email: email, shared_user_id: null },
+        data: {
+          shared_user_id: userId,
+          shared_at: new Date(),
+          is_locked: false,
+        },
+      });
+
+      // ponytail: fire-and-forget, don't block registration
+      this.sendSharedMemoryEmails(memories, email).catch((err) =>
+        console.warn('[ShareMemory] Email send failed:', err),
+      );
+    } catch (error) {
+      console.warn('[ShareMemory] Failed to share memories:', error);
+    }
+  }
+
+  private async sendSharedMemoryEmails(
+    memories: any[],
+    recipientEmail: string,
+  ) {
+    const apiKey = this.configService.get<string>('SENDGRID_API_KEY');
+    const fromEmail =
+      this.configService.get<string>('SENDGRID_FROM_EMAIL') ??
+      'noreply@bioring.vn';
+
+    if (!apiKey) {
+      console.warn('[ShareMemory] SENDGRID_API_KEY not configured');
+      return;
+    }
+
+    SendGrid.setApiKey(apiKey);
+
+    for (const memory of memories) {
+      const order = memory.engravings?.order;
+      const senderName =
+        order?.users_orders_user_idTousers?.full_name ??
+        order?.guest_customers?.full_name ??
+        'Một người bạn';
+
+      const msg = {
+        to: recipientEmail,
+        from: fromEmail,
+        subject: 'Bạn vừa nhận được một Memory Card',
+        html: `
+          <p>Xin chào,</p>
+          <p><strong>${senderName}</strong> đã chia sẻ một Memory Card với bạn.</p>
+          <p>Hãy đăng nhập vào tài khoản Bioring để xem và trải nghiệm.</p>
+          <p>Trân trọng,<br/>Đội ngũ Bioring</p>
+        `,
+      };
+
+      await SendGrid.send(msg);
+    }
   }
 }

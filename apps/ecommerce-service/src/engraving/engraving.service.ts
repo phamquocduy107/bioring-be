@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
@@ -327,7 +328,9 @@ export class EngravingService {
     ]);
 
     return {
-      engravings: engravings.map((e) => this.mapEngraving(e)),
+      engravings: (engravings as unknown as EngravingRecord[]).map((e) =>
+        this.mapEngraving(e),
+      ),
       total,
       page,
       limit,
@@ -347,7 +350,9 @@ export class EngravingService {
       },
     });
     if (!engraving) throw new NotFoundException('Engraving not found');
-    return { engraving: this.mapEngraving(engraving) };
+    return {
+      engraving: this.mapEngraving(engraving as unknown as EngravingRecord),
+    };
   }
 
   private mapEngraving(engraving: EngravingRecord) {
@@ -482,5 +487,28 @@ export class EngravingService {
           }
         : null,
     };
+  }
+
+  async cancelEngraving(id: string, userId: string) {
+    const engraving = await this.prisma.engravings.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        user_id: true,
+        status: true,
+        order: { select: { id: true } },
+      },
+    });
+    if (!engraving) throw new NotFoundException('Engraving not found');
+    if (engraving.user_id !== userId) throw new ForbiddenException('Not your engraving');
+    if (engraving.order) throw new BadRequestException('Cannot cancel — already has order');
+    if (engraving.status === 'CANCELLED') throw new BadRequestException('Already cancelled');
+
+    await this.prisma.engravings.update({
+      where: { id },
+      data: { status: 'CANCELLED' },
+    });
+
+    return { success: true };
   }
 }
