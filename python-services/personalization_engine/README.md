@@ -19,12 +19,13 @@ REVIEW:   personalization/review/{artifactId}/{filename}
 APPROVED: personalization/approved/{artifactId}/{filename}
 ```
 
-URL public:
+URL public (không hết hạn — không dùng presigned URL):
 
 ```text
 {MINIO_PUBLIC_ENDPOINT}/{PERSONALIZATION_MINIO_BUCKET}/{objectKey}
 ```
 
+Bucket `bioring-personalization` được set **public-read** (`s3:GetObject` anonymous) khi engine start. Nếu mở URL bị `AccessDenied`, restart `npm run py:personalization` hoặc set policy thủ công trên MinIO Console.
 Env (xem `python-services/.env.example`):
 
 ```env

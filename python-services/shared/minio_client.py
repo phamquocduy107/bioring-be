@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
@@ -37,6 +38,23 @@ def build_public_object_url(
     return f"{public_endpoint.rstrip('/')}/{bucket}/{object_key}"
 
 
+def public_read_bucket_policy(bucket: str) -> str:
+    """Anonymous GET for all objects in the bucket (permanent public URLs)."""
+    return json.dumps(
+        {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {"AWS": ["*"]},
+                    "Action": ["s3:GetObject"],
+                    "Resource": [f"arn:aws:s3:::{bucket}/*"],
+                }
+            ],
+        }
+    )
+
+
 class MinioObjectStore:
     """Lazy MinIO client with common upload/download/delete helpers."""
 
@@ -53,10 +71,18 @@ class MinioObjectStore:
     def bucket_exists(self, bucket: str) -> bool:
         return bool(self.client.bucket_exists(bucket))
 
-    def ensure_bucket(self, bucket: str) -> None:
+    def ensure_bucket(self, bucket: str, *, public_read: bool = False) -> None:
         if not self.client.bucket_exists(bucket):
             self.client.make_bucket(bucket)
             logger.info("Created MinIO bucket %s", bucket)
+        if public_read:
+            self.ensure_public_read(bucket)
+
+    def ensure_public_read(self, bucket: str) -> None:
+        """Allow anonymous GetObject so permanent public URLs work in browser."""
+        policy = public_read_bucket_policy(bucket)
+        self.client.set_bucket_policy(bucket, policy)
+        logger.info("MinIO bucket %s public-read policy applied", bucket)
 
     def upload_file(
         self,

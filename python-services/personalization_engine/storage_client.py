@@ -68,7 +68,7 @@ class PersonalizationStorage:
             )
         )
         try:
-            self._store.ensure_bucket(self.bucket)
+            self._store.ensure_bucket(self.bucket, public_read=True)
         except Exception as exc:
             logger.warning("MinIO ensure_bucket deferred: %s", exc)
 
