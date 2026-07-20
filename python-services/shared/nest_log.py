@@ -1,4 +1,4 @@
-"""NestJS-style colored console logging for rag-python services."""
+"""NestJS-style colored console logging for python-services."""
 
 from __future__ import annotations
 

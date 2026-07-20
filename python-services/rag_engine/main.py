@@ -12,7 +12,7 @@ warnings.filterwarnings(
 from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from nest_log import setup_logging
+from shared.nest_log import setup_logging
 
 from .cache import answer_cache, retrieval_cache, stable_hash
 from .config import settings

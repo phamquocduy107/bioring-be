@@ -12,7 +12,7 @@ class RabbitMQIngestionJob(BaseModel):
     workspaceId: str = Field(..., examples=["ws_001"])
     userId: Optional[str] = Field(None, examples=["user_001"])
 
-    bucket: Optional[str] = Field(None, examples=["rag-documents"])
+    bucket: Optional[str] = Field(None, examples=["knowledge-documents"])
     objectName: Optional[str] = Field(
         None, examples=["workspaces/ws_001/documents/doc_123/original.pdf"]
     )

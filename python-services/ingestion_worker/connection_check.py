@@ -44,15 +44,17 @@ def check_minio() -> tuple[bool, str]:
         if status != 200:
             return False, f"{settings.MINIO_ENDPOINT} health status={status}"
 
-        from minio import Minio
+        from shared.minio_client import MinioObjectStore, MinioSettings
 
-        client = Minio(
-            endpoint=settings.MINIO_ENDPOINT,
-            access_key=settings.MINIO_ACCESS_KEY,
-            secret_key=settings.MINIO_SECRET_KEY,
-            secure=settings.MINIO_SECURE,
+        store = MinioObjectStore(
+            MinioSettings(
+                endpoint=settings.MINIO_ENDPOINT,
+                access_key=settings.MINIO_ACCESS_KEY,
+                secret_key=settings.MINIO_SECRET_KEY,
+                secure=settings.MINIO_SECURE,
+            )
         )
-        exists = client.bucket_exists(settings.MINIO_BUCKET)
+        exists = store.bucket_exists(settings.MINIO_BUCKET)
         detail = (
             f"{scheme}://{settings.MINIO_ENDPOINT} "
             f"bucket={settings.MINIO_BUCKET} exists={exists}"

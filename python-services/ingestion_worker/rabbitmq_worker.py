@@ -12,7 +12,7 @@ warnings.filterwarnings(
 import pika
 from pydantic import ValidationError
 
-from nest_log import setup_logging
+from shared.nest_log import setup_logging
 
 from .config import settings
 from .connection_check import run_startup_checks

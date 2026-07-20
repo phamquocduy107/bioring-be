@@ -2,6 +2,8 @@ fastapi
 uvicorn
 python-dotenv
 pydantic
+python-multipart
+aiofiles
 minio
 qdrant-client
 langchain
@@ -12,3 +14,6 @@ langchain-qdrant
 pypdf
 pika
 httpx
+opencv-python
+numpy
+pillow

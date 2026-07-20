@@ -32,12 +32,18 @@ class Settings:
         "RABBITMQ_STATUS_QUEUE", "rag.ingestion.status"
     )
 
-    # MinIO
+    # MinIO — đồng bộ bucket với NestJS rag-service (MINIO_BUCKET)
+    # Endpoint Python: host:port | Nest: MINIO_ENDPOINT + MINIO_PORT
+    # SSL: MINIO_SECURE (Python) ≈ MINIO_USE_SSL (Nest)
     MINIO_ENDPOINT: str = os.getenv("MINIO_ENDPOINT", "localhost:9000")
     MINIO_ACCESS_KEY: str = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
     MINIO_SECRET_KEY: str = os.getenv("MINIO_SECRET_KEY", "minioadmin")
-    MINIO_BUCKET: str = os.getenv("MINIO_BUCKET", "rag-documents")
-    MINIO_SECURE: bool = get_bool_env("MINIO_SECURE", False)
+    MINIO_BUCKET: str = os.getenv("MINIO_BUCKET", "knowledge-documents")
+    MINIO_SECURE: bool = (
+        get_bool_env("MINIO_SECURE", False)
+        if os.getenv("MINIO_SECURE") is not None
+        else get_bool_env("MINIO_USE_SSL", False)
+    )
 
     # Qdrant
     QDRANT_URL: str = os.getenv("QDRANT_URL", "http://localhost:6333")
@@ -50,7 +56,7 @@ class Settings:
     EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "text-embedding-bge-m3")
 
     # Local temp
-    TEMP_DIR: str = os.getenv("TEMP_DIR", "/tmp/rag-documents")
+    TEMP_DIR: str = os.getenv("TEMP_DIR", "/tmp/knowledge-documents")
 
 
 settings = Settings()
