@@ -177,6 +177,17 @@ export class OrderController {
     return this.orderService.updateShipmentStatus(data);
   }
 
+  @GrpcMethod('EcommerceService', 'SaveDeliveryPreference')
+  async saveDeliveryPreference(data: {
+    orderId: string;
+    addressId: string;
+    method: string;
+  }) {
+    return this.orderService.saveDeliveryPreference(
+      data.orderId, data.addressId, data.method,
+    );
+  }
+
   @GrpcMethod('EcommerceService', 'GetDeliveryInfo')
   async getDeliveryInfo(data: { orderId: string }) {
     return this.orderService.getDeliveryInfo(data.orderId);

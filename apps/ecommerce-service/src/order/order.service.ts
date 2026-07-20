@@ -740,7 +740,20 @@ export class OrderService {
       } else if (payment.payment_phase === 'DEPOSIT_2') {
         newStatus = 'DEPOSIT_PAID';
       } else if (payment.payment_phase === 'REMAINING') {
-        newStatus = 'READY_FOR_DELIVERY';
+        const pendingShipment = await this.prisma.shipments.findFirst({
+          where: { order_id: order.id, status: 'PENDING' },
+        });
+        if (pendingShipment) {
+          await this.prisma.shipments.update({
+            where: { id: pendingShipment.id },
+            data: { status: 'ACTIVE' },
+          });
+          newStatus = pendingShipment.delivery_method === 'PICKUP'
+            ? 'READY_FOR_PICKUP'
+            : 'READY_FOR_DELIVERY';
+        } else {
+          newStatus = 'READY_FOR_DELIVERY';
+        }
       } else if (payment.payment_phase === 'FULL') {
         newStatus = 'DEPOSIT_PAID';
       }
@@ -1398,6 +1411,44 @@ export class OrderService {
       data: { status: 'IN_PRODUCTION' },
     });
     return { order: await this.mapOrder(updated) };
+  }
+
+  async saveDeliveryPreference(orderId: string, addressId: string, method: string) {
+    const order = await this.prisma.orders.findUnique({
+      where: { id: orderId },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+
+    if (order.status !== 'AWAITING_REMAINING') {
+      throw new BadRequestException('Delivery preference can only be set when order is AWAITING_REMAINING');
+    }
+
+    const existing = await this.prisma.shipments.findFirst({
+      where: { order_id: orderId, status: 'PENDING' },
+    });
+
+    if (existing) {
+      const updated = await this.prisma.shipments.update({
+        where: { id: existing.id },
+        data: {
+          address_id: addressId,
+          delivery_method: method,
+        },
+      });
+      return { shipmentId: updated.id, status: updated.status ?? 'PENDING' };
+    }
+
+    const shipment = await this.prisma.shipments.create({
+      data: {
+        id: randomUUID(),
+        order_id: orderId,
+        address_id: addressId,
+        delivery_method: method,
+        status: 'PENDING',
+      },
+    });
+
+    return { shipmentId: shipment.id, status: shipment.status ?? 'PENDING' };
   }
 
   async initiateDelivery(data: {

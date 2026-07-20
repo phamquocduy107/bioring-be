@@ -149,6 +149,15 @@ rpc GetProductionTasks (GetProductionTasksRequest) returns (GetProductionTasksRe
   // FE API Gaps — Delivery Listing
   rpc ListDeliveries (ListDeliveriesRequest) returns (ListDeliveriesResponse);
 
+  // Address CRUD (MF-02 / MF-03 customer-facing)
+  rpc CreateAddress (CreateAddressRequest) returns (AddressResponse);
+  rpc UpdateAddress (UpdateAddressRequest) returns (AddressResponse);
+  rpc DeleteAddress (DeleteAddressRequest) returns (DeleteAddressResponse);
+  rpc ListAddresses (ListAddressesRequest) returns (ListAddressesResponse);
+
+  // Delivery Preference (MF-02 / MF-03 customer-facing)
+  rpc SaveDeliveryPreference (SaveDeliveryPreferenceRequest) returns (SaveDeliveryPreferenceResponse);
+
   // Pickups (In-Store)
   rpc ListPickups (ListPickupsRequest) returns (ListPickupsResponse);
 
@@ -889,6 +898,66 @@ message UpdateShipmentStatusRequest {
   string proofImageUrl = 6;
   string trackingCode = 7;
   string staffId = 8;
+}
+
+// === Address CRUD (MF-02 / MF-03 customer-facing) ===
+message Address {
+  string id = 1;
+  string userId = 2;
+  string recipientName = 3;
+  string phone = 4;
+  string fullAddress = 5;
+  string ward = 6;
+  string district = 7;
+  string province = 8;
+  bool isDefault = 9;
+  string createdAt = 10;
+  string updatedAt = 11;
+}
+
+message CreateAddressRequest {
+  string userId = 1;
+  string recipientName = 2;
+  string phone = 3;
+  string fullAddress = 4;
+  string ward = 5;
+  string district = 6;
+  string province = 7;
+  bool isDefault = 8;
+}
+
+message UpdateAddressRequest {
+  string id = 1;
+  string userId = 2;
+  string recipientName = 3;
+  string phone = 4;
+  string fullAddress = 5;
+  string ward = 6;
+  string district = 7;
+  string province = 8;
+  bool isDefault = 9;
+}
+
+message DeleteAddressRequest {
+  string id = 1;
+  string userId = 2;
+}
+
+message ListAddressesRequest { string userId = 1; }
+message ListAddressesResponse { repeated Address addresses = 1; }
+message AddressResponse { Address address = 1; }
+message DeleteAddressResponse { bool success = 1; }
+
+// === Delivery Preference (MF-02 / MF-03 customer-facing) ===
+message SaveDeliveryPreferenceRequest {
+  string orderId = 1;
+  string addressId = 2;
+  string method = 3;    // DELIVERY | PICKUP
+}
+
+message SaveDeliveryPreferenceResponse {
+  string shipmentId = 1;
+  string status = 2;
 }
 
 message GetDeliveryInfoRequest { string orderId = 1; }

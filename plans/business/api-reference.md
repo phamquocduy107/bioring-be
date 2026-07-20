@@ -1507,7 +1507,139 @@ data: { "status": "PAID", "transactionId": "txn_abc123", "orderCode": "172000000
 
 ---
 
-## 3.5 QR Memory
+### 65. POST `/api/v1/orders/:id/delivery-preference`
+**Auth:** JWT (bearer)
+**Description:** Customer selects delivery address + method after deposit (DEPOSIT_PAID). Lưu vào shipments với status = PENDING. Nếu đã có shipment PENDING thì update thay vì tạo mới. Order giữ nguyên AWAITING_REMAINING. Khi PayOS webhook confirm REMAINING: shipment auto-activate + order → READY_FOR_DELIVERY/READY_FOR_PICKUP.
+
+**Param:** `id` (UUID v4)
+
+**Request:**
+```json
+{
+  "addressId": "550e8400-e29b-41d4-a716-446655440050",
+  "method": "DELIVERY"
+}
+```
+
+**Response:**
+```json
+{
+  "shipmentId": "550e8400-e29b-41d4-a716-446655440051",
+  "status": "PENDING"
+}
+```
+
+---
+
+## 3.5 Address
+
+Controller: `apps/api-gateway/src/modules/ecommerce/address/address.controller.ts`
+Route prefix: `api/v1/addresses`
+
+### 66. GET `/api/v1/addresses`
+**Auth:** JWT (bearer)
+**Description:** List all saved addresses for the current user. Order by is_default desc, created_at desc.
+
+**Response:**
+```json
+{
+  "addresses": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440050",
+      "userId": "550e8400-e29b-41d4-a716-446655440000",
+      "recipientName": "Nguyen Van A",
+      "phone": "0901234567",
+      "fullAddress": "123 Nguyen Hue, Bến Nghé",
+      "ward": "Bến Nghé",
+      "district": "Quận 1",
+      "province": "TP Hồ Chí Minh",
+      "isDefault": true,
+      "createdAt": "2026-07-18T10:00:00.000Z",
+      "updatedAt": "2026-07-18T10:00:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+### 67. POST `/api/v1/addresses`
+**Auth:** JWT (bearer)
+**Description:** Create a new delivery address for the current user. If isDefault = true, unset other defaults first.
+
+**Request:**
+```json
+{
+  "recipientName": "Nguyen Van A",
+  "phone": "0901234567",
+  "fullAddress": "123 Nguyen Hue, Bến Nghé",
+  "ward": "Bến Nghé",
+  "district": "Quận 1",
+  "province": "TP Hồ Chí Minh",
+  "isDefault": true
+}
+```
+
+**Response:**
+```json
+{
+  "address": {
+    "id": "550e8400-e29b-41d4-a716-446655440050",
+    "userId": "550e8400-e29b-41d4-a716-446655440000",
+    "recipientName": "Nguyen Van A",
+    "phone": "0901234567",
+    "fullAddress": "123 Nguyen Hue, Bến Nghé",
+    "ward": "Bến Nghé",
+    "district": "Quận 1",
+    "province": "TP Hồ Chí Minh",
+    "isDefault": true,
+    "createdAt": "2026-07-18T10:00:00.000Z",
+    "updatedAt": "2026-07-18T10:00:00.000Z"
+  }
+}
+```
+
+---
+
+### 68. PUT `/api/v1/addresses/:id`
+**Auth:** JWT (bearer)
+**Description:** Update a delivery address. Ownership check enforced server-side. Partial update — chỉ gửi fields cần sửa.
+
+**Param:** `id` (UUID v4)
+
+**Request:**
+```json
+{
+  "fullAddress": "123 Nguyen Hue, Bến Nghé, Quận 1",
+  "isDefault": true
+}
+```
+
+**Response:**
+```json
+{
+  "address": { "id": "...", "fullAddress": "123 Nguyen Hue, Bến Nghé, Quận 1", "isDefault": true, ... }
+}
+```
+
+---
+
+### 69. DELETE `/api/v1/addresses/:id`
+**Auth:** JWT (bearer)
+**Description:** Delete a delivery address. Ownership check enforced server-side.
+
+**Param:** `id` (UUID v4)
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+---
+
+## 3.6 QR Memory
 
 Controller: `apps/api-gateway/src/modules/ecommerce/memory-card/memory-card.controller.ts`
 Route prefix: `api/v1/qr-memories`

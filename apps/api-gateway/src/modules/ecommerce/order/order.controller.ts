@@ -43,6 +43,7 @@ import {
   UpdateShipmentStatusDto,
   OrderLookupDto,
   ListDeliveriesQueryDto,
+  DeliveryPreferenceDto,
 } from '@app/common';
 import type { JwtPayload } from '@app/common';
 import {
@@ -61,6 +62,7 @@ import {
   ApiGetProductionTasksDocs,
   ApiQcAcceptOrderDocs,
   ApiInitiateDeliveryDocs,
+  ApiSaveDeliveryPreferenceDocs,
   ApiUpdateShipmentStatusDocs,
   ApiGetDeliveryInfoDocs,
   ApiGetWarrantyInfoDocs,
@@ -288,6 +290,11 @@ interface EcommerceGrpcService {
     assignedDeliveryStaffId?: string;
     managerId: string;
   }): Observable<DeliveryResponse>;
+  saveDeliveryPreference(data: {
+    orderId: string;
+    addressId: string;
+    method: string;
+  }): Observable<{ shipmentId: string; status: string }>;
   updateShipmentStatus(data: {
     orderId: string;
     status: string;
@@ -645,6 +652,21 @@ export class OrderController implements OnModuleInit {
         shippingAddressText: body.shippingAddressText,
         assignedDeliveryStaffId: body.assignedDeliveryStaffId,
         managerId: user.sub,
+      }),
+    );
+  }
+
+  @Post(':id/delivery-preference')
+  @ApiSaveDeliveryPreferenceDocs()
+  saveDeliveryPreference(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() body: DeliveryPreferenceDto,
+  ) {
+    return this.call(() =>
+      this.grpc!.saveDeliveryPreference({
+        orderId: id,
+        addressId: body.addressId,
+        method: body.method,
       }),
     );
   }

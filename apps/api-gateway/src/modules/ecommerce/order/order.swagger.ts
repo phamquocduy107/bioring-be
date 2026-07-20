@@ -4,6 +4,7 @@ import {
   ApiParam,
   ApiQuery,
   ApiResponse,
+  ApiCreatedResponse,
   ApiBearerAuth,
   ApiBody,
 } from '@nestjs/swagger';
@@ -467,6 +468,16 @@ export function ApiUpdateShipmentStatusDocs() {
     ApiResponse({ status: 400, description: 'Invalid transition' }),
     ApiResponse({ status: 401, description: 'Unauthorized' }),
     ApiResponse({ status: 404, description: 'Order or shipment not found' }),
+  );
+}
+
+export function ApiSaveDeliveryPreferenceDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({ summary: 'Save delivery preference', description: 'Customer selects delivery address + method (DELIVERY/PICKUP) after deposit. Creates shipment with status PENDING.' }),
+    ApiParam({ name: 'id', type: 'string', format: 'uuid' }),
+    ApiBody({ schema: { example: { addressId: 'uuid', method: 'DELIVERY' } } }),
+    ApiCreatedResponse({ description: 'Shipment created', schema: { example: { shipmentId: 'uuid', status: 'PENDING' } } }),
   );
 }
 

@@ -17,6 +17,7 @@ import { WarrantyController } from './warranty/warranty.controller';
 import { TransactionController } from './transaction/transaction.controller';
 import { DeviceController } from './device/device.controller';
 import { JewelerController } from './jeweler/jeweler.controller';
+import { AddressController } from './address/address.controller';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { JewelerController } from './jeweler/jeweler.controller';
     TransactionController,
     DeviceController,
     JewelerController,
+    AddressController,
   ],
 })
 export class EcommerceModule {}

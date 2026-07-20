@@ -143,9 +143,18 @@ Flow 2 cho phép **lưu dần (incremental save)** — mọi dữ liệu thiết
     - Hệ thống cập nhật `qr_memories.biometric_display_settings` từ `engraving_biometrics` data (waveform SVG URL, fingerprint SVG URL, v.v.).
     - Order → `AWAITING_DEPOSIT`. Yêu cầu khách hàng thanh toán Deposit 2.
 11. Customer thanh toán **Deposit 2** (30% min 3000) để xác nhận bắt đầu sản xuất.
-12. System assign task cho Jeweler (1 task).
-13. Jeweler hoàn thành chế tác nhẫn (Complete).
-14. Customer thanh toán **Remaining Payment** trước khi nhận sản phẩm.
+12. **Customer chọn địa chỉ giao hàng:**
+    - Màn hình Delivery Options hiển thị sau khi deposit callback thành công.
+    - Customer có thể **thêm mới** hoặc **chọn địa chỉ có sẵn** từ `user_addresses`.
+    - Gọi `POST /api/v1/orders/:id/delivery-preference` với `{ addressId, method: 'DELIVERY' | 'PICKUP' }`.
+    - Hệ thống tạo `shipments` record với `status = 'PENDING'`.
+    - Order vẫn giữ `AWAITING_REMAINING`.
+13. System assign task cho Jeweler (1 task).
+14. Jeweler hoàn thành chế tác nhẫn (Complete).
+15. Customer thanh toán **Remaining Payment** trước khi nhận sản phẩm.
+    - Nếu đã có shipment PENDING → server auto update `status = 'ACTIVE'`.
+    - Nếu `method = 'DELIVERY'` → order → `READY_FOR_DELIVERY`.
+    - Nếu `method = 'PICKUP'` → order → `READY_FOR_PICKUP`.
 
 **C. Flow 3: Store Biometric Capture Order (Mobile - Có FP/SW - OFFLINE)**
 
@@ -171,8 +180,17 @@ Flow 2 cho phép **lưu dần (incremental save)** — mọi dữ liệu thiết
 12. Nếu Reject → engraving version REJECTED + branch mới, order → `REVISION_REQUIRED`. Chỉnh sửa → resubmit.
 13. Nếu Approve → engraving APPROVED, order → `AWAITING_DEPOSIT`.
 14. Customer thanh toán **Deposit 2** (30% min 3000) để xác nhận bắt đầu chế tác.
-15. System assign task cho Jeweler (1 task). Jeweler sản xuất xong báo Complete.
-16. Customer thanh toán **Remaining Payment** trước khi nhận hàng.
+15. **Customer chọn địa chỉ giao hàng:**
+    - Màn hình Delivery Options hiển thị sau khi deposit callback thành công.
+    - Customer có thể **thêm mới** hoặc **chọn địa chỉ có sẵn** từ `user_addresses`.
+    - Gọi `POST /api/v1/orders/:id/delivery-preference` với `{ addressId, method: 'DELIVERY' | 'PICKUP' }`.
+    - Hệ thống tạo `shipments` record với `status = 'PENDING'`.
+    - Order vẫn giữ `AWAITING_REMAINING`.
+16. System assign task cho Jeweler (1 task). Jeweler sản xuất xong báo Complete.
+17. Customer thanh toán **Remaining Payment** trước khi nhận hàng.
+    - Nếu đã có shipment PENDING → server auto update `status = 'ACTIVE'`.
+    - Nếu `method = 'DELIVERY'` → order → `READY_FOR_DELIVERY`.
+    - Nếu `method = 'PICKUP'` → order → `READY_FOR_PICKUP`.
 
 **D. Flow 4: Walk-in Guest In-store Order (Luồng khách vãng lai - iPad Staff)**
 

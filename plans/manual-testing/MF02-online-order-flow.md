@@ -480,13 +480,137 @@ Content-Type: application/json
 }
 ```
 
-Sau webhook → `remainingAmount` = 0, order → `READY_FOR_DELIVERY`.
+Sau webhook → `remainingAmount` = 0.
+- Nếu đã có shipment PENDING (từ delivery-preference): server auto update `status = 'ACTIVE'`.
+- `method = 'DELIVERY'` → order → `READY_FOR_DELIVERY`.
+- `method = 'PICKUP'` → order → `READY_FOR_PICKUP`.
+- Nếu chưa có shipment (không chọn delivery-preference): order → `AWAITING_REMAINING` → chờ staff xử lý sau.
 
 ---
 
-## 12. Sản xuất (Production)
+## 12. Address CRUD
 
-### 12a. Giao thợ (manager)
+> Sau deposit (`DEPOSIT_PAID`), customer có thể quản lý địa chỉ giao hàng và chọn phương thức nhận hàng trước khi thanh toán remaining.
+
+### 12a. Danh sách địa chỉ
+
+```http
+GET /api/v1/addresses
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+```
+
+**Response mẫu:**
+```json
+{
+  "addresses": [
+    {
+      "id": "ADDR_ID_1",
+      "userId": "USER_ID",
+      "recipientName": "Nguyen Van A",
+      "phone": "0901234567",
+      "fullAddress": "123 Nguyen Hue, Bến Nghé",
+      "ward": "Bến Nghé",
+      "district": "Quận 1",
+      "province": "TP Hồ Chí Minh",
+      "isDefault": true,
+      "createdAt": "2026-07-18T10:00:00.000Z",
+      "updatedAt": "2026-07-18T10:00:00.000Z"
+    }
+  ]
+}
+```
+
+### 12b. Thêm địa chỉ mới
+
+```http
+POST /api/v1/addresses
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+Content-Type: application/json
+
+{
+  "recipientName": "Nguyen Van B",
+  "phone": "0909876543",
+  "fullAddress": "456 Le Lợi",
+  "ward": "Bến Thành",
+  "district": "Quận 1",
+  "province": "TP Hồ Chí Minh",
+  "isDefault": false
+}
+```
+
+**Response mẫu:**
+```json
+{
+  "address": {
+    "id": "ADDR_ID_2",
+    "userId": "USER_ID",
+    "recipientName": "Nguyen Van B",
+    "phone": "0909876543",
+    "fullAddress": "456 Le Lợi",
+    "ward": "Bến Thành",
+    "district": "Quận 1",
+    "province": "TP Hồ Chí Minh",
+    "isDefault": false
+  }
+}
+```
+
+### 12c. Sửa địa chỉ
+
+```http
+PUT /api/v1/addresses/ADDR_ID_2
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+Content-Type: application/json
+
+{
+  "fullAddress": "456 Le Lợi, Bến Thành",
+  "isDefault": true
+}
+```
+
+### 12d. Xoá địa chỉ
+
+```http
+DELETE /api/v1/addresses/ADDR_ID_2
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+```
+
+**Response:** `{ "success": true }`
+
+---
+
+## 13. Chọn phương thức nhận hàng (Delivery Preference)
+
+> Sau deposit, customer chọn địa chỉ + phương thức nhận hàng.
+> Lưu vào `shipments` với `status = 'PENDING'`. Order **giữ nguyên** `AWAITING_REMAINING`.
+
+```http
+POST /api/v1/orders/ORDER_ID/delivery-preference
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+Content-Type: application/json
+
+{
+  "addressId": "ADDR_ID_1",
+  "method": "DELIVERY"
+}
+```
+
+**Response mẫu:**
+```json
+{
+  "shipmentId": "SHIPMENT_ID",
+  "status": "PENDING"
+}
+```
+
+> Nếu method `PICKUP`: không cần địa chỉ giao hàng, khách đến cửa hàng nhận.
+> Có thể gọi lại endpoint này để đổi address/method — nếu đã có shipment PENDING, server update thay vì tạo mới.
+
+---
+
+## 15. Sản xuất (Production)
+
+### 15a. Giao thợ (manager)
 
 ```http
 POST /api/v1/orders/ORDER_ID/assign-jeweler
@@ -500,7 +624,7 @@ Content-Type: application/json
 
 **Kết quả:** Tạo `production_task`, order → `IN_PRODUCTION`.
 
-### 12b. Cập nhật tiến độ (manager)
+### 15b. Cập nhật tiến độ (manager)
 
 ```http
 PUT /api/v1/orders/production-tasks/TASK_ID/status
@@ -515,7 +639,7 @@ Content-Type: application/json
 
 **Kết quả:** Order → `PENDING_QC`.
 
-### 12c. QC kiểm tra (manager)
+### 15c. QC kiểm tra (manager)
 
 ```http
 PUT /api/v1/orders/ORDER_ID/qc-accept
@@ -533,7 +657,7 @@ Content-Type: application/json
 ```
 
 **Kết quả:** Nếu còn `remainingAmount` > 0 → order → `AWAITING_REMAINING`.  
-Nếu đã thanh toán hết → order → `READY_FOR_DELIVERY`.
+Nếu đã thanh toán hết → order → `READY_FOR_DELIVERY` (hoặc `READY_FOR_PICKUP` nếu delivery-preference = PICKUP).
 
 ---
 
@@ -589,6 +713,13 @@ Nếu đã thanh toán hết → order → `READY_FOR_DELIVERY`.
      │                    ▼
      │              PayOS webhook → DEPOSIT_PAID
      │                    │
+     │                    ├── [NEW] GET/POST/PUT/DELETE /api/v1/addresses
+     │                    │         (quản lý địa chỉ giao hàng)
+     │                    │
+     │                    ├── [NEW] POST /orders/:id/delivery-preference
+     │                    │         { addressId, method: DELIVERY|PICKUP }
+     │                    │         → shipments PENDING
+     │                    │
      │                    ▼
      │              POST assign-jeweler → IN_PRODUCTION
      │                    │
@@ -606,8 +737,11 @@ Nếu đã thanh toán hết → order → `READY_FOR_DELIVERY`.
               │                    │         ▼
               │                    │    PayOS webhook
               │                    │         │
-              │                    │         ▼
-              │                    │    READY_FOR_DELIVERY
+              │                    │         ├── có shipment PENDING → ACTIVE
+              │                    │         │
+              │                    │         ├── method DELIVERY → READY_FOR_DELIVERY
+              │                    │         │
+              │                    │         └── method PICKUP → READY_FOR_PICKUP
               │                    │
-              │                    └── hết nợ → READY_FOR_DELIVERY
+              │                    └── hết nợ → READY_FOR_DELIVERY / READY_FOR_PICKUP
 ```
