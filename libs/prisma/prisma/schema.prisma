@@ -75,6 +75,38 @@ model biometric_capture_items {
   @@index([capture_session_id])
 }
 
+/// Staff-processed fingerprint assets (REVIEW → APPROVED workflow).
+model biometric_assets {
+  id                     String    @id @db.Uuid
+  artifact_id            String    @db.VarChar(100)
+  asset_type             String    @default("fingerprint") @db.VarChar(50)
+  status                 String    @db.VarChar(50)
+  review_files           Json?
+  approved_files         Json?
+  manifest_url           String?   @db.VarChar(500)
+  created_by_staff_id    String?   @db.Uuid
+  assigned_user_id       String?   @db.Uuid
+  order_item_id          String?   @db.Uuid
+  model_code             String?   @db.VarChar(100)
+  surface                String?   @db.VarChar(100)
+  placement              Json?
+  approved_by            String?   @db.Uuid
+  approved_at            DateTime? @db.Timestamptz(6)
+  approval_note          String?
+  placement_confirmed_at DateTime? @db.Timestamptz(6)
+  quality_score          Decimal?  @db.Decimal(5, 2)
+  created_at             DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime? @default(now()) @db.Timestamptz(6)
+
+  users_biometric_assets_created_by_staff users? @relation("biometric_assets_created_by_staff", fields: [created_by_staff_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_biometric_assets_assigned_user    users? @relation("biometric_assets_assigned_user", fields: [assigned_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_biometric_assets_approved_by      users? @relation("biometric_assets_approved_by", fields: [approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([artifact_id])
+  @@index([assigned_user_id])
+  @@index([status])
+}
+
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
 model biometric_capture_sessions {
   id                                                  String                    @id @db.Uuid
@@ -738,6 +770,9 @@ model users {
   audit_logs                                                               audit_logs[]
   biometric_capture_sessions_biometric_capture_sessions_customer_idTousers biometric_capture_sessions[] @relation("biometric_capture_sessions_customer_idTousers")
   biometric_capture_sessions_biometric_capture_sessions_staff_idTousers    biometric_capture_sessions[] @relation("biometric_capture_sessions_staff_idTousers")
+  biometric_assets_biometric_assets_created_by_staff                       biometric_assets[]           @relation("biometric_assets_created_by_staff")
+  biometric_assets_biometric_assets_assigned_user                          biometric_assets[]           @relation("biometric_assets_assigned_user")
+  biometric_assets_biometric_assets_approved_by                            biometric_assets[]           @relation("biometric_assets_approved_by")
   design_drafts                                                            design_drafts[]
   engravings                                                               engravings[]                 @relation("engravings_user_idTousers")
   engraving_versions                                                       engraving_versions[]

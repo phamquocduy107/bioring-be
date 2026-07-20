@@ -31,9 +31,14 @@
     "prisma:migrate": "prisma migrate dev --schema=./libs/prisma/prisma/schema.prisma",
     "sync:permissions": "ts-node -r tsconfig-paths/register scripts/sync-permissions.ts",
     "prisma:seed": "ts-node -r tsconfig-paths/register libs/prisma/prisma/seed.ts",
-    "rag:worker": "cd rag-python && .\\.venv\\Scripts\\python.exe -m ingestion_worker.rabbitmq_worker",
-    "rag:engine": "cd rag-python && .\\.venv\\Scripts\\python.exe -m uvicorn rag_engine.main:app --host 0.0.0.0 --port 8000 --reload",
-    "rag:python": "concurrently -n worker,engine -c yellow,cyan \"npm run rag:worker\" \"npm run rag:engine\""
+    "py:rag": "node scripts/py.js -m uvicorn rag_engine.main:app --host 0.0.0.0 --port 8000 --reload",
+    "py:rag-worker": "node scripts/py.js -m ingestion_worker.rabbitmq_worker",
+    "py:personalization": "node scripts/py.js -m uvicorn personalization_engine.main:app --host 0.0.0.0 --port 8010 --reload",
+    "py:rag-stack": "concurrently -n rag,worker -c cyan,yellow \"npm run py:rag\" \"npm run py:rag-worker\"",
+    "py:all": "concurrently -n rag,worker,personalization -c cyan,yellow,magenta \"npm run py:rag\" \"npm run py:rag-worker\" \"npm run py:personalization\"",
+    "rag:engine": "npm run py:rag",
+    "rag:worker": "npm run py:rag-worker",
+    "rag:python": "npm run py:rag-stack"
   },
   "prisma": {
     "seed": "ts-node -r tsconfig-paths/register libs/prisma/prisma/seed.ts"
