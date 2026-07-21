@@ -142,7 +142,7 @@ class PlacementTransform(BaseModel):
 
 class ConfirmPlacementRequest(BaseModel):
     modelCode: str
-    surface: str
+    surface: Optional[str] = None
     placement: PlacementTransform
     confirmedBy: str = "customer"
 
@@ -154,12 +154,27 @@ class ConfirmPlacementResponse(BaseModel):
     manifestUrl: str
 
 
+class CleanupReviewRequest(BaseModel):
+    reason: str = "approved"
+
+
+class CleanupReviewResponse(BaseModel):
+    artifactId: str
+    deletedObjects: int
+    reason: str
+    localTmpDeleted: bool = True
+
+
 class ApprovedViewerAssetsResponse(BaseModel):
     artifactId: str
+    type: str = "fingerprint"
     status: str
     stage: str
     viewerFiles: ViewerFiles
     placement: Optional[PlacementTransform] = None
+    # Soundwave only — raw upload + engraved clip for memory-card playback
+    audioOriginal: Optional[str] = None
+    audioSegment: Optional[str] = None
 
 
 class FingerprintTextureFiles(BaseModel):
@@ -200,26 +215,200 @@ class HealthResponse(BaseModel):
     service: str = "personalization_engine"
 
 
+class StoragePathsInfo(BaseModel):
+    fingerprintReview: str
+    fingerprintApproved: str
+    soundwaveReview: str
+    soundwaveApproved: str
+
+
+class FFmpegHealthInfo(BaseModel):
+    available: bool
+    binary: str
+    version: Optional[str] = None
+    resolvedPath: Optional[str] = None
+    error: Optional[str] = None
+
+
+class FFmpegHealthResponse(BaseModel):
+    """GET /ffmpeg/health — probe system FFmpeg binary only."""
+
+    status: str
+    available: bool
+    binary: str
+    version: Optional[str] = None
+    resolvedPath: Optional[str] = None
+    error: Optional[str] = None
+
+
 class StorageHealthResponse(BaseModel):
     status: str
     bucket: str
     prefix: str
-    reviewPrefixExample: str
-    approvedPrefixExample: str
+    paths: StoragePathsInfo
+    supportedTypes: list[str]
     endpoint: str
     publicEndpoint: str
+    ffmpeg: FFmpegHealthInfo
     message: Optional[str] = None
+    # Backward-compatible examples (optional)
+    reviewPrefixExample: Optional[str] = None
+    approvedPrefixExample: Optional[str] = None
 
 
-class ArtifactFileResponse(BaseModel):
-    filename: str
+class TexturePresetOptions(BaseModel):
+    heightmapBlur: float
+    normalStrength: float
+    roughnessBase: int
+    roughnessRidge: int
+    aoStrength: float
+
+
+class SharedTexturePresetsResponse(BaseModel):
+    """GET /texture-presets — shared by fingerprint + soundwave."""
+
+    presets: dict[str, TexturePresetOptions]
+    supportedTypes: list[str] = ["fingerprint", "soundwave"]
+
+
+class TexturePresetRequest(BaseModel):
+    """
+    Shared body for:
+    - POST /fingerprint/{id}/reprocess-texture
+    - POST /soundwave/{id}/reprocess-texture
+    """
+
+    preset: Optional[
+        Literal[
+            "realistic_default",
+            "deep_engrave",
+            "soft_engrave",
+            "sharp_detail",
+            "subtle_luxury",
+        ]
+    ] = Field(
+        default=None,
+        description="Texture preset. See GET /texture-presets.",
+    )
+    heightmapBlur: Optional[float] = Field(default=None, ge=0, le=10)
+    normalStrength: Optional[float] = Field(default=None, ge=0.1, le=20)
+    roughnessBase: Optional[int] = Field(default=None, ge=0, le=255)
+    roughnessRidge: Optional[int] = Field(default=None, ge=0, le=255)
+    aoStrength: Optional[float] = Field(default=None, ge=0, le=1)
+
+
+class SoundwaveProductionFiles(BaseModel):
+    svg: str
+    waveformPoints: Optional[str] = None
+    audioOriginal: Optional[str] = Field(
+        default=None,
+        description="URL file raw upload (audio_original.*) — nghe trên memory card.",
+    )
+    audioSegment: Optional[str] = Field(
+        default=None,
+        description="URL đoạn ≤3s đã cắt (audio_segment.wav).",
+    )
+
+
+class SoundwaveDebugFiles(BaseModel):
+    previewPng: Optional[str] = None
+    segmentWav: Optional[str] = None
+
+
+class SoundwaveReviewFilesBundle(BaseModel):
+    viewerFiles: ViewerFiles
+    productionFiles: SoundwaveProductionFiles
+    debugFiles: Optional[SoundwaveDebugFiles] = None
+
+
+class SoundwaveReviewResponse(BaseModel):
     artifactId: str
-    localPath: Optional[str] = None
-    storageDriver: str
-    objectKey: Optional[str] = None
-    url: str
-    contentType: Optional[str] = None
-    sizeBytes: Optional[int] = None
+    status: str
+    stage: str
+    type: str = "soundwave"
+    reviewFiles: SoundwaveReviewFilesBundle
+    manifestUrl: str
+    metadata: Optional[dict] = None
+
+
+class SoundwaveApprovedFilesBundle(BaseModel):
+    viewerFiles: ViewerFiles
+    productionFiles: SoundwaveProductionFiles
+
+
+class SoundwavePublishApprovedResponse(BaseModel):
+    artifactId: str
+    status: str = "ASSET_APPROVED"
+    stage: str = "approved"
+    type: str = "soundwave"
+    approvedFiles: SoundwaveApprovedFilesBundle
+    manifestUrl: str
+
+
+class SoundwaveTuneOptions(BaseModel):
+    """
+    Body cho POST /soundwave/{id}/reprocess.
+    Chọn `preset` (GET /soundwave/presets) rồi override từng field nếu cần.
+    Segment (start/duration) chọn đoạn audio — không nằm trong preset hình.
+    """
+
+    preset: Optional[
+        Literal[
+            "standard",
+            "bars",
+            "filled_bars",
+            "outline",
+            "center_line",
+            "dots",
+            "steps",
+            "ridge",
+            "smooth_wave",
+            "detailed",
+            "bold",
+        ]
+    ] = Field(
+        default=None,
+        description="Preset waveform. Xem GET /soundwave/presets.",
+    )
+    segmentStartMs: Optional[int] = Field(
+        default=None, ge=0, description="Vị trí bắt đầu đoạn cắt (ms)."
+    )
+    segmentDurationMs: Optional[int] = Field(
+        default=None,
+        ge=1,
+        le=3000,
+        description="Độ dài đoạn cắt (ms), tối đa 3000.",
+    )
+    style: Optional[
+        Literal[
+            "line",
+            "bars",
+            "outline",
+            "center_line",
+            "dots",
+            "filled_bars",
+            "steps",
+            "ridge",
+        ]
+    ] = Field(
+        default=None,
+        description=(
+            "Kiểu render hình sóng. "
+            "line|bars|outline|center_line|dots|filled_bars|steps|ridge."
+        ),
+    )
+    samplePoints: Optional[int] = Field(
+        default=None, ge=32, le=2048, description="Số điểm lấy mẫu waveform."
+    )
+    normalize: Optional[bool] = Field(
+        default=None, description="Chuẩn hóa biên độ trước khi scale."
+    )
+    amplitudeScale: Optional[float] = Field(
+        default=None, ge=0.1, le=5.0, description="Nhân biên độ sau normalize."
+    )
+    smoothing: Optional[float] = Field(
+        default=None, ge=0.0, le=1.0, description="Làm mượt chuỗi điểm (0–1)."
+    )
 
 
 class ErrorResponse(BaseModel):
@@ -304,26 +493,9 @@ class FingerprintReconvertSvgRequest(BaseModel):
     )
 
 
-class FingerprintTextureOptions(BaseModel):
-    """Body cho POST /textures — tạo hoặc regenerate height/normal/roughness/AO."""
+class FingerprintTextureOptions(TexturePresetRequest):
+    """Deprecated alias — use TexturePresetRequest with reprocess-texture."""
 
-    preset: Optional[
-        Literal[
-            "realistic_default",
-            "deep_engrave",
-            "soft_engrave",
-            "sharp_detail",
-            "subtle_luxury",
-        ]
-    ] = Field(
-        default=None,
-        description=(
-            "Preset texture cho preview 3D. Có thể override bằng các field cụ thể. "
-            "Xem GET /fingerprint/texture-presets."
-        ),
-    )
-    heightmapBlur: Optional[float] = Field(default=None, ge=0, le=10)
-    normalStrength: Optional[float] = Field(default=None, ge=0.1, le=20)
-    roughnessBase: Optional[int] = Field(default=None, ge=0, le=255)
-    roughnessRidge: Optional[int] = Field(default=None, ge=0, le=255)
-    aoStrength: Optional[float] = Field(default=None, ge=0, le=1)
+
+class SoundwaveTextureOptions(TexturePresetRequest):
+    """Deprecated alias — use TexturePresetRequest with reprocess-texture."""

@@ -1,6 +1,24 @@
-"""Output file groups for fingerprint artifact replace / review / approve."""
+"""Artifact type / stage constants and output file groups."""
 
 from __future__ import annotations
+
+STAGE_REVIEW = "review"
+STAGE_APPROVED = "approved"
+
+TYPE_FINGERPRINT = "fingerprint"
+TYPE_SOUNDWAVE = "soundwave"
+
+SUPPORTED_ARTIFACT_TYPES = [TYPE_FINGERPRINT, TYPE_SOUNDWAVE]
+
+MANIFEST_FILENAME = "artifact_manifest.json"
+PLACEMENT_FILENAME = "placement.json"
+
+DEFAULT_SURFACE = {
+    TYPE_FINGERPRINT: "Fingerprint_Surface",
+    TYPE_SOUNDWAVE: "Soundwave_Surface",
+}
+
+# --- Fingerprint ---
 
 FINGERPRINT_VIEWER_FILES = [
     "fingerprint_overlay.png",
@@ -24,12 +42,7 @@ FINGERPRINT_REQUIRED_APPROVAL_FILES = [
     "input.png",
     "06_final_clean.png",
     "fingerprint.svg",
-    "fingerprint_overlay.png",
-    "fingerprint_alpha.png",
-    "fingerprint_heightmap.png",
-    "fingerprint_normal.png",
-    "fingerprint_roughness.png",
-    "fingerprint_ao.png",
+    *FINGERPRINT_VIEWER_FILES,
 ]
 
 FINGERPRINT_PIPELINE_FILES = [
@@ -74,7 +87,6 @@ TEXTURE_REPLACE_FILES = [
     *FINGERPRINT_BAKED_TEXTURE_FILES,
 ]
 
-# Outputs produced on full process / reprocess (local + REVIEW upload).
 PROCESS_OUTPUT_FILES = [
     *FINGERPRINT_PIPELINE_FILES,
     "input.png",
@@ -87,7 +99,6 @@ REPROCESS_OUTPUT_FILES = PROCESS_OUTPUT_FILES
 
 TEXTURE_OUTPUT_FILES = list(FINGERPRINT_VIEWER_FILES)
 
-# Copy to APPROVED when publish-approved (default, no debug).
 APPROVED_PUBLISH_FILES = [
     "fingerprint.svg",
     *FINGERPRINT_VIEWER_FILES,
@@ -95,5 +106,61 @@ APPROVED_PUBLISH_FILES = [
 
 APPROVED_DEBUG_FILES = list(FINGERPRINT_DEBUG_FILES)
 
-MANIFEST_FILENAME = "artifact_manifest.json"
-PLACEMENT_FILENAME = "placement.json"
+# --- Soundwave ---
+
+SOUNDWAVE_VIEWER_FILES = [
+    "soundwave_overlay.png",
+    "soundwave_alpha.png",
+    "soundwave_heightmap.png",
+    "soundwave_normal.png",
+    "soundwave_roughness.png",
+    "soundwave_ao.png",
+]
+
+SOUNDWAVE_PRODUCTION_FILES = [
+    "soundwave.svg",
+    "waveform_points.json",
+]
+
+SOUNDWAVE_DEBUG_FILES = [
+    "audio_segment.wav",
+    "soundwave_preview.png",
+]
+
+SOUNDWAVE_REQUIRED_APPROVAL_FILES = [
+    "soundwave.svg",
+    "waveform_points.json",
+    *SOUNDWAVE_VIEWER_FILES,
+]
+
+SOUNDWAVE_PROCESS_OUTPUT_FILES = [
+    "audio_segment.wav",
+    "waveform_points.json",
+    "soundwave_preview.png",
+    "soundwave.svg",
+    "options.json",
+    *SOUNDWAVE_VIEWER_FILES,
+]
+
+SOUNDWAVE_REPROCESS_REPLACE_FILES = [
+    *SOUNDWAVE_PROCESS_OUTPUT_FILES,
+]
+
+SOUNDWAVE_RENDER_REPLACE_FILES = [
+    "soundwave_preview.png",
+    "soundwave.svg",
+    *SOUNDWAVE_VIEWER_FILES,
+]
+
+SOUNDWAVE_TEXTURE_REPLACE_FILES = list(SOUNDWAVE_VIEWER_FILES)
+
+SOUNDWAVE_APPROVED_PUBLISH_FILES = [
+    "soundwave.svg",
+    *SOUNDWAVE_VIEWER_FILES,
+    "waveform_points.json",
+    "audio_segment.wav",  # clip ≤3s used for engraving / memory-card playback
+]
+
+SOUNDWAVE_APPROVED_DEBUG_FILES = [
+    "soundwave_preview.png",
+]

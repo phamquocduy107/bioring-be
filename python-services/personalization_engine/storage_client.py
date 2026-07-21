@@ -1,4 +1,10 @@
-"""MinIO REVIEW/APPROVED storage for fingerprint personalization artifacts."""
+"""MinIO REVIEW/APPROVED storage — stage + artifactType paths.
+
+Object key:
+  {prefix}/{stage}/{artifactType}/{artifactId}/{filename}
+
+Local `.tmp/personalization/{artifactId}/` (+ `.work/`) is temporary only.
+"""
 
 from __future__ import annotations
 
@@ -14,14 +20,12 @@ from typing import Any, Optional
 from shared.minio_client import MinioObjectStore, MinioSettings, build_public_object_url
 
 from .artifact_groups import (
-    APPROVED_DEBUG_FILES,
-    APPROVED_PUBLISH_FILES,
-    FINGERPRINT_DEBUG_FILES,
-    FINGERPRINT_PRODUCTION_FILES,
-    FINGERPRINT_REQUIRED_APPROVAL_FILES,
-    FINGERPRINT_VIEWER_FILES,
     MANIFEST_FILENAME,
     PLACEMENT_FILENAME,
+    STAGE_APPROVED,
+    STAGE_REVIEW,
+    TYPE_FINGERPRINT,
+    TYPE_SOUNDWAVE,
 )
 from .config import Settings, settings
 
@@ -34,6 +38,11 @@ CONTENT_TYPES: dict[str, str] = {
     ".svg": "image/svg+xml",
     ".json": "application/json",
     ".pbm": "image/x-portable-bitmap",
+    ".wav": "audio/wav",
+    ".mp3": "audio/mpeg",
+    ".m4a": "audio/mp4",
+    ".ogg": "audio/ogg",
+    ".flac": "audio/flac",
 }
 
 
@@ -50,7 +59,7 @@ def _utc_now_iso() -> str:
 
 
 class PersonalizationStorage:
-    """Local processing dir + MinIO review/approved prefixes."""
+    """Local temp work dirs + MinIO stage/type prefixes."""
 
     def __init__(self, cfg: Settings = settings) -> None:
         self.settings = cfg
@@ -72,8 +81,13 @@ class PersonalizationStorage:
         except Exception as exc:
             logger.warning("MinIO ensure_bucket deferred: %s", exc)
 
-    def create_artifact_id(self) -> str:
-        return str(uuid.uuid4())
+    # --- IDs / local dirs ---
+
+    def create_artifact_id(self, artifact_type: str = TYPE_FINGERPRINT) -> str:
+        prefix = "fp" if artifact_type == TYPE_FINGERPRINT else "sw"
+        if artifact_type not in {TYPE_FINGERPRINT, TYPE_SOUNDWAVE}:
+            prefix = artifact_type[:2]
+        return f"{prefix}_{uuid.uuid4()}"
 
     def build_artifact_dir(self, artifact_id: str) -> Path:
         path = self.base_dir / artifact_id
@@ -84,7 +98,11 @@ class PersonalizationStorage:
         return self.build_artifact_dir(artifact_id)
 
     def create_work_dir(self, artifact_id: str, operation: str) -> Path:
-        work = self.build_artifact_dir(artifact_id) / ".work" / f"{operation}_{uuid.uuid4().hex[:8]}"
+        work = (
+            self.build_artifact_dir(artifact_id)
+            / ".work"
+            / f"{operation}_{uuid.uuid4().hex[:8]}"
+        )
         work.mkdir(parents=True, exist_ok=True)
         return work
 
@@ -92,17 +110,69 @@ class PersonalizationStorage:
         if work_dir.is_dir():
             shutil.rmtree(work_dir, ignore_errors=True)
 
-    def build_review_object_key(self, artifact_id: str, filename: str) -> str:
-        return f"{self.prefix}/review/{artifact_id}/{filename}"
-
-    def build_approved_object_key(self, artifact_id: str, filename: str) -> str:
-        return f"{self.prefix}/approved/{artifact_id}/{filename}"
-
-    def build_public_url(self, object_key: str) -> str:
-        return build_public_object_url(self.public_endpoint, self.bucket, object_key)
+    def cleanup_local_artifact(self, artifact_id: str) -> bool:
+        """
+        Best-effort remove `.tmp/personalization/{artifactId}/` (incl. `.work/`).
+        Does not create the directory. Returns True if removed or already absent.
+        """
+        path = self.base_dir / artifact_id
+        if not path.exists():
+            return True
+        try:
+            shutil.rmtree(path)
+            return True
+        except Exception as exc:
+            logger.warning(
+                "Failed to remove local tmp for artifact=%s path=%s: %s",
+                artifact_id,
+                path,
+                exc,
+            )
+            return False
 
     def path_for(self, artifact_id: str, filename: str) -> Path:
         return self.build_artifact_dir(artifact_id) / filename
+
+    # --- Key builders ---
+
+    def build_object_key(
+        self,
+        stage: str,
+        artifact_type: str,
+        artifact_id: str,
+        filename: str,
+    ) -> str:
+        return f"{self.prefix}/{stage}/{artifact_type}/{artifact_id}/{filename}"
+
+    def stage_prefix(
+        self, stage: str, artifact_type: str, artifact_id: str
+    ) -> str:
+        return f"{self.prefix}/{stage}/{artifact_type}/{artifact_id}/"
+
+    def build_review_object_key(
+        self,
+        artifact_id: str,
+        filename: str,
+        *,
+        artifact_type: str = TYPE_FINGERPRINT,
+    ) -> str:
+        return self.build_object_key(
+            STAGE_REVIEW, artifact_type, artifact_id, filename
+        )
+
+    def build_approved_object_key(
+        self,
+        artifact_id: str,
+        filename: str,
+        *,
+        artifact_type: str = TYPE_FINGERPRINT,
+    ) -> str:
+        return self.build_object_key(
+            STAGE_APPROVED, artifact_type, artifact_id, filename
+        )
+
+    def build_public_url(self, object_key: str) -> str:
+        return build_public_object_url(self.public_endpoint, self.bucket, object_key)
 
     def _upload_local_file(self, local_path: Path, object_key: str) -> dict[str, Any]:
         self._store.ensure_bucket(self.bucket)
@@ -121,9 +191,13 @@ class PersonalizationStorage:
             "contentType": _guess_content_type(local_path.name),
         }
 
-    def upload_review_file(
+    # --- Stage upload / sync ---
+
+    def upload_file_to_stage(
         self,
         local_path: Path,
+        stage: str,
+        artifact_type: str,
         artifact_id: str,
         filename: Optional[str] = None,
     ) -> dict[str, Any]:
@@ -131,26 +205,15 @@ class PersonalizationStorage:
         name = filename or local_path.name
         if not local_path.is_file():
             raise FileNotFoundError(f"Local file not found: {local_path}")
-        key = self.build_review_object_key(artifact_id, name)
+        key = self.build_object_key(stage, artifact_type, artifact_id, name)
         return self._upload_local_file(local_path, key)
 
-    def upload_approved_file(
+    def sync_dir_to_stage(
         self,
-        local_path: Path,
-        artifact_id: str,
-        filename: Optional[str] = None,
-    ) -> dict[str, Any]:
-        local_path = Path(local_path)
-        name = filename or local_path.name
-        if not local_path.is_file():
-            raise FileNotFoundError(f"Local file not found: {local_path}")
-        key = self.build_approved_object_key(artifact_id, name)
-        return self._upload_local_file(local_path, key)
-
-    def sync_review_dir(
-        self,
-        artifact_id: str,
         dir_path: Path,
+        stage: str,
+        artifact_type: str,
+        artifact_id: str,
         only_filenames: Optional[list[str]] = None,
     ) -> dict[str, dict[str, Any]]:
         dir_path = Path(dir_path)
@@ -166,45 +229,153 @@ class PersonalizationStorage:
         for name in names:
             src = dir_path / name
             if src.is_file():
-                results[name] = self.upload_review_file(src, artifact_id, name)
+                results[name] = self.upload_file_to_stage(
+                    src, stage, artifact_type, artifact_id, name
+                )
         return results
 
-    def delete_review_files(self, artifact_id: str, filenames: list[str]) -> None:
-        for filename in filenames:
-            key = self.build_review_object_key(artifact_id, filename)
-            self._store.delete_object(self.bucket, key, ignore_missing=True)
-
-    def delete_review_artifact(self, artifact_id: str) -> int:
-        """Remove all objects under review/{artifact_id}/ after publish-approved."""
-        prefix = f"{self.prefix}/review/{artifact_id}/"
-        return self._store.delete_objects_with_prefix(self.bucket, prefix)
-
-    def review_file_exists(self, artifact_id: str, filename: str) -> bool:
-        return self._store.file_exists(
-            self.bucket, self.build_review_object_key(artifact_id, filename)
+    def upload_review_file(
+        self,
+        local_path: Path,
+        artifact_id: str,
+        filename: Optional[str] = None,
+        *,
+        artifact_type: str = TYPE_FINGERPRINT,
+    ) -> dict[str, Any]:
+        return self.upload_file_to_stage(
+            local_path,
+            STAGE_REVIEW,
+            artifact_type,
+            artifact_id,
+            filename,
         )
 
-    def approved_file_exists(self, artifact_id: str, filename: str) -> bool:
+    def upload_approved_file(
+        self,
+        local_path: Path,
+        artifact_id: str,
+        filename: Optional[str] = None,
+        *,
+        artifact_type: str = TYPE_FINGERPRINT,
+    ) -> dict[str, Any]:
+        return self.upload_file_to_stage(
+            local_path,
+            STAGE_APPROVED,
+            artifact_type,
+            artifact_id,
+            filename,
+        )
+
+    def sync_review_dir(
+        self,
+        artifact_id: str,
+        dir_path: Path,
+        only_filenames: Optional[list[str]] = None,
+        *,
+        artifact_type: str = TYPE_FINGERPRINT,
+    ) -> dict[str, dict[str, Any]]:
+        return self.sync_dir_to_stage(
+            dir_path,
+            STAGE_REVIEW,
+            artifact_type,
+            artifact_id,
+            only_filenames,
+        )
+
+    def delete_stage_files(
+        self,
+        stage: str,
+        artifact_type: str,
+        artifact_id: str,
+        filenames: list[str],
+    ) -> None:
+        for filename in filenames:
+            key = self.build_object_key(stage, artifact_type, artifact_id, filename)
+            self._store.delete_file(self.bucket, key, ignore_missing=True)
+
+    def delete_stage_prefix(
+        self,
+        stage: str,
+        artifact_type: str,
+        artifact_id: str,
+    ) -> int:
+        prefix = self.stage_prefix(stage, artifact_type, artifact_id)
+        return self._store.delete_prefix(self.bucket, prefix)
+
+    def delete_review_files(
+        self,
+        artifact_id: str,
+        filenames: list[str],
+        *,
+        artifact_type: str = TYPE_FINGERPRINT,
+    ) -> None:
+        self.delete_stage_files(
+            STAGE_REVIEW, artifact_type, artifact_id, filenames
+        )
+
+    def delete_review_artifact(
+        self,
+        artifact_id: str,
+        *,
+        artifact_type: str = TYPE_FINGERPRINT,
+    ) -> int:
+        return self.delete_stage_prefix(STAGE_REVIEW, artifact_type, artifact_id)
+
+    def stage_file_exists(
+        self,
+        stage: str,
+        artifact_type: str,
+        artifact_id: str,
+        filename: str,
+    ) -> bool:
         return self._store.file_exists(
-            self.bucket, self.build_approved_object_key(artifact_id, filename)
+            self.bucket,
+            self.build_object_key(stage, artifact_type, artifact_id, filename),
+        )
+
+    def review_file_exists(
+        self,
+        artifact_id: str,
+        filename: str,
+        *,
+        artifact_type: str = TYPE_FINGERPRINT,
+    ) -> bool:
+        return self.stage_file_exists(
+            STAGE_REVIEW, artifact_type, artifact_id, filename
+        )
+
+    def approved_file_exists(
+        self,
+        artifact_id: str,
+        filename: str,
+        *,
+        artifact_type: str = TYPE_FINGERPRINT,
+    ) -> bool:
+        return self.stage_file_exists(
+            STAGE_APPROVED, artifact_type, artifact_id, filename
         )
 
     def copy_review_to_approved(
         self,
+        artifact_type: str,
         artifact_id: str,
         filenames: Optional[list[str]] = None,
     ) -> dict[str, dict[str, Any]]:
         if filenames is None:
-            prefix = f"{self.prefix}/review/{artifact_id}/"
+            prefix = self.stage_prefix(STAGE_REVIEW, artifact_type, artifact_id)
             keys = self._store.list_files(self.bucket, prefix)
             filenames = list(dict.fromkeys(Path(k).name for k in keys))
 
         results: dict[str, dict[str, Any]] = {}
         for filename in filenames:
-            src_key = self.build_review_object_key(artifact_id, filename)
+            src_key = self.build_object_key(
+                STAGE_REVIEW, artifact_type, artifact_id, filename
+            )
             if not self._store.file_exists(self.bucket, src_key):
                 raise FileNotFoundError(f"Review object missing: {src_key}")
-            dst_key = self.build_approved_object_key(artifact_id, filename)
+            dst_key = self.build_object_key(
+                STAGE_APPROVED, artifact_type, artifact_id, filename
+            )
             self._store.copy_file(self.bucket, src_key, dst_key)
             results[filename] = {
                 "filename": filename,
@@ -212,6 +383,62 @@ class PersonalizationStorage:
                 "url": self.build_public_url(dst_key),
             }
         return results
+
+    # --- Download helpers ---
+
+    def ensure_local_from_stage(
+        self,
+        stage: str,
+        artifact_type: str,
+        artifact_id: str,
+        filename: str,
+    ) -> None:
+        local_path = self.path_for(artifact_id, filename)
+        if local_path.is_file():
+            return
+        if not self.stage_file_exists(stage, artifact_type, artifact_id, filename):
+            return
+        object_key = self.build_object_key(
+            stage, artifact_type, artifact_id, filename
+        )
+        self._store.download_file(self.bucket, object_key, local_path)
+
+    def ensure_local_from_review(
+        self,
+        artifact_id: str,
+        filename: str,
+        *,
+        artifact_type: str = TYPE_FINGERPRINT,
+    ) -> None:
+        self.ensure_local_from_stage(
+            STAGE_REVIEW, artifact_type, artifact_id, filename
+        )
+
+    def ensure_local_from_approved(
+        self,
+        artifact_id: str,
+        filename: str,
+        *,
+        artifact_type: str = TYPE_FINGERPRINT,
+    ) -> None:
+        self.ensure_local_from_stage(
+            STAGE_APPROVED, artifact_type, artifact_id, filename
+        )
+
+    def download_review_file(
+        self,
+        artifact_id: str,
+        filename: str,
+        dest: Path,
+        *,
+        artifact_type: str = TYPE_FINGERPRINT,
+    ) -> Path:
+        key = self.build_review_object_key(
+            artifact_id, filename, artifact_type=artifact_type
+        )
+        return self._store.download_file(self.bucket, key, dest)
+
+    # --- Manifest ---
 
     def load_local_manifest(self, artifact_id: str) -> dict[str, Any]:
         path = self.path_for(artifact_id, MANIFEST_FILENAME)
@@ -222,27 +449,37 @@ class PersonalizationStorage:
         except json.JSONDecodeError:
             return {}
 
-    def ensure_local_from_approved(self, artifact_id: str, filename: str) -> None:
-        """
-        Download APPROVED artifact files into local `.tmp/personalization/{artifactId}/`
-        when they are missing locally.
-
-        This keeps Python endpoints resilient even if local processing artifacts were cleaned.
-        """
-        local_path = self.path_for(artifact_id, filename)
-        if local_path.is_file():
-            return
-        if not self.approved_file_exists(artifact_id, filename):
-            return
-        object_key = self.build_approved_object_key(artifact_id, filename)
-        self._store.download_file(self.bucket, object_key, local_path)
-
-    def load_approved_manifest(self, artifact_id: str) -> dict[str, Any]:
-        self.ensure_local_from_approved(artifact_id, MANIFEST_FILENAME)
+    def load_approved_manifest(
+        self,
+        artifact_id: str,
+        *,
+        artifact_type: str = TYPE_FINGERPRINT,
+    ) -> dict[str, Any]:
+        self.ensure_local_from_approved(
+            artifact_id, MANIFEST_FILENAME, artifact_type=artifact_type
+        )
         return self.load_local_manifest(artifact_id)
 
-    def load_approved_placement(self, artifact_id: str) -> Optional[dict[str, Any]]:
-        self.ensure_local_from_approved(artifact_id, PLACEMENT_FILENAME)
+    def load_review_manifest(
+        self,
+        artifact_id: str,
+        *,
+        artifact_type: str = TYPE_FINGERPRINT,
+    ) -> dict[str, Any]:
+        self.ensure_local_from_review(
+            artifact_id, MANIFEST_FILENAME, artifact_type=artifact_type
+        )
+        return self.load_local_manifest(artifact_id)
+
+    def load_approved_placement(
+        self,
+        artifact_id: str,
+        *,
+        artifact_type: str = TYPE_FINGERPRINT,
+    ) -> Optional[dict[str, Any]]:
+        self.ensure_local_from_approved(
+            artifact_id, PLACEMENT_FILENAME, artifact_type=artifact_type
+        )
         local_path = self.path_for(artifact_id, PLACEMENT_FILENAME)
         if not local_path.is_file():
             return None
@@ -272,26 +509,148 @@ class PersonalizationStorage:
         )
         return manifest
 
-    def upload_manifest_to_review(self, artifact_id: str) -> dict[str, Any]:
+    def build_manifest(
+        self,
+        artifact_type: str,
+        artifact_id: str,
+        stage: str,
+        status: str,
+        files: dict[str, Any],
+        extra: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
+        manifest: dict[str, Any] = {
+            "artifactId": artifact_id,
+            "artifactType": artifact_type,
+            "type": artifact_type,
+            "stage": stage,
+            "status": status,
+            "files": files,
+            "reviewPrefix": self.stage_prefix(
+                STAGE_REVIEW, artifact_type, artifact_id
+            ).rstrip("/"),
+            "approvedPrefix": self.stage_prefix(
+                STAGE_APPROVED, artifact_type, artifact_id
+            ).rstrip("/"),
+            "updatedAt": _utc_now_iso(),
+        }
+        if extra:
+            manifest.update(extra)
         path = self.path_for(artifact_id, MANIFEST_FILENAME)
-        if not path.is_file():
-            raise FileNotFoundError(f"Manifest not found locally: {path}")
-        return self.upload_review_file(path, artifact_id, MANIFEST_FILENAME)
+        path.write_text(
+            json.dumps(manifest, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        return manifest
 
-    def upload_manifest_to_approved(self, artifact_id: str) -> dict[str, Any]:
+    def upload_manifest(
+        self,
+        artifact_type: str,
+        artifact_id: str,
+        stage: str,
+        manifest: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         path = self.path_for(artifact_id, MANIFEST_FILENAME)
+        if manifest is not None:
+            path.write_text(
+                json.dumps(manifest, indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
         if not path.is_file():
             raise FileNotFoundError(f"Manifest not found locally: {path}")
-        return self.upload_approved_file(path, artifact_id, MANIFEST_FILENAME)
+        return self.upload_file_to_stage(
+            path, stage, artifact_type, artifact_id, MANIFEST_FILENAME
+        )
+
+    def upload_manifest_to_review(
+        self,
+        artifact_id: str,
+        *,
+        artifact_type: str = TYPE_FINGERPRINT,
+    ) -> dict[str, Any]:
+        return self.upload_manifest(
+            artifact_type, artifact_id, STAGE_REVIEW
+        )
+
+    def upload_manifest_to_approved(
+        self,
+        artifact_id: str,
+        *,
+        artifact_type: str = TYPE_FINGERPRINT,
+    ) -> dict[str, Any]:
+        return self.upload_manifest(
+            artifact_type, artifact_id, STAGE_APPROVED
+        )
 
     def check_minio_health(self) -> tuple[bool, Optional[str]]:
-        return self._store.check_health(self.bucket)
+        ok, message = self._store.check_health(self.bucket)
+        if not ok:
+            return ok, message
+        try:
+            self._store.ensure_public_read(self.bucket)
+        except Exception as exc:
+            logger.warning("MinIO public-read policy failed: %s", exc)
+            return False, f"bucket ok but public-read failed: {exc}"
+        return True, None
 
-    def build_review_files_response(self, artifact_id: str) -> dict[str, Any]:
+    def find_audio_original_filename(
+        self,
+        artifact_id: str,
+        *,
+        stage: str = STAGE_REVIEW,
+        artifact_type: str = TYPE_SOUNDWAVE,
+    ) -> Optional[str]:
+        """Return `audio_original.<ext>` name if present under stage prefix."""
+        prefix = self.stage_prefix(stage, artifact_type, artifact_id)
+        for key in self._store.list_files(self.bucket, prefix):
+            name = Path(key).name
+            if name.startswith("audio_original."):
+                return name
+        # Local fallback (hydrate before MinIO list in some paths)
+        artifact_dir = self.build_artifact_dir(artifact_id)
+        for path in sorted(artifact_dir.glob("audio_original.*")):
+            if path.is_file():
+                return path.name
+        return None
+
+    def build_review_files_response(
+        self,
+        artifact_id: str,
+        *,
+        artifact_type: str = TYPE_FINGERPRINT,
+    ) -> dict[str, Any]:
         def url(filename: str) -> str:
             return self.build_public_url(
-                self.build_review_object_key(artifact_id, filename)
+                self.build_review_object_key(
+                    artifact_id, filename, artifact_type=artifact_type
+                )
             )
+
+        if artifact_type == TYPE_SOUNDWAVE:
+            audio_original = self.find_audio_original_filename(
+                artifact_id, stage=STAGE_REVIEW, artifact_type=TYPE_SOUNDWAVE
+            )
+            production: dict[str, Any] = {
+                "svg": url("soundwave.svg"),
+                "waveformPoints": url("waveform_points.json"),
+                "audioSegment": url("audio_segment.wav"),
+            }
+            if audio_original:
+                production["audioOriginal"] = url(audio_original)
+            return {
+                "viewerFiles": {
+                    "overlayPng": url("soundwave_overlay.png"),
+                    "alphaMap": url("soundwave_alpha.png"),
+                    "heightmap": url("soundwave_heightmap.png"),
+                    "normalMap": url("soundwave_normal.png"),
+                    "roughnessMap": url("soundwave_roughness.png"),
+                    "aoMap": url("soundwave_ao.png"),
+                },
+                "productionFiles": production,
+                "debugFiles": {
+                    "previewPng": url("soundwave_preview.png"),
+                    "segmentWav": url("audio_segment.wav"),
+                },
+            }
 
         return {
             "viewerFiles": {
@@ -311,11 +670,43 @@ class PersonalizationStorage:
             },
         }
 
-    def build_approved_viewer_response(self, artifact_id: str) -> dict[str, Any]:
+    def build_approved_viewer_response(
+        self,
+        artifact_id: str,
+        *,
+        artifact_type: str = TYPE_FINGERPRINT,
+    ) -> dict[str, Any]:
         def url(filename: str) -> str:
             return self.build_public_url(
-                self.build_approved_object_key(artifact_id, filename)
+                self.build_approved_object_key(
+                    artifact_id, filename, artifact_type=artifact_type
+                )
             )
+
+        if artifact_type == TYPE_SOUNDWAVE:
+            audio_original = self.find_audio_original_filename(
+                artifact_id, stage=STAGE_APPROVED, artifact_type=TYPE_SOUNDWAVE
+            )
+            production: dict[str, Any] = {
+                "svg": url("soundwave.svg"),
+                "waveformPoints": url("waveform_points.json"),
+                "audioSegment": url("audio_segment.wav"),
+            }
+            if audio_original:
+                production["audioOriginal"] = url(audio_original)
+            return {
+                "viewerFiles": {
+                    "overlayPng": url("soundwave_overlay.png"),
+                    "alphaMap": url("soundwave_alpha.png"),
+                    "heightmap": url("soundwave_heightmap.png"),
+                    "normalMap": url("soundwave_normal.png"),
+                    "roughnessMap": url("soundwave_roughness.png"),
+                    "aoMap": url("soundwave_ao.png"),
+                },
+                "productionFiles": production,
+                "audioOriginal": production.get("audioOriginal"),
+                "audioSegment": production["audioSegment"],
+            }
 
         return {
             "viewerFiles": {
@@ -340,6 +731,7 @@ def replace_and_sync_review(
     replace_filenames: list[str],
     *,
     last_operation: str,
+    artifact_type: str = TYPE_FINGERPRINT,
     manifest_patch: Optional[dict[str, Any]] = None,
 ) -> dict[str, dict[str, Any]]:
     """Atomic: validate work → move local → sync REVIEW (overwrite)."""
@@ -360,26 +752,37 @@ def replace_and_sync_review(
             dst = artifact_dir / filename
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(src), str(dst))
-        # Important: do not delete stale remote files until all uploads succeed.
-        # This keeps the previous REVIEW snapshot intact on failures.
-        uploaded = storage.sync_review_dir(artifact_id, artifact_dir, output_filenames)
+        # Do not delete stale remote files until all uploads succeed.
+        uploaded = storage.sync_review_dir(
+            artifact_id,
+            artifact_dir,
+            output_filenames,
+            artifact_type=artifact_type,
+        )
 
         stale = [fn for fn in unique_replace if fn not in output_set]
         if stale:
-            storage.delete_review_files(artifact_id, stale)
+            storage.delete_review_files(
+                artifact_id, stale, artifact_type=artifact_type
+            )
 
         patch = {
             "artifactId": artifact_id,
-            "type": "fingerprint",
+            "artifactType": artifact_type,
+            "type": artifact_type,
             "status": "READY_FOR_REVIEW",
-            "stage": "review",
+            "stage": STAGE_REVIEW,
             "lastOperation": last_operation,
-            "reviewPrefix": f"{storage.prefix}/review/{artifact_id}",
+            "reviewPrefix": storage.stage_prefix(
+                STAGE_REVIEW, artifact_type, artifact_id
+            ).rstrip("/"),
         }
         if manifest_patch:
             patch.update(manifest_patch)
         storage.update_local_manifest(artifact_id, patch)
-        manifest_entry = storage.upload_manifest_to_review(artifact_id)
+        manifest_entry = storage.upload_manifest_to_review(
+            artifact_id, artifact_type=artifact_type
+        )
         uploaded[MANIFEST_FILENAME] = manifest_entry
         return uploaded
     finally:

@@ -74,6 +74,8 @@ Chỉnh `.env` theo infra local (Qdrant, RabbitMQ, MinIO, LM Studio, …).
 
 **Potrace (SVG vân tay):** trên Windows đặt `potrace.exe` vào `tools/potrace/` hoặc cài vào PATH. Xem [tools/potrace/README.md](tools/potrace/README.md).
 
+**FFmpeg (soundwave decode):** system binary — **không** cài qua pip. Docker: `apt-get install -y ffmpeg`. Windows: cài FFmpeg + PATH, hoặc set `FFMPEG_BINARY`. WAV không cần FFmpeg. Chi tiết: [personalization_engine/README.md](personalization_engine/README.md).
+
 ---
 
 ## 2. Chạy service
@@ -191,11 +193,10 @@ Chi tiết API, preset, curl: **[personalization_engine/README.md](personalizati
 ### Workflow khuyến nghị
 
 ```text
-1. POST /fingerprint/process          → upload, thông số chuẩn → PNG + SVG
-2. POST /fingerprint/{id}/reprocess   → preset + knobs (OpenCV + SVG)
-3. POST /fingerprint/{id}/reconvert   → chỉ Potrace (PNG đã ổn)
-4. POST /fingerprint/{id}/textures    → height / normal / roughness / AO maps
-5. GET  /fingerprint/{id}/textures    → lấy maps đã có
+1. POST /fingerprint/process            → upload, thông số chuẩn → PNG + SVG
+2. POST /fingerprint/{id}/reprocess     → preset + knobs (OpenCV + SVG)
+3. POST /fingerprint/{id}/reprocess-texture → height / normal / roughness / AO maps
+4. GET  /fingerprint/{id}/textures      → lấy maps đã có
 ```
 
 ### API bổ sung
@@ -203,33 +204,37 @@ Chi tiết API, preset, curl: **[personalization_engine/README.md](personalizati
 | Method | Path | Mô tả |
 |--------|------|--------|
 | `GET` | `/fingerprint/presets` | Preset reprocess + `parameterGuide` |
-| `GET` | `/fingerprint/texture-presets` | Preset texture 3D |
+| `GET` | `/texture-presets` | Preset texture 3D (shared fingerprint + soundwave) |
 
 ### Artifacts & storage
 
-All public assets are served from MinIO using the REVIEW/APPROVED prefixes:
+MinIO is the primary store. Object key:
 
-| Stage | Object key | URL pattern |
-|--------|-------------|--------------|
-| REVIEW | `personalization/review/{artifactId}/{filename}` | `{MINIO_PUBLIC_ENDPOINT}/{PERSONALIZATION_MINIO_BUCKET}/personalization/review/{artifactId}/{filename}` |
-| APPROVED | `personalization/approved/{artifactId}/{filename}` | `{MINIO_PUBLIC_ENDPOINT}/{PERSONALIZATION_MINIO_BUCKET}/personalization/approved/{artifactId}/{filename}` |
+`personalization/{stage}/{artifactType}/{artifactId}/{filename}`
 
-Local processing files are stored under `PERSONALIZATION_TEMP_DIR` and are uploaded/synced to MinIO after each successful operation.
+| Stage / type | Object key example |
+|--------------|-------------------|
+| Fingerprint REVIEW | `personalization/review/fingerprint/fp_…/fingerprint_overlay.png` |
+| Fingerprint APPROVED | `personalization/approved/fingerprint/fp_…/fingerprint_overlay.png` |
+| Soundwave REVIEW | `personalization/review/soundwave/sw_…/soundwave.svg` |
+| Soundwave APPROVED | `personalization/approved/soundwave/sw_…/soundwave.svg` |
+
+URL: `{MINIO_PUBLIC_ENDPOINT}/{PERSONALIZATION_MINIO_BUCKET}/{objectKey}`
+
+Local `.tmp/personalization/{artifactId}/.work/` is temporary only.
 
 | File | Mục đích |
 |------|----------|
-| `input.png` | Ảnh gốc upload |
+| `input.png` | Ảnh gốc upload (fingerprint) |
 | `06_final_clean.png` | Vân tay binary sạch |
 | `fingerprint.svg` | Vector (potrace) |
-| `artifact_manifest.json` | Manifest file mới nhất + URLs |
-| `fingerprint_heightmap.png` | Displacement / bump |
-| `fingerprint_normal.png` | Normal map |
-| `fingerprint_roughness.png` | Roughness |
-| `fingerprint_ao.png` | Ambient occlusion |
+| `artifact_manifest.json` | Manifest + stage/status |
+| `fingerprint_*` texture maps | 3D preview |
+| `soundwave.svg` / `waveform_points.json` | Soundwave production |
 
-Storage endpoints: `GET /storage/health`, `POST /storage/test-upload`
+Storage health: `GET /storage/health`
 
-**Replace policy:** `reprocess` / `reconvert` / `textures` dùng lại cùng `artifactId` — không tạo id mới; output cũ bị overwrite (atomic qua `.work/`). Chi tiết: [personalization_engine/README.md](personalization_engine/README.md#storage-local--minio).
+**Replace policy:** `reprocess` / `reprocess-texture` reuse the same `artifactId` — overwrite REVIEW only (atomic via `.work/`). Texture presets: `GET /texture-presets` (shared). `publish-approved` copies to APPROVED; `cleanup-review` deletes REVIEW after NestJS DB approve. Details: [personalization_engine/README.md](personalization_engine/README.md).
 
 ### Prototype UI
 
@@ -271,7 +276,7 @@ Nhóm chính theo service:
 |------|---------|
 | `RABBITMQ_*`, `MINIO_*` | ingestion_worker (+ Nest rag-service) |
 | `QDRANT_*`, `OPENAI_*`, `LLM_*`, `EMBEDDING_*`, `INTENT_*`, `CACHE_*` | rag_engine |
-| `PERSONALIZATION_*`, `FINGERPRINT_*`, `POTRACE_*`, `PERSONALIZATION_STORAGE_*` | personalization_engine |
+| `PERSONALIZATION_*`, `FINGERPRINT_*`, `POTRACE_*`, `FFMPEG_BINARY` | personalization_engine |
 
 Copy `.env.example` → `.env` và chỉnh theo môi trường dev.
 
@@ -285,9 +290,11 @@ Copy `.env.example` → `.env` và chỉnh theo môi trường dev.
 | `qdrant-client`, `langchain-*` | RAG + ingestion |
 | `pika`, `minio` | Worker queue + storage |
 | `opencv-python`, `numpy`, `pillow` | Fingerprint pipeline |
+| `pydub` | Soundwave decode bridge (calls FFmpeg binary) |
+| `audioop-lts` | Python 3.13+ shim required by pydub |
 | `pypdf`, `httpx` | PDF + HTTP client |
 
-Potrace là binary ngoài (không trong pip).
+Potrace và **FFmpeg** là binary ngoài (không trong pip).
 
 ---
 
@@ -300,6 +307,7 @@ Potrace là binary ngoài (không trong pip).
 | MinIO | — | ✓ | — |
 | LLM (LM Studio) | ✓ | ✓ (embed) | — |
 | potrace | — | — | ✓ (SVG) |
+| FFmpeg | — | — | ✓ (soundwave decode) |
 
 Personalization chạy độc lập, không cần Qdrant/RabbitMQ.
 

@@ -58,7 +58,7 @@ class Settings:
     )
 
     # Texture maps for 3D engraving preview (Three.js / React Native)
-    # Textures are produced only via POST /fingerprint/{id}/textures (final step).
+    # Textures via POST /{fingerprint|soundwave}/{id}/reprocess-texture (shared presets).
     FINGERPRINT_GENERATE_TEXTURES: bool = get_bool_env(
         "FINGERPRINT_GENERATE_TEXTURES", False
     )
@@ -77,6 +77,9 @@ class Settings:
 
     # Empty → auto-discover potrace.exe
     POTRACE_PATH: str = os.getenv("POTRACE_PATH", "") or ""
+
+    # External system tool for soundwave audio decode (not a pip package).
+    FFMPEG_BINARY: str = os.getenv("FFMPEG_BINARY", "ffmpeg") or "ffmpeg"
 
     APP_ENV: str = os.getenv("APP_ENV", "development")
 

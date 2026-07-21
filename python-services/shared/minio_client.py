@@ -159,6 +159,20 @@ class MinioObjectStore:
             removed += 1
         return removed
 
+    def delete_file(
+        self,
+        bucket: str,
+        object_key: str,
+        *,
+        ignore_missing: bool = True,
+    ) -> None:
+        """Alias for delete_object (spec-compatible name)."""
+        self.delete_object(bucket, object_key, ignore_missing=ignore_missing)
+
+    def delete_prefix(self, bucket: str, prefix: str) -> int:
+        """Alias for delete_objects_with_prefix (spec-compatible name)."""
+        return self.delete_objects_with_prefix(bucket, prefix)
+
     def copy_file(
         self,
         bucket: str,

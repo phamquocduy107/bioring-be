@@ -17,3 +17,5 @@ httpx
 opencv-python
 numpy
 pillow
+pydub
+audioop-lts

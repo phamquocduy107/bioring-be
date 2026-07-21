@@ -42,7 +42,7 @@ class ProcessOptions:
     turdsize: int = 3
     alphamax: float = 0.75
     opttolerance: float = 0.06
-    # Texture maps: only True when calling /textures (not during process/reprocess)
+    # Texture maps: only True when calling /reprocess-texture (not during process/reprocess)
     generate_textures: bool = False
     heightmap_blur: float = 1.2
     normal_strength: float = 2.5

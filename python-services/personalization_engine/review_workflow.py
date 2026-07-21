@@ -7,8 +7,6 @@ import logging
 from pathlib import Path
 from typing import Any, Optional
 
-logger = logging.getLogger("personalization.review")
-
 from .artifact_groups import (
     APPROVED_DEBUG_FILES,
     APPROVED_PUBLISH_FILES,
@@ -19,13 +17,18 @@ from .artifact_groups import (
     RECONVERT_REPLACE_FILES,
     REPROCESS_OUTPUT_FILES,
     REPROCESS_REPLACE_FILES,
+    STAGE_APPROVED,
+    STAGE_REVIEW,
     TEXTURE_OUTPUT_FILES,
     TEXTURE_REPLACE_FILES,
+    TYPE_FINGERPRINT,
 )
 from .config import settings
 from .fingerprint_processor import ProcessOptions, process_fingerprint_file, reconvert_svg_from_final
 from .storage_client import PersonalizationStorage, replace_and_sync_review
 from .texture_processor import generate_fingerprint_texture_maps
+
+logger = logging.getLogger("personalization.review")
 
 
 def generate_textures_for_dir(
@@ -52,24 +55,32 @@ def generate_textures_for_dir(
 def finalize_process_to_review(
     storage: PersonalizationStorage,
     artifact_id: str,
-    artifact_dir: Path,
+    work_dir: Path,
     *,
     last_operation: str = "process",
     extra_manifest: Optional[dict[str, Any]] = None,
 ) -> None:
-    generate_textures_for_dir(artifact_dir)
-    names = [n for n in PROCESS_OUTPUT_FILES if (artifact_dir / n).is_file()]
-    storage.sync_review_dir(artifact_id, artifact_dir, names)
-    patch: dict[str, Any] = {
-        "status": "READY_FOR_REVIEW",
-        "stage": "review",
-        "lastOperation": last_operation,
-        "reviewPrefix": f"{storage.prefix}/review/{artifact_id}",
-    }
-    if extra_manifest:
-        patch.update(extra_manifest)
-    storage.update_local_manifest(artifact_id, patch)
-    storage.upload_manifest_to_review(artifact_id)
+    """
+    Process outputs already in work_dir → atomic sync to REVIEW → cleanup .work.
+
+    Same pattern as soundwave / reprocess: local .work is temporary only.
+    """
+    generate_textures_for_dir(work_dir)
+    output_files = [n for n in PROCESS_OUTPUT_FILES if (work_dir / n).is_file()]
+    if "input.png" not in output_files and (work_dir / "input.png").is_file():
+        output_files.insert(0, "input.png")
+    if (work_dir / "options.json").is_file() and "options.json" not in output_files:
+        output_files.append("options.json")
+    replace_and_sync_review(
+        storage,
+        artifact_id,
+        work_dir,
+        output_filenames=output_files,
+        replace_filenames=list(PROCESS_OUTPUT_FILES) + list(REPROCESS_REPLACE_FILES),
+        last_operation=last_operation,
+        artifact_type=TYPE_FINGERPRINT,
+        manifest_patch=extra_manifest,
+    )
 
 
 def reprocess_to_review(
@@ -78,10 +89,22 @@ def reprocess_to_review(
     input_path: Path,
     work_dir: Path,
     options: ProcessOptions,
+    *,
+    preset: Optional[str] = None,
 ) -> None:
     result = process_fingerprint_file(input_path, work_dir, options)
     generate_textures_for_dir(work_dir)
+    options_path = work_dir / "options.json"
+    if options_path.is_file() and preset:
+        try:
+            data = json.loads(options_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            data = {}
+        data["preset"] = preset
+        options_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
     output_files = [n for n in REPROCESS_OUTPUT_FILES if (work_dir / n).is_file()]
+    if (work_dir / "options.json").is_file():
+        output_files.append("options.json")
     replace_and_sync_review(
         storage,
         artifact_id,
@@ -89,7 +112,10 @@ def reprocess_to_review(
         output_filenames=output_files,
         replace_filenames=REPROCESS_REPLACE_FILES,
         last_operation="reprocess",
-        manifest_patch={"preset": result.get("metadata", {}).get("preset")},
+        artifact_type=TYPE_FINGERPRINT,
+        manifest_patch={
+            "preset": preset or result.get("metadata", {}).get("preset")
+        },
     )
 
 
@@ -110,6 +136,7 @@ def reconvert_to_review(
         output_filenames=output_files,
         replace_filenames=RECONVERT_REPLACE_FILES,
         last_operation="reconvert",
+        artifact_type=TYPE_FINGERPRINT,
     )
 
 
@@ -125,6 +152,10 @@ def textures_to_review(
     ao_strength: float,
 ) -> None:
     final_path = storage.path_for(artifact_id, "06_final_clean.png")
+    if not final_path.is_file():
+        storage.ensure_local_from_review(
+            artifact_id, "06_final_clean.png", artifact_type=TYPE_FINGERPRINT
+        )
     generate_fingerprint_texture_maps(
         final_path,
         work_dir,
@@ -142,6 +173,7 @@ def textures_to_review(
         output_filenames=output_files,
         replace_filenames=TEXTURE_REPLACE_FILES,
         last_operation="textures",
+        artifact_type=TYPE_FINGERPRINT,
     )
 
 
@@ -154,46 +186,91 @@ def publish_approved(
     approval_note: Optional[str],
     copy_debug_files: bool,
 ) -> dict[str, Any]:
+    """Copy REVIEW → APPROVED. Does NOT delete REVIEW (use cleanup_review)."""
     for filename in FINGERPRINT_REQUIRED_APPROVAL_FILES:
-        if not storage.review_file_exists(artifact_id, filename):
-            raise FileNotFoundError(
-                f"Missing required review file: {filename}"
-            )
+        if not storage.review_file_exists(
+            artifact_id, filename, artifact_type=TYPE_FINGERPRINT
+        ):
+            raise FileNotFoundError(f"Missing required review file: {filename}")
 
     to_copy = list(APPROVED_PUBLISH_FILES) + [MANIFEST_FILENAME]
     if copy_debug_files:
         to_copy.extend(APPROVED_DEBUG_FILES)
 
-    storage.copy_review_to_approved(artifact_id, to_copy)
+    storage.copy_review_to_approved(TYPE_FINGERPRINT, artifact_id, to_copy)
 
     patch = {
+        "artifactType": TYPE_FINGERPRINT,
+        "type": TYPE_FINGERPRINT,
         "status": "ASSET_APPROVED",
-        "stage": "approved",
+        "stage": STAGE_APPROVED,
         "approvedAt": approved_at,
         "approvedBy": approved_by,
         "approvalNote": approval_note,
-        "approvedPrefix": f"{storage.prefix}/approved/{artifact_id}",
+        "reviewPrefix": storage.stage_prefix(
+            STAGE_REVIEW, TYPE_FINGERPRINT, artifact_id
+        ).rstrip("/"),
+        "approvedPrefix": storage.stage_prefix(
+            STAGE_APPROVED, TYPE_FINGERPRINT, artifact_id
+        ).rstrip("/"),
         "lastOperation": "publish-approved",
     }
-    storage.update_local_manifest(
-        artifact_id,
-        patch,
-        remove_keys=["reviewPrefix"],
-    )
-    manifest_approved = storage.upload_manifest_to_approved(artifact_id)
-    deleted = storage.delete_review_artifact(artifact_id)
-    logger.info(
-        "publish-approved artifact=%s copied=%d deleted_review_objects=%d",
-        artifact_id,
-        len(to_copy),
-        deleted,
+    storage.update_local_manifest(artifact_id, patch)
+    manifest_approved = storage.upload_manifest_to_approved(
+        artifact_id, artifact_type=TYPE_FINGERPRINT
     )
 
-    approved_files = storage.build_approved_viewer_response(artifact_id)
+    logger.info(
+        "publish-approved fingerprint=%s copied=%d (review kept until cleanup)",
+        artifact_id,
+        len(to_copy),
+    )
+
+    approved_files = storage.build_approved_viewer_response(
+        artifact_id, artifact_type=TYPE_FINGERPRINT
+    )
     return {
         "approvedFiles": approved_files,
         "manifestUrl": manifest_approved["url"],
-        "reviewObjectsDeleted": deleted,
+    }
+
+
+def cleanup_review(
+    storage: PersonalizationStorage,
+    artifact_id: str,
+    *,
+    artifact_type: str = TYPE_FINGERPRINT,
+    reason: str = "approved",
+) -> dict[str, Any]:
+    """Delete REVIEW prefix (and local .tmp) only if APPROVED assets exist."""
+    marker = (
+        "fingerprint_overlay.png"
+        if artifact_type == TYPE_FINGERPRINT
+        else "soundwave_overlay.png"
+    )
+    if not storage.approved_file_exists(
+        artifact_id, marker, artifact_type=artifact_type
+    ):
+        raise FileNotFoundError(
+            "Approved assets not found. Cannot cleanup review."
+        )
+
+    deleted = storage.delete_review_artifact(
+        artifact_id, artifact_type=artifact_type
+    )
+    local_tmp_deleted = storage.cleanup_local_artifact(artifact_id)
+    logger.info(
+        "cleanup-review type=%s artifact=%s reason=%s deleted=%d localTmp=%s",
+        artifact_type,
+        artifact_id,
+        reason,
+        deleted,
+        local_tmp_deleted,
+    )
+    return {
+        "deletedObjects": deleted,
+        "reason": reason,
+        "localTmpDeleted": local_tmp_deleted,
     }
 
 
@@ -201,9 +278,10 @@ def save_placement(
     storage: PersonalizationStorage,
     artifact_id: str,
     payload: dict[str, Any],
+    *,
+    artifact_type: str = TYPE_FINGERPRINT,
 ) -> dict[str, Any]:
-    # Preserve existing manifest content (in case local `.tmp/...` was cleaned).
-    storage.load_approved_manifest(artifact_id)
+    storage.load_approved_manifest(artifact_id, artifact_type=artifact_type)
 
     placement_path = storage.path_for(artifact_id, PLACEMENT_FILENAME)
     placement_path.write_text(
@@ -211,7 +289,10 @@ def save_placement(
         encoding="utf-8",
     )
     placement_upload = storage.upload_approved_file(
-        placement_path, artifact_id, PLACEMENT_FILENAME
+        placement_path,
+        artifact_id,
+        PLACEMENT_FILENAME,
+        artifact_type=artifact_type,
     )
 
     patch = {
@@ -224,7 +305,9 @@ def save_placement(
         "lastOperation": "confirm-placement",
     }
     storage.update_local_manifest(artifact_id, patch)
-    manifest = storage.upload_manifest_to_approved(artifact_id)
+    manifest = storage.upload_manifest_to_approved(
+        artifact_id, artifact_type=artifact_type
+    )
     return {
         "placementUrl": placement_upload["url"],
         "manifestUrl": manifest["url"],
