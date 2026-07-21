@@ -13,7 +13,6 @@ export * from './card-theme';
 export * from './production-task';
 export * from './delivery';
 export * from './guest';
-export * from './capture-session';
 export * from './admin';
 export * from './warranty';
 export * from './customer';

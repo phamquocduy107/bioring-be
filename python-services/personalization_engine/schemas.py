@@ -86,6 +86,15 @@ class ViewerFiles(BaseModel):
 
 class ProductionFiles(BaseModel):
     svg: str
+    waveformPoints: Optional[str] = None
+    audioOriginal: Optional[str] = None
+    audioSegment: Optional[str] = None
+
+
+class SourceFiles(BaseModel):
+    """Canonical raw input (FP image / SW audio / HB). Mirrors DB sourceFiles.raw."""
+
+    raw: str
 
 
 class DebugFiles(BaseModel):
@@ -96,12 +105,14 @@ class DebugFiles(BaseModel):
 class ReviewFilesBundle(BaseModel):
     viewerFiles: ViewerFiles
     productionFiles: ProductionFiles
+    sourceFiles: SourceFiles
     debugFiles: DebugFiles
 
 
 class ApprovedFilesBundle(BaseModel):
     viewerFiles: ViewerFiles
     productionFiles: ProductionFiles
+    sourceFiles: SourceFiles
 
 
 class FingerprintReviewResponse(BaseModel):
@@ -310,6 +321,10 @@ class SoundwaveProductionFiles(BaseModel):
     )
 
 
+class SoundwaveSourceFiles(BaseModel):
+    raw: str = Field(description="Same as productionFiles.audioOriginal when present.")
+
+
 class SoundwaveDebugFiles(BaseModel):
     previewPng: Optional[str] = None
     segmentWav: Optional[str] = None
@@ -318,6 +333,7 @@ class SoundwaveDebugFiles(BaseModel):
 class SoundwaveReviewFilesBundle(BaseModel):
     viewerFiles: ViewerFiles
     productionFiles: SoundwaveProductionFiles
+    sourceFiles: SoundwaveSourceFiles
     debugFiles: Optional[SoundwaveDebugFiles] = None
 
 
@@ -334,6 +350,7 @@ class SoundwaveReviewResponse(BaseModel):
 class SoundwaveApprovedFilesBundle(BaseModel):
     viewerFiles: ViewerFiles
     productionFiles: SoundwaveProductionFiles
+    sourceFiles: SoundwaveSourceFiles
 
 
 class SoundwavePublishApprovedResponse(BaseModel):
@@ -499,3 +516,18 @@ class FingerprintTextureOptions(TexturePresetRequest):
 
 class SoundwaveTextureOptions(TexturePresetRequest):
     """Deprecated alias — use TexturePresetRequest with reprocess-texture."""
+
+
+class HeartbeatApprovedFiles(BaseModel):
+    productionFiles: ProductionFiles
+    sourceFiles: SourceFiles
+
+
+class HeartbeatStoreResponse(BaseModel):
+    """POST /heartbeat/store — raw HB file → MinIO APPROVED (no processing)."""
+
+    artifactId: str
+    status: str = "ASSET_APPROVED"
+    stage: str = "approved"
+    approvedFiles: HeartbeatApprovedFiles
+    manifestUrl: str

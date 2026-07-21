@@ -136,6 +136,7 @@
       "^@app/common(|/.*)$": "<rootDir>/libs/common/src/$1",
       "^@app/prisma(|/.*)$": "<rootDir>/libs/prisma/src/$1",
       "^@app/redis(|/.*)$": "<rootDir>/libs/redis/src/$1",
+      "^@app/minio(|/.*)$": "<rootDir>/libs/minio/src/$1",
       "^@app/mongo(|/.*)$": "<rootDir>/libs/mongo/src/$1"
     }
   }

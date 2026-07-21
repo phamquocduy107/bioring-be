@@ -65,10 +65,19 @@ export class EngravingBioMetricResponse {
   @ApiProperty()
   requiredChannel!: string;
 
-  @ApiProperty()
+  @ApiProperty({ required: false })
+  biometricAssetId?: string;
+
+  @ApiProperty({
+    description:
+      'Resolved from biometric_assets.approved_files.sourceFiles.raw',
+  })
   rawFileUrl!: string;
 
-  @ApiProperty()
+  @ApiProperty({
+    description:
+      'Resolved from biometric_assets.approved_files.productionFiles.svg',
+  })
   processedSvgUrl!: string;
 
   @ApiProperty()

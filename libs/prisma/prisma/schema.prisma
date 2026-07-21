@@ -28,13 +28,13 @@ model ai_sessions {
   topic                String?         @db.VarChar(255)
   summary              String?
   final_recommendation Json?
+  created_at           DateTime?       @db.Timestamptz(6)
+  updated_at           DateTime?       @db.Timestamptz(6)
   workspace_id         String?         @db.VarChar(255)
   user_preferences     Json?
   last_intent          String?         @db.VarChar(100)
   current_intent       String?         @db.VarChar(100)
   last_message         String?
-  created_at           DateTime?       @db.Timestamptz(6)
-  updated_at           DateTime?       @db.Timestamptz(6)
   ai_messages          ai_messages[]
   users                users?          @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   design_drafts        design_drafts[]
@@ -57,81 +57,42 @@ model audit_logs {
   users       users?    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
-/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
-model biometric_capture_items {
-  id                         String                     @id @db.Uuid
-  capture_session_id         String                     @db.Uuid
-  capture_type               String?                    @db.VarChar(100)
-  raw_file_url               String?                    @db.VarChar(500)
-  processed_file_url         String?                    @db.VarChar(500)
-  svg_url                    String?                    @db.VarChar(500)
-  metadata                   Json?
-  quality_score              Decimal?                   @db.Decimal(5, 2)
-  upload_source              String?                    @db.VarChar(50)
-  status                     String?                    @db.VarChar(100)
-  created_at                 DateTime?                  @db.Timestamptz(6)
-  biometric_capture_sessions biometric_capture_sessions @relation(fields: [capture_session_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@index([capture_session_id])
-}
-
-/// Staff-processed fingerprint assets (REVIEW → APPROVED workflow).
+/// Personalization / ecommerce biometric files (REVIEW → APPROVED or CAPTURED).
 model biometric_assets {
-  id                     String    @id @db.Uuid
-  artifact_id            String    @db.VarChar(100)
-  asset_type             String    @default("fingerprint") @db.VarChar(50)
-  status                 String    @db.VarChar(50)
-  review_files           Json?
-  approved_files         Json?
-  manifest_url           String?   @db.VarChar(500)
-  created_by_staff_id    String?   @db.Uuid
-  assigned_user_id       String?   @db.Uuid
-  order_item_id          String?   @db.Uuid
-  model_code             String?   @db.VarChar(100)
-  surface                String?   @db.VarChar(100)
-  placement              Json?
-  approved_by            String?   @db.Uuid
-  approved_at            DateTime? @db.Timestamptz(6)
-  approval_note          String?
-  placement_confirmed_at DateTime? @db.Timestamptz(6)
-  quality_score          Decimal?  @db.Decimal(5, 2)
-  created_at             DateTime? @default(now()) @db.Timestamptz(6)
-  updated_at             DateTime? @default(now()) @db.Timestamptz(6)
+  id                                      String                @id @db.Uuid
+  artifact_id                             String                @db.VarChar(100)
+  asset_type                              String                @default("fingerprint") @db.VarChar(50)
+  status                                  String                @db.VarChar(50)
+  review_files                            Json?
+  approved_files                          Json?
+  manifest_url                            String?               @db.VarChar(500)
+  created_by_staff_id                     String?               @db.Uuid
+  assigned_user_id                        String?               @db.Uuid
+  /// Primary link to order via orders.engraving_id → engravings.
+  engraving_id                            String?               @db.Uuid
+  /// @deprecated Prefer engraving_id; kept optional for transitional clients.
+  order_item_id                           String?               @db.Uuid
+  model_code                              String?               @db.VarChar(100)
+  surface                                 String?               @db.VarChar(100)
+  placement                               Json?
+  approved_by                             String?               @db.Uuid
+  approved_at                             DateTime?             @db.Timestamptz(6)
+  approval_note                           String?
+  placement_confirmed_at                  DateTime?             @db.Timestamptz(6)
+  quality_score                           Decimal?              @db.Decimal(5, 2)
+  created_at                              DateTime?             @default(now()) @db.Timestamptz(6)
+  updated_at                              DateTime?             @default(now()) @db.Timestamptz(6)
+  users_biometric_assets_approved_by      users?                @relation("biometric_assets_approved_by", fields: [approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_biometric_assets_assigned_user    users?                @relation("biometric_assets_assigned_user", fields: [assigned_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_biometric_assets_created_by_staff users?                @relation("biometric_assets_created_by_staff", fields: [created_by_staff_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  engravings                              engravings?           @relation(fields: [engraving_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  engraving_biometric                     engraving_biometrics?
 
-  users_biometric_assets_created_by_staff users? @relation("biometric_assets_created_by_staff", fields: [created_by_staff_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users_biometric_assets_assigned_user    users? @relation("biometric_assets_assigned_user", fields: [assigned_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users_biometric_assets_approved_by      users? @relation("biometric_assets_approved_by", fields: [approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
+  @@unique([engraving_id, asset_type])
   @@index([artifact_id])
   @@index([assigned_user_id])
+  @@index([engraving_id])
   @@index([status])
-}
-
-/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
-model biometric_capture_sessions {
-  id                                                  String                    @id @db.Uuid
-  order_id                                            String                    @db.Uuid
-  engraving_id                                        String?                   @db.Uuid
-  customer_id                                         String?                   @db.Uuid
-  guest_customer_id                                   String?                   @db.Uuid
-  staff_id                                            String?                   @db.Uuid
-  device_id                                           String?                   @db.Uuid
-  status                                              String?                   @db.VarChar(100)
-  quality_score                                       Decimal?                  @db.Decimal(5, 2)
-  staff_note                                          String?
-  started_at                                          DateTime?                 @db.Timestamptz(6)
-  completed_at                                        DateTime?                 @db.Timestamptz(6)
-  biometric_capture_items                             biometric_capture_items[]
-  users_biometric_capture_sessions_customer_idTousers users?                    @relation("biometric_capture_sessions_customer_idTousers", fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  iot_devices                                         iot_devices?              @relation(fields: [device_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  engravings                                          engravings?               @relation(fields: [engraving_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  guest_customers                                     guest_customers?          @relation(fields: [guest_customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  orders                                              orders                    @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users_biometric_capture_sessions_staff_idTousers    users?                    @relation("biometric_capture_sessions_staff_idTousers", fields: [staff_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  staff_assignments                                   staff_assignments[]
-
-  @@index([device_id])
-  @@index([order_id])
 }
 
 model card_themes {
@@ -187,19 +148,19 @@ model device_health_logs {
   iot_devices   iot_devices @relation(fields: [device_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
+/// Checklist of required biometric types per engraving. File pipeline lives on biometric_assets.
 model engraving_biometrics {
-  id                String    @id @db.Uuid
-  engraving_id      String    @db.Uuid
-  biometric_type    String    @db.VarChar(50)
-  required_channel  String    @db.VarChar(50)
-  raw_file_url      String?   @db.VarChar(500)
-  processed_svg_url String?   @db.VarChar(500)
-  extra_data        Json?
-  status            String?   @default("PENDING_CAPTURE") @db.VarChar(100)
-  created_at        DateTime? @db.Timestamptz(6)
-  updated_at        DateTime? @db.Timestamptz(6)
-
-  engravings engravings @relation(fields: [engraving_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id                 String            @id @db.Uuid
+  engraving_id       String            @db.Uuid
+  biometric_type     String            @db.VarChar(50)
+  required_channel   String            @db.VarChar(50)
+  extra_data         Json?
+  status             String?           @default("PENDING_CAPTURE") @db.VarChar(100)
+  created_at         DateTime?         @db.Timestamptz(6)
+  updated_at         DateTime?         @db.Timestamptz(6)
+  biometric_asset_id String?           @unique @db.Uuid
+  biometric_asset    biometric_assets? @relation(fields: [biometric_asset_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  engravings         engravings        @relation(fields: [engraving_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@unique([engraving_id, biometric_type])
   @@index([engraving_id])
@@ -216,7 +177,6 @@ model engraving_versions {
   ring_style                                                    String?      @db.VarChar(100)
   ring_shape                                                    String?      @db.VarChar(100)
   customization_config                                          Json?
-  selected_biometrics                                           String?      @db.VarChar(100)
   preview_image_url                                             String?      @db.VarChar(500)
   model_3d_url                                                  String?      @db.VarChar(500)
   production_file_url                                           String?      @db.VarChar(500)
@@ -225,6 +185,7 @@ model engraving_versions {
   manager_note                                                  String?
   reviewed_at                                                   DateTime?    @db.Timestamptz(6)
   created_at                                                    DateTime?    @db.Timestamptz(6)
+  selected_biometrics                                           String?      @db.VarChar(100)
   engravings_engraving_versions_engraving_idToengravings        engravings   @relation("engraving_versions_engraving_idToengravings", fields: [engraving_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   users                                                         users?       @relation(fields: [manager_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   gemstones                                                     gemstones?   @relation(fields: [selected_gemstone_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -236,27 +197,27 @@ model engraving_versions {
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
 model engravings {
-  id                                                                    String                       @id @db.Uuid
-  user_id                                                               String?                      @db.Uuid
-  guest_customer_id                                                     String?                      @db.Uuid
-  product_id                                                            String?                      @db.Uuid
-  unique_product_id                                                     String?                      @unique @db.VarChar(100)
-  approved_version_id                                                   String?                      @db.Uuid
-  biometric_consent_at                                                  DateTime?                    @db.Timestamptz(6)
-  raw_biometric_deleted_at                                              DateTime?                    @db.Timestamptz(6)
-  status                                                                String?                      @db.VarChar(100)
-  created_at                                                            DateTime?                    @db.Timestamptz(6)
-  updated_at                                                            DateTime?                    @db.Timestamptz(6)
-  biometric_capture_sessions                                            biometric_capture_sessions[]
+  id                                                                    String                 @id @db.Uuid
+  product_id                                                            String?                @db.Uuid
+  unique_product_id                                                     String?                @unique @db.VarChar(100)
+  approved_version_id                                                   String?                @db.Uuid
+  biometric_consent_at                                                  DateTime?              @db.Timestamptz(6)
+  raw_biometric_deleted_at                                              DateTime?              @db.Timestamptz(6)
+  status                                                                String?                @db.VarChar(100)
+  created_at                                                            DateTime?              @db.Timestamptz(6)
+  updated_at                                                            DateTime?              @db.Timestamptz(6)
+  user_id                                                               String?                @db.Uuid
+  guest_customer_id                                                     String?                @db.Uuid
+  biometric_assets                                                      biometric_assets[]
   engraving_biometrics                                                  engraving_biometrics[]
-  engraving_versions_engraving_versions_engraving_idToengravings        engraving_versions[]         @relation("engraving_versions_engraving_idToengravings")
-  engraving_versions_engravings_approved_version_idToengraving_versions engraving_versions?          @relation("engravings_approved_version_idToengraving_versions", fields: [approved_version_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  engraving_versions_engraving_versions_engraving_idToengravings        engraving_versions[]   @relation("engraving_versions_engraving_idToengravings")
+  engraving_versions_engravings_approved_version_idToengraving_versions engraving_versions?    @relation("engravings_approved_version_idToengraving_versions", fields: [approved_version_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  products                                                              products?              @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users                                                                 users?                 @relation("engravings_user_idTousers", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  order                                                                 orders?
+  production_tasks                                                      production_tasks[]
   qr_memories                                                           qr_memories?
   warranties                                                            warranties?
-  order                                                                 orders?
-  products                                                              products?                    @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users                                                                 users?                       @relation("engravings_user_idTousers", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  production_tasks                                                      production_tasks[]
   warranty_claims                                                       warranty_claims[]
 
   @@index([status])
@@ -289,18 +250,17 @@ model gemstones {
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
 model guest_customers {
-  id                         String                       @id @db.Uuid
-  guest_code                 String?                      @unique @db.VarChar(50)
-  full_name                  String?                      @db.VarChar(255)
-  phone                      String?                      @db.VarChar(50)
-  email                      String?                      @db.VarChar(255)
-  note                       String?
-  converted_user_id          String?                      @db.Uuid
-  created_at                 DateTime?                    @db.Timestamptz(6)
-  biometric_capture_sessions biometric_capture_sessions[]
-  users                      users?                       @relation(fields: [converted_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  orders                     orders[]
-  warranty_claims            warranty_claims[]
+  id                String            @id @db.Uuid
+  guest_code        String?           @unique @db.VarChar(50)
+  full_name         String?           @db.VarChar(255)
+  phone             String?           @db.VarChar(50)
+  email             String?           @db.VarChar(255)
+  note              String?
+  converted_user_id String?           @db.Uuid
+  created_at        DateTime?         @db.Timestamptz(6)
+  users             users?            @relation(fields: [converted_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  orders            orders[]
+  warranty_claims   warranty_claims[]
 
   @@index([phone])
 }
@@ -322,17 +282,16 @@ model inventory_ledgers {
 }
 
 model iot_devices {
-  id                         String                       @id @db.Uuid
-  device_name                String?                      @db.VarChar(255)
-  mac_address                String?                      @unique @db.VarChar(100)
-  ip_address                 String?                      @db.VarChar(100)
-  device_type                String?                      @db.VarChar(100)
-  status                     String?                      @db.VarChar(50)
-  firmware_version           String?                      @db.VarChar(100)
-  created_at                 DateTime?                    @db.Timestamptz(6)
-  updated_at                 DateTime?                    @db.Timestamptz(6)
-  biometric_capture_sessions biometric_capture_sessions[]
-  device_health_logs         device_health_logs[]
+  id                 String               @id @db.Uuid
+  device_name        String?              @db.VarChar(255)
+  mac_address        String?              @unique @db.VarChar(100)
+  ip_address         String?              @db.VarChar(100)
+  device_type        String?              @db.VarChar(100)
+  status             String?              @db.VarChar(50)
+  firmware_version   String?              @db.VarChar(100)
+  created_at         DateTime?            @db.Timestamptz(6)
+  updated_at         DateTime?            @db.Timestamptz(6)
+  device_health_logs device_health_logs[]
 }
 
 model materials {
@@ -379,37 +338,36 @@ model email_trackings {
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
 model orders {
-  id                                         String                       @id @db.Uuid
-  order_code                                 String                       @unique @db.VarChar(50)
-  engraving_id                               String                       @unique @db.Uuid
-  engraving                                  engravings                   @relation(fields: [engraving_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  user_id                                    String?                      @db.Uuid
-  guest_customer_id                          String?                      @db.Uuid
-  design_draft_id                            String?                      @db.Uuid
-  order_type                                 String?                      @db.VarChar(100)
-  package_type                               String?                      @db.VarChar(100)
-  capture_route                              String?                      @db.VarChar(50)
-  design_source                              String?                      @db.VarChar(100)
-  status                                     String?                      @db.VarChar(100)
-  subtotal                                   Decimal?                     @db.Decimal(18, 2)
-  service_fee                                Decimal?                     @db.Decimal(18, 2)
-  extra_fee                                  Decimal?                     @db.Decimal(18, 2)
-  discount_amount                            Decimal?                     @db.Decimal(18, 2)
-  total_price                                Decimal?                     @db.Decimal(18, 2)
-  paid_amount                                Decimal?                     @db.Decimal(18, 2)
-  remaining_amount                           Decimal?                     @db.Decimal(18, 2)
+  id                                         String              @id @db.Uuid
+  order_code                                 String              @unique @db.VarChar(50)
+  user_id                                    String?             @db.Uuid
+  guest_customer_id                          String?             @db.Uuid
+  design_draft_id                            String?             @db.Uuid
+  order_type                                 String?             @db.VarChar(100)
+  package_type                               String?             @db.VarChar(100)
+  capture_route                              String?             @db.VarChar(50)
+  design_source                              String?             @db.VarChar(100)
+  status                                     String?             @db.VarChar(100)
+  subtotal                                   Decimal?            @db.Decimal(18, 2)
+  service_fee                                Decimal?            @db.Decimal(18, 2)
+  extra_fee                                  Decimal?            @db.Decimal(18, 2)
+  discount_amount                            Decimal?            @db.Decimal(18, 2)
+  total_price                                Decimal?            @db.Decimal(18, 2)
+  paid_amount                                Decimal?            @db.Decimal(18, 2)
+  remaining_amount                           Decimal?            @db.Decimal(18, 2)
   note                                       String?
-  created_by_staff_id                        String?                      @db.Uuid
-  approved_by_manager_id                     String?                      @db.Uuid
-  created_at                                 DateTime?                    @db.Timestamptz(6)
-  updated_at                                 DateTime?                    @db.Timestamptz(6)
-  biometric_capture_sessions                 biometric_capture_sessions[]
+  created_by_staff_id                        String?             @db.Uuid
+  approved_by_manager_id                     String?             @db.Uuid
+  created_at                                 DateTime?           @db.Timestamptz(6)
+  updated_at                                 DateTime?           @db.Timestamptz(6)
+  engraving_id                               String              @unique @db.Uuid
   inventory_ledgers                          inventory_ledgers[]
-  users_orders_approved_by_manager_idTousers users?                       @relation("orders_approved_by_manager_idTousers", fields: [approved_by_manager_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users_orders_created_by_staff_idTousers    users?                       @relation("orders_created_by_staff_idTousers", fields: [created_by_staff_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  design_drafts                              design_drafts?               @relation(fields: [design_draft_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  guest_customers                            guest_customers?             @relation(fields: [guest_customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users_orders_user_idTousers                users?                       @relation("orders_user_idTousers", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_orders_approved_by_manager_idTousers users?              @relation("orders_approved_by_manager_idTousers", fields: [approved_by_manager_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_orders_created_by_staff_idTousers    users?              @relation("orders_created_by_staff_idTousers", fields: [created_by_staff_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  design_drafts                              design_drafts?      @relation(fields: [design_draft_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  engraving                                  engravings          @relation(fields: [engraving_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  guest_customers                            guest_customers?    @relation(fields: [guest_customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_orders_user_idTousers                users?              @relation("orders_user_idTousers", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   payments                                   payments[]
   pickup_records                             pickup_records[]
   production_tasks                           production_tasks[]
@@ -433,8 +391,6 @@ model payments {
   warranty_claim_id    String?          @db.Uuid
   payos_transaction_id String?          @db.VarChar(255)
   payment_code         String?          @unique @db.VarChar(100)
-  qr_code              String?          @db.VarChar(500)
-  payment_url          String?          @db.VarChar(500)
   amount               Decimal          @db.Decimal(18, 2)
   payment_phase        String?          @db.VarChar(100)
   method               String?          @db.VarChar(100)
@@ -442,6 +398,8 @@ model payments {
   is_refund            Boolean?         @default(false)
   paid_at              DateTime?        @db.Timestamptz(6)
   created_at           DateTime?        @db.Timestamptz(6)
+  payment_url          String?          @db.VarChar(500)
+  qr_code              String?          @db.VarChar(500)
   orders               orders?          @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   warranty_claims      warranty_claims? @relation(fields: [warranty_claim_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
@@ -559,9 +517,6 @@ model qr_memories {
   access_pin_hash            String?                 @db.VarChar(255)
   card_title                 String?                 @db.VarChar(255)
   greeting_message           String?
-  recipient_email            String?                 @db.VarChar(255)
-  shared_user_id             String?                 @db.Uuid
-  shared_at                  DateTime?               @db.Timestamptz(6)
   custom_images              Json?
   biometric_display_settings Json?
   is_locked                  Boolean?                @default(false)
@@ -569,9 +524,12 @@ model qr_memories {
   activated_at               DateTime?               @db.Timestamptz(6)
   created_at                 DateTime?               @db.Timestamptz(6)
   updated_at                 DateTime?               @db.Timestamptz(6)
-  engravings                 engravings?             @relation(fields: [engraving_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  card_themes                card_themes?            @relation(fields: [theme_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  recipient_email            String?                 @db.VarChar(255)
+  shared_at                  DateTime?               @db.Timestamptz(6)
+  shared_user_id             String?                 @db.Uuid
+  engravings                 engravings              @relation(fields: [engraving_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   users                      users?                  @relation(fields: [shared_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  card_themes                card_themes?            @relation(fields: [theme_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   qr_memory_access_logs      qr_memory_access_logs[]
 
   @@index([theme_id])
@@ -692,21 +650,19 @@ model shipments {
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
 model staff_assignments {
-  id                                            String                      @id @db.Uuid
-  staff_id                                      String                      @db.Uuid
-  order_id                                      String?                     @db.Uuid
-  warranty_claim_id                             String?                     @db.Uuid
-  capture_session_id                            String?                     @db.Uuid
-  assignment_type                               String?                     @db.VarChar(100)
-  status                                        String?                     @db.VarChar(100)
-  assigned_by_id                                String?                     @db.Uuid
-  assigned_at                                   DateTime?                   @db.Timestamptz(6)
-  completed_at                                  DateTime?                   @db.Timestamptz(6)
-  users_staff_assignments_assigned_by_idTousers users?                      @relation("staff_assignments_assigned_by_idTousers", fields: [assigned_by_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  biometric_capture_sessions                    biometric_capture_sessions? @relation(fields: [capture_session_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  orders                                        orders?                     @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users_staff_assignments_staff_idTousers       users                       @relation("staff_assignments_staff_idTousers", fields: [staff_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  warranty_claims                               warranty_claims?            @relation(fields: [warranty_claim_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id                                            String           @id @db.Uuid
+  staff_id                                      String           @db.Uuid
+  order_id                                      String?          @db.Uuid
+  warranty_claim_id                             String?          @db.Uuid
+  assignment_type                               String?          @db.VarChar(100)
+  status                                        String?          @db.VarChar(100)
+  assigned_by_id                                String?          @db.Uuid
+  assigned_at                                   DateTime?        @db.Timestamptz(6)
+  completed_at                                  DateTime?        @db.Timestamptz(6)
+  users_staff_assignments_assigned_by_idTousers users?           @relation("staff_assignments_assigned_by_idTousers", fields: [assigned_by_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  orders                                        orders?          @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_staff_assignments_staff_idTousers       users            @relation("staff_assignments_staff_idTousers", fields: [staff_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warranty_claims                               warranty_claims? @relation(fields: [warranty_claim_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
@@ -774,54 +730,52 @@ model user_roles {
 }
 
 model users {
-  id                                                                       String                       @id @default(uuid()) @db.Uuid
-  email                                                                    String?                      @unique @db.VarChar(255)
-  password_hash                                                            String?                      @db.VarChar(255)
-  full_name                                                                String?                      @db.VarChar(255)
-  phone                                                                    String?                      @db.VarChar(50)
-  customer_type                                                            String?                      @db.VarChar(50)
-  skin_tone                                                                String?                      @db.VarChar(100)
-  preferences                                                              Json?
-  is_vip                                                                   Boolean?                     @default(false)
-  status                                                                   String?                      @db.VarChar(50)
-  created_at                                                               DateTime?                    @db.Timestamptz(6)
-  updated_at                                                               DateTime?                    @db.Timestamptz(6)
-  ai_sessions                                                              ai_sessions[]
-  audit_logs                                                               audit_logs[]
-  biometric_capture_sessions_biometric_capture_sessions_customer_idTousers biometric_capture_sessions[] @relation("biometric_capture_sessions_customer_idTousers")
-  biometric_capture_sessions_biometric_capture_sessions_staff_idTousers    biometric_capture_sessions[] @relation("biometric_capture_sessions_staff_idTousers")
-  biometric_assets_biometric_assets_created_by_staff                       biometric_assets[]           @relation("biometric_assets_created_by_staff")
-  biometric_assets_biometric_assets_assigned_user                          biometric_assets[]           @relation("biometric_assets_assigned_user")
-  biometric_assets_biometric_assets_approved_by                            biometric_assets[]           @relation("biometric_assets_approved_by")
-  design_drafts                                                            design_drafts[]
-  engravings                                                               engravings[]                 @relation("engravings_user_idTousers")
-  engraving_versions                                                       engraving_versions[]
-  guest_customers                                                          guest_customers[]
-  notifications                                                            notifications[]
-  orders_orders_approved_by_manager_idTousers                              orders[]                     @relation("orders_approved_by_manager_idTousers")
-  orders_orders_created_by_staff_idTousers                                 orders[]                     @relation("orders_created_by_staff_idTousers")
-  orders_orders_user_idTousers                                             orders[]                     @relation("orders_user_idTousers")
-  pickup_records                                                           pickup_records[]
-  production_tasks                                                         production_tasks[]
-  qa_checks                                                                qa_checks[]
-  qr_memory_access_logs                                                    qr_memory_access_logs[]
-  qr_memories                                                              qr_memories[]
-  return_requests_return_requests_requested_by_idTousers                   return_requests[]            @relation("return_requests_requested_by_idTousers")
-  return_requests_return_requests_resolved_by_idTousers                    return_requests[]            @relation("return_requests_resolved_by_idTousers")
-  service_ticket_updates                                                   service_ticket_updates[]
-  service_tickets_service_tickets_assigned_jeweler_idTousers               service_tickets[]            @relation("service_tickets_assigned_jeweler_idTousers")
-  service_tickets_service_tickets_assigned_staff_idTousers                 service_tickets[]            @relation("service_tickets_assigned_staff_idTousers")
-  shipments                                                                shipments[]
-  staff_assignments_staff_assignments_assigned_by_idTousers                staff_assignments[]          @relation("staff_assignments_assigned_by_idTousers")
-  staff_assignments_staff_assignments_staff_idTousers                      staff_assignments[]          @relation("staff_assignments_staff_idTousers")
-  staff_shifts                                                             staff_shifts[]
-  user_addresses                                                           user_addresses[]
-  user_ring_sizes                                                          user_ring_sizes[]
-  user_roles                                                               user_roles[]
-  refresh_tokens                                                           refresh_tokens[]
-  warranty_claims_warranty_claims_manager_idTousers                        warranty_claims[]            @relation("warranty_claims_manager_idTousers")
-  warranty_claims_warranty_claims_requested_by_user_idTousers              warranty_claims[]            @relation("warranty_claims_requested_by_user_idTousers")
-  knowledge_documents                                                      knowledge_documents[]
+  id                                                          String                   @id @default(uuid()) @db.Uuid
+  email                                                       String?                  @unique @db.VarChar(255)
+  password_hash                                               String?                  @db.VarChar(255)
+  full_name                                                   String?                  @db.VarChar(255)
+  phone                                                       String?                  @db.VarChar(50)
+  customer_type                                               String?                  @db.VarChar(50)
+  skin_tone                                                   String?                  @db.VarChar(100)
+  preferences                                                 Json?
+  is_vip                                                      Boolean?                 @default(false)
+  status                                                      String?                  @db.VarChar(50)
+  created_at                                                  DateTime?                @db.Timestamptz(6)
+  updated_at                                                  DateTime?                @db.Timestamptz(6)
+  ai_sessions                                                 ai_sessions[]
+  audit_logs                                                  audit_logs[]
+  biometric_assets_biometric_assets_approved_by               biometric_assets[]       @relation("biometric_assets_approved_by")
+  biometric_assets_biometric_assets_assigned_user             biometric_assets[]       @relation("biometric_assets_assigned_user")
+  biometric_assets_biometric_assets_created_by_staff          biometric_assets[]       @relation("biometric_assets_created_by_staff")
+  design_drafts                                               design_drafts[]
+  engraving_versions                                          engraving_versions[]
+  engravings                                                  engravings[]             @relation("engravings_user_idTousers")
+  guest_customers                                             guest_customers[]
+  knowledge_documents                                         knowledge_documents[]
+  notifications                                               notifications[]
+  orders_orders_approved_by_manager_idTousers                 orders[]                 @relation("orders_approved_by_manager_idTousers")
+  orders_orders_created_by_staff_idTousers                    orders[]                 @relation("orders_created_by_staff_idTousers")
+  orders_orders_user_idTousers                                orders[]                 @relation("orders_user_idTousers")
+  pickup_records                                              pickup_records[]
+  production_tasks                                            production_tasks[]
+  qa_checks                                                   qa_checks[]
+  qr_memories                                                 qr_memories[]
+  qr_memory_access_logs                                       qr_memory_access_logs[]
+  refresh_tokens                                              refresh_tokens[]
+  return_requests_return_requests_requested_by_idTousers      return_requests[]        @relation("return_requests_requested_by_idTousers")
+  return_requests_return_requests_resolved_by_idTousers       return_requests[]        @relation("return_requests_resolved_by_idTousers")
+  service_ticket_updates                                      service_ticket_updates[]
+  service_tickets_service_tickets_assigned_jeweler_idTousers  service_tickets[]        @relation("service_tickets_assigned_jeweler_idTousers")
+  service_tickets_service_tickets_assigned_staff_idTousers    service_tickets[]        @relation("service_tickets_assigned_staff_idTousers")
+  shipments                                                   shipments[]
+  staff_assignments_staff_assignments_assigned_by_idTousers   staff_assignments[]      @relation("staff_assignments_assigned_by_idTousers")
+  staff_assignments_staff_assignments_staff_idTousers         staff_assignments[]      @relation("staff_assignments_staff_idTousers")
+  staff_shifts                                                staff_shifts[]
+  user_addresses                                              user_addresses[]
+  user_ring_sizes                                             user_ring_sizes[]
+  user_roles                                                  user_roles[]
+  warranty_claims_warranty_claims_manager_idTousers           warranty_claims[]        @relation("warranty_claims_manager_idTousers")
+  warranty_claims_warranty_claims_requested_by_user_idTousers warranty_claims[]        @relation("warranty_claims_requested_by_user_idTousers")
 
   @@index([phone])
 }
@@ -840,7 +794,7 @@ model warranties {
   activated_at    DateTime?         @db.Timestamptz(6)
   status          String?           @db.VarChar(100)
   created_at      DateTime?         @db.Timestamptz(6)
-  engravings      engravings?       @relation(fields: [engraving_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  engravings      engravings        @relation(fields: [engraving_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   orders          orders            @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   warranty_claims warranty_claims[]
 
@@ -909,10 +863,10 @@ model knowledge_documents {
   status          String   @default("PENDING") @db.VarChar(50)
   chunk_count     Int      @default(0)
   error_message   String?
-  document_type   String   @default("general") @db.VarChar(100)
-  retrieval_types Json     @default("[]")
   created_at      DateTime @default(now()) @db.Timestamptz(6)
   updated_at      DateTime @updatedAt @db.Timestamptz(6)
+  document_type   String   @default("general") @db.VarChar(100)
+  retrieval_types Json     @default("[]")
   users           users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([workspace_id, user_id, created_at(sort: Desc)])

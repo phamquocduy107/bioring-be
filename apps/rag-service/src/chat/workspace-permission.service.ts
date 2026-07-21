@@ -1,8 +1,4 @@
-import {
-  ForbiddenException,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '@app/prisma';
 
 @Injectable()
@@ -42,16 +38,12 @@ export class WorkspacePermissionService {
     });
 
     if (documents.length !== documentIds.length) {
-      throw new ForbiddenException(
-        'Document not found or not accessible.',
-      );
+      throw new ForbiddenException('Document not found or not accessible.');
     }
 
     const unauthorized = documents.filter((doc) => doc.user_id !== userId);
     if (unauthorized.length) {
-      throw new ForbiddenException(
-        'Document not found or not accessible.',
-      );
+      throw new ForbiddenException('Document not found or not accessible.');
     }
   }
 }

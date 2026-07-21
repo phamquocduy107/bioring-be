@@ -82,8 +82,12 @@ interface EcommerceGrpcService {
   getGemstones(
     data: Record<string, never>,
   ): Observable<{ gemstones: GemstoneResponse[] }>;
-  createProduct(data: Record<string, unknown>): Observable<{ success: boolean; id?: string }>;
-  updateProduct(data: Record<string, unknown>): Observable<{ success: boolean }>;
+  createProduct(
+    data: Record<string, unknown>,
+  ): Observable<{ success: boolean; id?: string }>;
+  updateProduct(
+    data: Record<string, unknown>,
+  ): Observable<{ success: boolean }>;
   deleteProduct(data: { id: string }): Observable<{ success: boolean }>;
 }
 
@@ -145,7 +149,9 @@ export class CatalogController implements OnModuleInit {
   @Permissions(Permission.CatalogWrite)
   @ApiCreateProductDocs()
   async createProduct(@Body() body: CreateProductBodyDto) {
-    return this.call(() => this.grpc!.createProduct(body as unknown as Record<string, unknown>));
+    return this.call(() =>
+      this.grpc!.createProduct(body as unknown as Record<string, unknown>),
+    );
   }
 
   @Put('products/:id')
@@ -155,15 +161,15 @@ export class CatalogController implements OnModuleInit {
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @Body() body: UpdateProductBodyDto,
   ) {
-    return this.call(() =>
-      this.grpc!.updateProduct({ id, ...body } as unknown as Record<string, unknown>),
-    );
+    return this.call(() => this.grpc!.updateProduct({ id, ...body }));
   }
 
   @Delete('products/:id')
   @Permissions(Permission.CatalogWrite)
   @ApiDeleteProductDocs()
-  async deleteProduct(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
+  async deleteProduct(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+  ) {
     return this.call(() => this.grpc!.deleteProduct({ id }));
   }
 }

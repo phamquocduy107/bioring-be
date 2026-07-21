@@ -9,7 +9,12 @@ import {
   Body,
 } from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
-import { Permissions, Permission, CreateUserDto, UpdateUserDto } from '@app/common';
+import {
+  Permissions,
+  Permission,
+  CreateUserDto,
+  UpdateUserDto,
+} from '@app/common';
 import { IdentityService } from '../identity.service';
 import {
   ApiGetUsersDocs,
@@ -29,7 +34,11 @@ export class UsersController {
   @Get()
   @Permissions(Permission.UserRead)
   @ApiGetUsersDocs()
-  async getUsers(@Query('page') page?: string, @Query('limit') limit?: string, @Query('role') role?: string) {
+  async getUsers(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('role') role?: string,
+  ) {
     const result = await this.identityService.getUsers(
       page ? Number(page) : 1,
       limit ? Number(limit) : 10,

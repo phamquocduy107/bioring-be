@@ -41,7 +41,11 @@ export const templates = {
       <p>Vui lòng thanh toán để chúng tôi tiến hành sản xuất.</p>
     `),
 
-  orderRejected: (vars: { orderCode: string; fullName: string; note?: string }) =>
+  orderRejected: (vars: {
+    orderCode: string;
+    fullName: string;
+    note?: string;
+  }) =>
     layout(`
       <h2 style="color:#8B4513">Đơn hàng cần chỉnh sửa</h2>
       <p>Xin chào <strong>${vars.fullName}</strong>,</p>

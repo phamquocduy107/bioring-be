@@ -72,6 +72,8 @@ async function bootstrap() {
 
   logger.log(`HTTP Server running on port ${port}`);
   logger.log(`Swagger docs at http://localhost:${port}/docs`);
-  logger.log(`Chat demo at http://localhost:${port}/demo/knowledge-chat-demo.html`);
+  logger.log(
+    `Chat demo at http://localhost:${port}/demo/knowledge-chat-demo.html`,
+  );
 }
 void bootstrap();

@@ -84,9 +84,11 @@ class PersonalizationStorage:
     # --- IDs / local dirs ---
 
     def create_artifact_id(self, artifact_type: str = TYPE_FINGERPRINT) -> str:
-        prefix = "fp" if artifact_type == TYPE_FINGERPRINT else "sw"
-        if artifact_type not in {TYPE_FINGERPRINT, TYPE_SOUNDWAVE}:
-            prefix = artifact_type[:2]
+        from .artifact_groups import ARTIFACT_ID_PREFIX, SUPPORTED_ARTIFACT_TYPES
+
+        if artifact_type not in SUPPORTED_ARTIFACT_TYPES:
+            raise ValueError(f"Unsupported artifact type: {artifact_type}")
+        prefix = ARTIFACT_ID_PREFIX.get(artifact_type, artifact_type[:2])
         return f"{prefix}_{uuid.uuid4()}"
 
     def build_artifact_dir(self, artifact_id: str) -> Path:
@@ -634,8 +636,10 @@ class PersonalizationStorage:
                 "waveformPoints": url("waveform_points.json"),
                 "audioSegment": url("audio_segment.wav"),
             }
+            raw_url = ""
             if audio_original:
-                production["audioOriginal"] = url(audio_original)
+                raw_url = url(audio_original)
+                production["audioOriginal"] = raw_url
             return {
                 "viewerFiles": {
                     "overlayPng": url("soundwave_overlay.png"),
@@ -646,12 +650,14 @@ class PersonalizationStorage:
                     "aoMap": url("soundwave_ao.png"),
                 },
                 "productionFiles": production,
+                "sourceFiles": {"raw": raw_url},
                 "debugFiles": {
                     "previewPng": url("soundwave_preview.png"),
                     "segmentWav": url("audio_segment.wav"),
                 },
             }
 
+        input_url = url("input.png")
         return {
             "viewerFiles": {
                 "overlayPng": url("fingerprint_overlay.png"),
@@ -664,8 +670,9 @@ class PersonalizationStorage:
             "productionFiles": {
                 "svg": url("fingerprint.svg"),
             },
+            "sourceFiles": {"raw": input_url},
             "debugFiles": {
-                "inputPng": url("input.png"),
+                "inputPng": input_url,
                 "finalCleanPng": url("06_final_clean.png"),
             },
         }
@@ -692,8 +699,10 @@ class PersonalizationStorage:
                 "waveformPoints": url("waveform_points.json"),
                 "audioSegment": url("audio_segment.wav"),
             }
+            raw_url = ""
             if audio_original:
-                production["audioOriginal"] = url(audio_original)
+                raw_url = url(audio_original)
+                production["audioOriginal"] = raw_url
             return {
                 "viewerFiles": {
                     "overlayPng": url("soundwave_overlay.png"),
@@ -704,10 +713,17 @@ class PersonalizationStorage:
                     "aoMap": url("soundwave_ao.png"),
                 },
                 "productionFiles": production,
+                "sourceFiles": {"raw": raw_url},
                 "audioOriginal": production.get("audioOriginal"),
                 "audioSegment": production["audioSegment"],
             }
 
+        # Prefer original upload when published with copyDebugFiles; else empty raw.
+        raw_url = ""
+        if self.stage_file_exists(
+            STAGE_APPROVED, artifact_type, artifact_id, "input.png"
+        ):
+            raw_url = url("input.png")
         return {
             "viewerFiles": {
                 "overlayPng": url("fingerprint_overlay.png"),
@@ -720,6 +736,7 @@ class PersonalizationStorage:
             "productionFiles": {
                 "svg": url("fingerprint.svg"),
             },
+            "sourceFiles": {"raw": raw_url},
         }
 
 

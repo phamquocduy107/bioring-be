@@ -120,7 +120,11 @@ export class GuestController {
   }
 
   @GrpcMethod('EcommerceService', 'ListGuestCustomers')
-  async listGuestCustomers(data: { page: number; limit: number; search?: string }) {
+  async listGuestCustomers(data: {
+    page: number;
+    limit: number;
+    search?: string;
+  }) {
     return this.guestService.listGuestCustomers(data);
   }
 }

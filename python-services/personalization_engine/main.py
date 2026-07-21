@@ -13,9 +13,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from shared.nest_log import setup_logging
 
 from .artifact_groups import (
+    STAGE_APPROVED,
     SUPPORTED_ARTIFACT_TYPES,
     TEXTURE_OUTPUT_FILES,
     TYPE_FINGERPRINT,
+    TYPE_HEARTBEAT,
     TYPE_SOUNDWAVE,
 )
 from .config import settings
@@ -62,6 +64,8 @@ from .schemas import (
     FingerprintTextureResponse,
     FingerprintTuneOptions,
     HealthResponse,
+    HeartbeatApprovedFiles,
+    HeartbeatStoreResponse,
     PlacementTransform,
     PresetListResponse,
     ProductionFiles,
@@ -75,7 +79,9 @@ from .schemas import (
     SoundwavePublishApprovedResponse,
     SoundwaveReviewFilesBundle,
     SoundwaveReviewResponse,
+    SoundwaveSourceFiles,
     SoundwaveTuneOptions,
+    SourceFiles,
     StorageHealthResponse,
     StoragePathsInfo,
     TexturePresetOptions,
@@ -409,6 +415,7 @@ def _build_review_response(
         reviewFiles=ReviewFilesBundle(
             viewerFiles=ViewerFiles(**files["viewerFiles"]),
             productionFiles=ProductionFiles(**files["productionFiles"]),
+            sourceFiles=SourceFiles(**files["sourceFiles"]),
             debugFiles=DebugFiles(**files["debugFiles"]),
         ),
         manifestUrl=_manifest_review_url(artifact_id),
@@ -973,6 +980,7 @@ async def publish_fingerprint_approved(
         approvedFiles=ApprovedFilesBundle(
             viewerFiles=ViewerFiles(**approved["viewerFiles"]),
             productionFiles=ProductionFiles(**approved["productionFiles"]),
+            sourceFiles=SourceFiles(**approved["sourceFiles"]),
         ),
         manifestUrl=result["manifestUrl"],
     )
@@ -1105,6 +1113,7 @@ def _build_soundwave_review_response(
         reviewFiles=SoundwaveReviewFilesBundle(
             viewerFiles=ViewerFiles(**files["viewerFiles"]),
             productionFiles=SoundwaveProductionFiles(**files["productionFiles"]),
+            sourceFiles=SoundwaveSourceFiles(**files["sourceFiles"]),
             debugFiles=SoundwaveDebugFiles(**debug) if debug else None,
         ),
         manifestUrl=_manifest_review_url(artifact_id, artifact_type=TYPE_SOUNDWAVE),
@@ -1368,6 +1377,7 @@ async def publish_soundwave(
         approvedFiles=SoundwaveApprovedFilesBundle(
             viewerFiles=ViewerFiles(**approved["viewerFiles"]),
             productionFiles=SoundwaveProductionFiles(**approved["productionFiles"]),
+            sourceFiles=SoundwaveSourceFiles(**approved["sourceFiles"]),
         ),
         manifestUrl=result["manifestUrl"],
     )
@@ -1458,6 +1468,84 @@ async def cleanup_soundwave_review(
         deletedObjects=result["deletedObjects"],
         reason=result["reason"],
         localTmpDeleted=bool(result.get("localTmpDeleted", True)),
+    )
+
+
+@app.post(
+    "/heartbeat/store",
+    response_model=HeartbeatStoreResponse,
+    responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
+    tags=["Heartbeat"],
+    summary="Store heartbeat raw file → MinIO APPROVED",
+    description=(
+        "Upload raw heartbeat media straight to "
+        "`personalization/approved/heartbeat/{id}/`. No OpenCV/ffmpeg pipeline. "
+        "Returns canonical approvedFiles (sourceFiles.raw + productionFiles.svg = same URL)."
+    ),
+)
+async def store_heartbeat(
+    file: UploadFile = File(..., description="Raw heartbeat image/audio/file"),
+) -> HeartbeatStoreResponse:
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="filename is required")
+
+    suffix = Path(file.filename).suffix.lower() or ".bin"
+    if len(suffix) > 16:
+        suffix = ".bin"
+    raw_name = f"source_raw{suffix}"
+
+    artifact_id = personalization_storage.create_artifact_id(TYPE_HEARTBEAT)
+    work_dir = personalization_storage.create_work_dir(artifact_id, "store")
+    local_path = work_dir / raw_name
+
+    try:
+        content = await file.read()
+        if not content:
+            raise HTTPException(status_code=400, detail="Empty file")
+        local_path.write_bytes(content)
+
+        uploaded = personalization_storage.upload_approved_file(
+            local_path,
+            artifact_id,
+            filename=raw_name,
+            artifact_type=TYPE_HEARTBEAT,
+        )
+        raw_url = uploaded["url"]
+
+        personalization_storage.build_manifest(
+            TYPE_HEARTBEAT,
+            artifact_id,
+            STAGE_APPROVED,
+            "ASSET_APPROVED",
+            files={"source_raw": raw_name},
+            extra={
+                "approvedBy": "heartbeat-store",
+                "lastOperation": "store",
+                "sourceFilename": file.filename,
+            },
+        )
+        manifest = personalization_storage.upload_manifest_to_approved(
+            artifact_id, artifact_type=TYPE_HEARTBEAT
+        )
+    except HTTPException:
+        personalization_storage.cleanup_work_dir(work_dir)
+        raise
+    except Exception as exc:
+        personalization_storage.cleanup_work_dir(work_dir)
+        logger.exception("heartbeat store failed: %s", exc)
+        raise HTTPException(
+            status_code=500, detail=f"Failed to store heartbeat: {exc}"
+        ) from exc
+    finally:
+        personalization_storage.cleanup_work_dir(work_dir)
+
+    return HeartbeatStoreResponse(
+        artifactId=artifact_id,
+        approvedFiles=HeartbeatApprovedFiles(
+            productionFiles=ProductionFiles(svg=raw_url),
+            sourceFiles=SourceFiles(raw=raw_url),
+        ),
+        manifestUrl=manifest["url"],
     )
 
 

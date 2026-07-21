@@ -1,7 +1,7 @@
 /**
  * Loại tài liệu knowledge + retrieval types dùng để filter Qdrant theo chat intent.
  * Dùng chung giữa api-gateway, rag-service. Python rag-engine giữ bản mapping riêng
- * (rag-python) nhưng phải đồng bộ giá trị với file này.
+ * (python-services / rag_engine) nhưng phải đồng bộ giá trị với file này.
  */
 
 export const DOCUMENT_TYPES = [

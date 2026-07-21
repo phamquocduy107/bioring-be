@@ -5,6 +5,7 @@ import { BullConfigModule } from '@app/common/queue/bull-mq';
 import { BullBoardModule } from '@bull-board/nestjs/dist/bull-board.module';
 import { ExpressAdapter } from '@bull-board/express';
 import { RedisModule } from '@app/redis';
+import { MinioModule } from '@app/minio';
 import {
   AllExceptionsFilter,
   AuthGuard,
@@ -22,11 +23,11 @@ import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 import { TrackController } from './modules/track/track.controller';
 import { PrismaModule } from '@app/prisma';
 
-
 @Module({
   imports: [
     CommonModule,
     RedisModule,
+    MinioModule,
     PrismaModule,
     BullConfigModule,
     BullBoardModule.forRoot({

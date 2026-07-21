@@ -1,28 +1,366 @@
 syntax = "proto3";
 
+
+
 package biometric;
 
+
+
 service BiometricService {
+
   rpc Ping (PingRequest) returns (PingResponse);
+
   rpc ProcessAudio (ProcessAudioRequest) returns (ProcessAudioResponse);
+
+
+
+  // Ecommerce attach (Workflow B)
+
+  rpc AttachEngravingBiometric (AttachEngravingBiometricRequest) returns (AttachEngravingBiometricResponse);
+
+  rpc AttachEngravingBiometricAsUser (AttachEngravingBiometricAsUserRequest) returns (AttachEngravingBiometricResponse);
+
+  rpc ListEngravingBiometrics (ListEngravingBiometricsRequest) returns (ListEngravingBiometricsResponse);
+
+
+
+  // Fingerprint staff pipeline (Workflow A)
+
+  rpc ProcessFingerprint (ProcessFingerprintRequest) returns (BiometricAssetResponse);
+
+  rpc ReprocessFingerprint (ReprocessBiometricAssetRequest) returns (BiometricAssetResponse);
+
+  rpc RegenerateFingerprintTextures (ReprocessBiometricAssetRequest) returns (BiometricAssetResponse);
+
+  rpc ApproveFingerprintAsset (ApproveBiometricAssetRequest) returns (BiometricAssetResponse);
+
+  rpc AssignFingerprintAsset (AssignBiometricAssetRequest) returns (BiometricAssetResponse);
+
+  rpc GetUserFingerprintViewerAssets (GetUserBiometricViewerAssetsRequest) returns (BiometricAssetResponse);
+
+  rpc ConfirmFingerprintPlacement (ConfirmBiometricPlacementRequest) returns (BiometricAssetResponse);
+
+
+
+  // Soundwave staff pipeline (Workflow A)
+
+  rpc ProcessSoundwave (ProcessSoundwaveRequest) returns (BiometricAssetResponse);
+
+  rpc ReprocessSoundwave (ReprocessBiometricAssetRequest) returns (BiometricAssetResponse);
+
+  rpc RegenerateSoundwaveTextures (ReprocessBiometricAssetRequest) returns (BiometricAssetResponse);
+
+  rpc ApproveSoundwaveAsset (ApproveBiometricAssetRequest) returns (BiometricAssetResponse);
+
+  rpc AssignSoundwaveAsset (AssignBiometricAssetRequest) returns (BiometricAssetResponse);
+
+  rpc GetUserSoundwaveViewerAssets (GetUserBiometricViewerAssetsRequest) returns (BiometricAssetResponse);
+
+  rpc ConfirmSoundwavePlacement (ConfirmBiometricPlacementRequest) returns (BiometricAssetResponse);
+
+
+
+  // Heartbeat staff pipeline
+
+  rpc StoreHeartbeat (StoreHeartbeatRequest) returns (BiometricAssetResponse);
+
+  rpc AssignHeartbeatAsset (AssignBiometricAssetRequest) returns (BiometricAssetResponse);
+
+
+
+  // Unified asset ops (dispatch by asset_type in DB)
+
+  rpc GetBiometricAsset (GetBiometricAssetRequest) returns (BiometricAssetResponse);
+
+  rpc ReprocessBiometricAsset (ReprocessBiometricAssetRequest) returns (BiometricAssetResponse);
+
+  rpc RegenerateBiometricTextures (ReprocessBiometricAssetRequest) returns (BiometricAssetResponse);
+
+  rpc ApproveBiometricAsset (ApproveBiometricAssetRequest) returns (BiometricAssetResponse);
+
+  rpc AssignBiometricAsset (AssignBiometricAssetRequest) returns (BiometricAssetResponse);
+
+  rpc GetUserBiometricViewerAssets (GetUserBiometricViewerAssetsRequest) returns (BiometricAssetResponse);
+
+  rpc ConfirmBiometricPlacement (ConfirmBiometricPlacementRequest) returns (BiometricAssetResponse);
+
+  // Processing preset catalogs (proxy Python personalization_engine)
+  rpc GetFingerprintProcessingPresets (Empty) returns (BiometricPresetsResponse);
+  rpc GetSoundwaveProcessingPresets (Empty) returns (BiometricPresetsResponse);
+
 }
+
+
 
 message PingRequest {
+
   string data = 1;
+
 }
+
+
 
 message PingResponse {
+
   bool pong = 1;
+
   string receivedAt = 2;
+
   string data = 3;
+
 }
+
+
 
 message ProcessAudioRequest {
+
   string audioUrl = 1;
+
   string engravingVersionId = 2;
+
 }
 
+
+
 message ProcessAudioResponse {
+
   string waveformUrl = 1;
+
   int32 durationMs = 2;
+
+  string artifactId = 3;
+
 }
+
+
+
+message AttachEngravingBiometricRequest {
+
+  string engravingId = 1;
+
+  string biometricType = 2;
+
+  bytes fileContent = 3;
+
+  string filename = 4;
+
+  string contentType = 5;
+
+  string extraData = 6;
+
+}
+
+
+
+message AttachEngravingBiometricAsUserRequest {
+
+  string engravingId = 1;
+
+  string userId = 2;
+
+  string biometricType = 3;
+
+  bytes fileContent = 4;
+
+  string filename = 5;
+
+  string contentType = 6;
+
+  string extraData = 7;
+
+}
+
+
+
+message AttachEngravingBiometricResponse {
+
+  string biometricJson = 1;
+
+}
+
+
+
+message ListEngravingBiometricsRequest {
+
+  string engravingId = 1;
+
+  string userId = 2;
+
+}
+
+
+
+message EngravingBiometricItem {
+
+  string id = 1;
+
+  string engravingId = 2;
+
+  string biometricType = 3;
+
+  string requiredChannel = 4;
+
+  string biometricAssetId = 5;
+
+  string rawFileUrl = 6;
+
+  string processedSvgUrl = 7;
+
+  string status = 8;
+
+  string artifactId = 9;
+
+  string extraDataJson = 10;
+
+}
+
+
+
+message ListEngravingBiometricsResponse {
+
+  repeated EngravingBiometricItem biometrics = 1;
+
+}
+
+
+
+message ProcessFingerprintRequest {
+
+  bytes fileContent = 1;
+
+  string filename = 2;
+
+  string contentType = 3;
+
+  string staffId = 4;
+
+}
+
+
+
+message ProcessSoundwaveRequest {
+
+  bytes fileContent = 1;
+
+  string filename = 2;
+
+  string contentType = 3;
+
+  string staffId = 4;
+
+  int32 segmentStartMs = 5;
+
+  int32 segmentDurationMs = 6;
+
+}
+
+
+
+message StoreHeartbeatRequest {
+
+  bytes fileContent = 1;
+
+  string filename = 2;
+
+  string contentType = 3;
+
+  string staffId = 4;
+
+}
+
+
+
+message ReprocessBiometricAssetRequest {
+
+  string assetId = 1;
+
+  string staffId = 2;
+
+  string optionsJson = 3;
+
+}
+
+
+
+message ApproveBiometricAssetRequest {
+
+  string assetId = 1;
+
+  string staffId = 2;
+
+  string note = 3;
+
+  bool copyDebugFiles = 4;
+
+}
+
+
+
+message AssignBiometricAssetRequest {
+
+  string assetId = 1;
+
+  string staffId = 2;
+
+  string userId = 3;
+
+  string engravingId = 4;
+
+  string orderItemId = 5;
+
+  string modelCode = 6;
+
+  string surface = 7;
+
+}
+
+
+
+message GetUserBiometricViewerAssetsRequest {
+
+  string assetId = 1;
+
+  string userId = 2;
+
+}
+
+
+
+message ConfirmBiometricPlacementRequest {
+
+  string assetId = 1;
+
+  string userId = 2;
+
+  string placementJson = 3;
+
+}
+
+
+
+message GetBiometricAssetRequest {
+
+  string assetId = 1;
+
+}
+
+
+
+message BiometricAssetResponse {
+
+  string assetJson = 1;
+
+}
+
+
+
+message Empty {}
+
+
+
+message BiometricPresetsResponse {
+
+  string presetsJson = 1;
+
+}
+

@@ -305,5 +305,6 @@ Body `TexturePresetRequest`: `preset` + optional overrides (`heightmapBlur`, `no
 | POST | `/soundwave/{id}/publish-approved` | Soundwave |
 | GET | `/soundwave/{id}/approved-viewer-assets` | Soundwave |
 | POST | `/soundwave/{id}/cleanup-review` | Soundwave |
+| POST | `/heartbeat/store` | Heartbeat (raw → MinIO APPROVED) |
 
 Chi tiết schema / request body: **Swagger UI** tại `/docs`.

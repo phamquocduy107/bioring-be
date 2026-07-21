@@ -3,14 +3,31 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Inject,
+  OnModuleInit,
+  Optional,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import type { ClientGrpc } from '@nestjs/microservices';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '@app/prisma';
 import { PayOSService } from '@app/common/payment/payos.service';
 import { Webhook } from '@payos/node';
 import { randomUUID } from 'node:crypto';
+import { Observable, lastValueFrom } from 'rxjs';
 import { DEFAULT_PAYOS_LINK_TTL_MS, IOT_FEE_AMOUNT } from '@app/common';
+import { resolveUrlsFromApprovedFiles } from '@app/common';
+
+interface BiometricGrpcService {
+  attachEngravingBiometric(data: {
+    engravingId: string;
+    biometricType: string;
+    fileContent: Buffer;
+    filename: string;
+    contentType: string;
+    extraData?: string;
+  }): Observable<{ biometricJson: string }>;
+}
 
 // === Internal record types ===
 interface TaskRecord {
@@ -54,13 +71,24 @@ interface ShipmentRecord {
 }
 
 @Injectable()
-export class OrderService {
+export class OrderService implements OnModuleInit {
+  private biometricGrpc?: BiometricGrpcService;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly payOS: PayOSService,
     private readonly eventEmitter: EventEmitter2,
+    @Optional()
+    @Inject('BIOMETRIC_SERVICE')
+    private readonly biometricClient?: ClientGrpc,
   ) {}
 
+  onModuleInit() {
+    this.biometricGrpc =
+      this.biometricClient?.getService<BiometricGrpcService>(
+        'BiometricService',
+      );
+  }
   async createOrder(engravingId: string, userId: string) {
     const engraving = await this.prisma.engravings.findUnique({
       where: { id: engravingId },
@@ -145,7 +173,9 @@ export class OrderService {
             engraving_versions_engraving_versions_engraving_idToengravings: {
               orderBy: { version_number: 'desc' },
             },
-            engraving_biometrics: true,
+            engraving_biometrics: {
+              include: { biometric_asset: true },
+            },
           },
         },
         payments: true,
@@ -232,13 +262,18 @@ export class OrderService {
       // Update qr_memories with biometric display settings
       const biometrics = await this.prisma.engraving_biometrics.findMany({
         where: { engraving_id: engraving.id },
+        include: { biometric_asset: true },
       });
       if (biometrics.length > 0) {
         const displaySettings: Record<string, unknown> = {};
         for (const b of biometrics) {
+          const urls = resolveUrlsFromApprovedFiles(
+            b.biometric_asset?.approved_files,
+          );
           displaySettings[b.biometric_type] = {
-            processedSvgUrl: b.processed_svg_url,
-            rawFileUrl: b.raw_file_url,
+            biometricAssetId: b.biometric_asset_id,
+            processedSvgUrl: urls.processedSvgUrl,
+            rawFileUrl: urls.rawFileUrl,
             extraData: b.extra_data,
           };
         }
@@ -319,7 +354,10 @@ export class OrderService {
         },
       });
 
-      this.eventEmitter.emit('order.rejected', { orderId: id, note: note ?? '' });
+      this.eventEmitter.emit('order.rejected', {
+        orderId: id,
+        note: note ?? '',
+      });
       this.eventEmitter.emit('audit.log', {
         userId: managerId,
         action: 'status_change',
@@ -412,127 +450,77 @@ export class OrderService {
   async attachBiometric(
     engravingId: string,
     biometricType: string,
-    rawFileUrl: string,
+    fileContent: Buffer | Uint8Array,
+    filename: string,
+    contentType: string,
     extraData?: string,
   ) {
-    const engraving = await this.prisma.engravings.findUnique({
-      where: { id: engravingId },
-      include: { order: true },
-    });
-    if (!engraving) throw new NotFoundException('Engraving not found');
-    if (!engraving.order) {
-      throw new BadRequestException('Engraving not linked to an order');
+    if (!this.biometricGrpc) {
+      throw new BadRequestException('BIOMETRIC_SERVICE is not available');
     }
 
-    if (engraving.order.status !== 'AWAITING_SUBMIT') {
-      throw new BadRequestException(
-        'Order must be in AWAITING_SUBMIT status to attach biometrics',
-      );
+    const buffer = Buffer.isBuffer(fileContent)
+      ? fileContent
+      : Buffer.from(fileContent ?? []);
+    if (!buffer.length) {
+      throw new BadRequestException('fileContent is required');
     }
 
-    const packageTypes = (engraving.order.package_type ?? '').split('_');
-    if (!packageTypes.includes(biometricType)) {
-      throw new BadRequestException(
-        `Biometric type ${biometricType} not in package ${engraving.order.package_type}`,
-      );
-    }
-
-    const processedSvgUrl = await this.processBiometric(
-      biometricType,
-      rawFileUrl,
-      engravingId,
+    const response = await lastValueFrom(
+      this.biometricGrpc.attachEngravingBiometric({
+        engravingId,
+        biometricType,
+        fileContent: buffer,
+        filename: filename || 'upload.bin',
+        contentType: contentType || 'application/octet-stream',
+        extraData,
+      }),
     );
 
-    const requiredChannel =
-      biometricType === 'HB' ? 'MEMORY_CARD' : 'ENGRAVING';
+    const biometric = JSON.parse(response.biometricJson) as Record<
+      string,
+      unknown
+    >;
 
-    let extraDataJson: Record<string, unknown> = {};
-    if (extraData) {
-      try {
-        extraDataJson = JSON.parse(extraData) as Record<string, unknown>;
-      } catch {
-        throw new BadRequestException('extraData must be valid JSON');
-      }
-    }
-
-    const biometric = await this.prisma.engraving_biometrics.create({
-      data: {
-        id: randomUUID(),
-        engraving_id: engravingId,
-        biometric_type: biometricType,
-        required_channel: requiredChannel,
-        raw_file_url: rawFileUrl,
-        processed_svg_url: processedSvgUrl,
-        extra_data: extraDataJson as Prisma.InputJsonValue,
-        status: 'CAPTURED',
+    // Keep snake_case aliases for older gRPC/FE consumers.
+    return {
+      biometric: {
+        ...biometric,
+        raw_file_url: biometric.rawFileUrl,
+        processed_svg_url: biometric.processedSvgUrl,
+        biometric_type: biometric.biometricType,
+        engraving_id: biometric.engravingId,
+        required_channel: biometric.requiredChannel,
+        biometric_asset_id: biometric.biometricAssetId,
+        extra_data: biometric.extraData,
       },
-    });
-
-    return { biometric };
+    };
   }
 
   async attachBiometricsBulk(
     engravingId: string,
-    biometrics: Array<{ biometricType: string; rawFileUrl: string; extraData?: string }>,
+    biometrics: Array<{
+      biometricType: string;
+      fileContent: Buffer | Uint8Array;
+      filename?: string;
+      contentType?: string;
+      extraData?: string;
+    }>,
   ) {
     const results = await Promise.all(
       biometrics.map((b) =>
-        this.attachBiometric(engravingId, b.biometricType, b.rawFileUrl, b.extraData),
+        this.attachBiometric(
+          engravingId,
+          b.biometricType,
+          b.fileContent,
+          b.filename || 'upload.bin',
+          b.contentType || 'application/octet-stream',
+          b.extraData,
+        ),
       ),
     );
     const items = results.map((r) => r.biometric);
     return { count: items.length, biometrics: items };
-  }
-
-  private async processBiometric(
-    biometricType: string,
-    rawFileUrl: string,
-    engravingVersionId: string,
-  ): Promise<string> {
-    const baseUrl =
-      process.env.BIOMETRIC_PROCESSING_URL ?? 'http://localhost:5051';
-
-    if (biometricType === 'SW') {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
-      try {
-        const res = await fetch(`${baseUrl}/process-audio`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ audioUrl: rawFileUrl, engravingVersionId }),
-          signal: controller.signal,
-        });
-        if (!res.ok) {
-          throw new Error(`Audio processing failed: ${await res.text()}`);
-        }
-        const data = (await res.json()) as { waveformUrl: string };
-        return data.waveformUrl;
-      } finally {
-        clearTimeout(timeoutId);
-      }
-    }
-
-    if (biometricType === 'FP') {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
-      try {
-        const res = await fetch(`${baseUrl}/process-fingerprint`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageUrl: rawFileUrl, engravingVersionId }),
-          signal: controller.signal,
-        });
-        if (!res.ok) {
-          throw new Error(`Fingerprint processing failed: ${await res.text()}`);
-        }
-        const data = (await res.json()) as { processedSvgUrl: string };
-        return data.processedSvgUrl;
-      } finally {
-        clearTimeout(timeoutId);
-      }
-    }
-
-    return rawFileUrl; // HB — no processing needed
   }
 
   async initiatePayment(
@@ -761,7 +749,11 @@ export class OrderService {
           action: 'payment_received',
           entityName: 'orders',
           entityId: order.id,
-          newValue: { paymentPhase: payment.payment_phase, amount: webhookData.amount, status: 'PAID' },
+          newValue: {
+            paymentPhase: payment.payment_phase,
+            amount: webhookData.amount,
+            status: 'PAID',
+          },
         });
       }
     }
@@ -840,7 +832,13 @@ export class OrderService {
 
   async manualPayment(
     orderId: string,
-    data: { paymentPhase: string; amount: number; receivedBy: string; paymentMethod: string; reference?: string },
+    data: {
+      paymentPhase: string;
+      amount: number;
+      receivedBy: string;
+      paymentMethod: string;
+      reference?: string;
+    },
   ) {
     const order = await this.prisma.orders.findUnique({
       where: { id: orderId },
@@ -922,7 +920,10 @@ export class OrderService {
       );
     }
 
-    if (order.status !== 'READY_FOR_DELIVERY' && order.status !== 'READY_FOR_PICKUP') {
+    if (
+      order.status !== 'READY_FOR_DELIVERY' &&
+      order.status !== 'READY_FOR_PICKUP'
+    ) {
       throw new BadRequestException(
         `Order must be READY_FOR_DELIVERY or READY_FOR_PICKUP, got ${order.status}`,
       );
@@ -1059,9 +1060,7 @@ export class OrderService {
     });
     if (!order) throw new NotFoundException('Order not found');
 
-    const payosResult = await this.payOS.getTransactionStatus(
-      order.order_code,
-    );
+    const payosResult = await this.payOS.getTransactionStatus(order.order_code);
 
     const mappedStatus =
       payosResult.status === 'PAID' ? 'PAID' : payosResult.status;
@@ -1107,10 +1106,7 @@ export class OrderService {
         where: { id: order.id },
         data: {
           paid_amount: newPaidAmount,
-          remaining_amount: Math.min(
-            totalPrice - newPaidAmount,
-            totalPrice,
-          ),
+          remaining_amount: Math.min(totalPrice - newPaidAmount, totalPrice),
         },
       });
     }
@@ -1147,8 +1143,12 @@ export class OrderService {
       status: p.status ?? '',
       payosTransactionId: p.payos_transaction_id ?? '',
       paymentUrl: p.payment_url ?? '',
-      paidAt: p.paid_at instanceof Date ? p.paid_at.toISOString() : (p.paid_at ?? ''),
-      createdAt: p.created_at instanceof Date ? p.created_at.toISOString() : (p.created_at ?? ''),
+      paidAt:
+        p.paid_at instanceof Date ? p.paid_at.toISOString() : (p.paid_at ?? ''),
+      createdAt:
+        p.created_at instanceof Date
+          ? p.created_at.toISOString()
+          : (p.created_at ?? ''),
     };
   }
 
@@ -1164,9 +1164,10 @@ export class OrderService {
       },
       engravings: {
         include: {
-          engraving_versions_engravings_approved_version_idToengraving_versions: {
-            select: { ring_size: true },
-          },
+          engraving_versions_engravings_approved_version_idToengraving_versions:
+            {
+              select: { ring_size: true },
+            },
         },
       },
     };
@@ -1190,7 +1191,10 @@ export class OrderService {
       createdAt: task.created_at?.toISOString() ?? '',
       orderCode: task.orders?.order_code ?? '',
       customerName: userName ?? guestName ?? '',
-      ringSize: task.engravings?.engraving_versions_engravings_approved_version_idToengraving_versions?.ring_size ?? '',
+      ringSize:
+        task.engravings
+          ?.engraving_versions_engravings_approved_version_idToengraving_versions
+          ?.ring_size ?? '',
     };
   }
 
@@ -1288,7 +1292,9 @@ export class OrderService {
     // Manager can bypass with ?all=true to see tasks from any order status.
     if (!query.all) {
       where.orders = {
-        status: { in: ['DEPOSIT_PAID', 'IN_PRODUCTION', 'PENDING_QC', 'COMPLETED'] },
+        status: {
+          in: ['DEPOSIT_PAID', 'IN_PRODUCTION', 'PENDING_QC', 'COMPLETED'],
+        },
       };
     }
 
@@ -1336,7 +1342,9 @@ export class OrderService {
     if (!order) throw new NotFoundException('Order not found');
 
     if (order.status !== 'IN_PRODUCTION' && order.status !== 'PENDING_QC') {
-      throw new BadRequestException('Order must be IN_PRODUCTION or PENDING_QC');
+      throw new BadRequestException(
+        'Order must be IN_PRODUCTION or PENDING_QC',
+      );
     }
 
     const completedTask = order.production_tasks?.[0];
@@ -1881,8 +1889,11 @@ export class OrderService {
         engraving_id: string;
         biometric_type: string;
         required_channel: string;
-        raw_file_url?: string | null;
-        processed_svg_url?: string | null;
+        biometric_asset_id?: string | null;
+        biometric_asset?: {
+          id: string;
+          approved_files?: unknown;
+        } | null;
         extra_data?: unknown;
         status?: string | null;
       }>;
@@ -1924,18 +1935,25 @@ export class OrderService {
               reviewedAt: v.reviewed_at?.toISOString() ?? '',
               createdAt: v.created_at?.toISOString() ?? '',
             })),
-            biometrics: (e.engraving_biometrics ?? []).map((b) => ({
-              id: b.id,
-              engravingId: b.engraving_id,
-              biometricType: b.biometric_type,
-              requiredChannel: b.required_channel,
-              rawFileUrl: b.raw_file_url ?? '',
-              processedSvgUrl: b.processed_svg_url ?? '',
-              extraData: b.extra_data ? JSON.stringify(b.extra_data) : '',
-              status: b.status ?? '',
-            })),
+            biometrics: (e.engraving_biometrics ?? []).map((b) => {
+              const urls = resolveUrlsFromApprovedFiles(
+                b.biometric_asset?.approved_files,
+              );
+              return {
+                id: b.id,
+                engravingId: b.engraving_id,
+                biometricType: b.biometric_type,
+                requiredChannel: b.required_channel,
+                biometricAssetId:
+                  b.biometric_asset_id ?? b.biometric_asset?.id ?? '',
+                rawFileUrl: urls.rawFileUrl,
+                processedSvgUrl: urls.processedSvgUrl,
+                extraData: b.extra_data ? JSON.stringify(b.extra_data) : '',
+                status: b.status ?? '',
+              };
+            }),
           }
-          : null,
+        : null,
     };
   }
 
@@ -1957,8 +1975,12 @@ export class OrderService {
         include: {
           orders: {
             include: {
-              users_orders_user_idTousers: { select: { id: true, full_name: true, email: true } },
-              guest_customers: { select: { id: true, full_name: true, email: true } },
+              users_orders_user_idTousers: {
+                select: { id: true, full_name: true, email: true },
+              },
+              guest_customers: {
+                select: { id: true, full_name: true, email: true },
+              },
             },
           },
         },
@@ -1977,7 +1999,11 @@ export class OrderService {
         const customer = user
           ? { id: user.id, name: user.full_name ?? '', email: user.email ?? '' }
           : guest
-            ? { id: guest.id, name: guest.full_name ?? '', email: guest.email ?? '' }
+            ? {
+                id: guest.id,
+                name: guest.full_name ?? '',
+                email: guest.email ?? '',
+              }
             : null;
         return {
           id: p.id,
@@ -2002,7 +2028,14 @@ export class OrderService {
     const now = new Date();
     const startThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const endLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+    const endLastMonth = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      0,
+      23,
+      59,
+      59,
+    );
 
     const aggregate = async (from: Date, to: Date) => {
       const payments = await this.prisma.payments.groupBy({
@@ -2010,7 +2043,10 @@ export class OrderService {
         where: { created_at: { gte: from, lte: to } },
         _sum: { amount: true },
       });
-      let gross = 0, net = 0, pending = 0, refunded = 0;
+      let gross = 0,
+        net = 0,
+        pending = 0,
+        refunded = 0;
       for (const p of payments) {
         const amt = Number(p._sum.amount ?? 0);
         gross += amt;
@@ -2027,7 +2063,7 @@ export class OrderService {
     ]);
 
     const calcChange = (cur: number, prev: number) =>
-      prev === 0 ? 0 : Number(((cur - prev) / prev * 100).toFixed(1));
+      prev === 0 ? 0 : Number((((cur - prev) / prev) * 100).toFixed(1));
 
     return {
       gross_revenue: thisMonth.gross,
@@ -2070,7 +2106,14 @@ export class OrderService {
       this.prisma.shipments.findMany({
         where,
         include: {
-          orders: { select: { order_code: true, total_price: true, paid_amount: true, remaining_amount: true } },
+          orders: {
+            select: {
+              order_code: true,
+              total_price: true,
+              paid_amount: true,
+              remaining_amount: true,
+            },
+          },
           users: { select: { id: true, full_name: true, status: true } },
         },
         orderBy: { created_at: 'desc' },
@@ -2080,22 +2123,33 @@ export class OrderService {
       this.prisma.shipments.count({ where }),
     ]);
 
-    const staffIds = [...new Set(rows.filter(r => r.assigned_delivery_staff_id).map(r => r.assigned_delivery_staff_id!))];
+    const staffIds = [
+      ...new Set(
+        rows
+          .filter((r) => r.assigned_delivery_staff_id)
+          .map((r) => r.assigned_delivery_staff_id!),
+      ),
+    ];
     const staffCounts = staffIds.length
       ? await this.prisma.shipments.groupBy({
           by: ['assigned_delivery_staff_id'],
-          where: { assigned_delivery_staff_id: { in: staffIds }, status: 'IN_TRANSIT' },
+          where: {
+            assigned_delivery_staff_id: { in: staffIds },
+            status: 'IN_TRANSIT',
+          },
           _count: true,
         })
       : [];
-    const staffCountMap = new Map(staffCounts.map(s => [s.assigned_delivery_staff_id, s._count]));
+    const staffCountMap = new Map(
+      staffCounts.map((s) => [s.assigned_delivery_staff_id, s._count]),
+    );
 
     const stats = await this.prisma.shipments.groupBy({
       by: ['status', 'delivery_method'],
       _count: true,
     });
 
-    const computePaymentStatus = (o: typeof rows[0]['orders']) => {
+    const computePaymentStatus = (o: (typeof rows)[0]['orders']) => {
       if (!o) return 'cod_pending';
       const remaining = Number(o.remaining_amount ?? 0);
       if (remaining <= 0) return 'paid';
@@ -2105,7 +2159,7 @@ export class OrderService {
     };
 
     return {
-      data: rows.map(s => ({
+      data: rows.map((s) => ({
         id: s.id,
         order_code: s.orders?.order_code ?? '',
         tracking_code: s.tracking_code ?? '',
@@ -2133,14 +2187,22 @@ export class OrderService {
       limit: data.limit,
       last_page: Math.ceil(total / data.limit),
       stats: {
-        ready_for_delivery: stats.find(s => s.status === 'READY')?._count ?? 0,
-        in_transit: stats.find(s => s.status === 'IN_TRANSIT')?._count ?? 0,
-        waiting_for_pickup: stats.find(s => s.delivery_method === 'PICKUP' && s.status !== 'COMPLETED')?._count ?? 0,
+        ready_for_delivery:
+          stats.find((s) => s.status === 'READY')?._count ?? 0,
+        in_transit: stats.find((s) => s.status === 'IN_TRANSIT')?._count ?? 0,
+        waiting_for_pickup:
+          stats.find(
+            (s) => s.delivery_method === 'PICKUP' && s.status !== 'COMPLETED',
+          )?._count ?? 0,
       },
     };
   }
 
-  async listPickups(data: { limit?: number; status?: string; search?: string }) {
+  async listPickups(data: {
+    limit?: number;
+    status?: string;
+    search?: string;
+  }) {
     const where: Prisma.pickup_recordsWhereInput = {};
     if (data.status === 'waiting') where.picked_up_at = null;
     else if (data.status === 'completed') where.picked_up_at = { not: null };
@@ -2149,7 +2211,11 @@ export class OrderService {
       where.orders = {
         OR: [
           { order_code: { contains: data.search } },
-          { users_orders_user_idTousers: { full_name: { contains: data.search } } },
+          {
+            users_orders_user_idTousers: {
+              full_name: { contains: data.search },
+            },
+          },
           { guest_customers: { full_name: { contains: data.search } } },
         ],
       };
@@ -2170,7 +2236,7 @@ export class OrderService {
       take: data.limit ?? 200,
     });
 
-    const computePaymentStatus = (o: typeof rows[0]['orders']) => {
+    const computePaymentStatus = (o: (typeof rows)[0]['orders']) => {
       const paid = Number(o?.paid_amount ?? 0);
       const total = Number(o?.total_price ?? 0);
       if (paid >= total && total > 0) return 'paid';
@@ -2183,9 +2249,9 @@ export class OrderService {
         id: r.id,
         order_code: r.orders?.order_code ?? '',
         customer_name:
-          r.orders?.users_orders_user_idTousers?.full_name
-          ?? r.orders?.guest_customers?.full_name
-          ?? '',
+          r.orders?.users_orders_user_idTousers?.full_name ??
+          r.orders?.guest_customers?.full_name ??
+          '',
         customer_phone: r.receiver_phone ?? '',
         payment_status: computePaymentStatus(r.orders),
         status: r.picked_up_at ? 'completed' : 'waiting',

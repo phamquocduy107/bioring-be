@@ -9,6 +9,7 @@ import {
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '@app/prisma';
 import { randomUUID, createHash, randomBytes } from 'node:crypto';
+import { resolveUrlsFromApprovedFiles } from '@app/common';
 
 // === Internal record types ===
 interface EngravingRecord {
@@ -51,8 +52,11 @@ interface EngravingBiometricRecord {
   engraving_id: string;
   biometric_type: string;
   required_channel: string;
-  raw_file_url: string | null;
-  processed_svg_url: string | null;
+  biometric_asset_id?: string | null;
+  biometric_asset?: {
+    id: string;
+    approved_files?: unknown;
+  } | null;
   extra_data: unknown;
   status: string | null;
 }
@@ -317,7 +321,9 @@ export class EngravingService {
             include: { materials: true, gemstones: true },
             orderBy: { version_number: 'desc' },
           },
-          engraving_biometrics: true,
+          engraving_biometrics: {
+            include: { biometric_asset: true },
+          },
           qr_memories: true,
         },
         orderBy: { created_at: 'desc' },
@@ -345,7 +351,9 @@ export class EngravingService {
           include: { materials: true, gemstones: true },
           orderBy: { version_number: 'desc' },
         },
-        engraving_biometrics: true,
+        engraving_biometrics: {
+          include: { biometric_asset: true },
+        },
         qr_memories: true,
       },
     });
@@ -416,16 +424,23 @@ export class EngravingService {
           }),
         ) ?? [],
       biometrics:
-        engraving.engraving_biometrics?.map((b: EngravingBiometricRecord) => ({
-          id: b.id,
-          engravingId: b.engraving_id,
-          biometricType: b.biometric_type,
-          requiredChannel: b.required_channel,
-          rawFileUrl: b.raw_file_url ?? '',
-          processedSvgUrl: b.processed_svg_url ?? '',
-          extraData: b.extra_data ?? '',
-          status: b.status ?? '',
-        })) ?? [],
+        engraving.engraving_biometrics?.map((b: EngravingBiometricRecord) => {
+          const urls = resolveUrlsFromApprovedFiles(
+            b.biometric_asset?.approved_files,
+          );
+          return {
+            id: b.id,
+            engravingId: b.engraving_id,
+            biometricType: b.biometric_type,
+            requiredChannel: b.required_channel,
+            biometricAssetId:
+              b.biometric_asset_id ?? b.biometric_asset?.id ?? '',
+            rawFileUrl: urls.rawFileUrl,
+            processedSvgUrl: urls.processedSvgUrl,
+            extraData: b.extra_data ?? '',
+            status: b.status ?? '',
+          };
+        }) ?? [],
       qrMemory: qrMem
         ? {
             id: qrMem.id,
@@ -500,9 +515,12 @@ export class EngravingService {
       },
     });
     if (!engraving) throw new NotFoundException('Engraving not found');
-    if (engraving.user_id !== userId) throw new ForbiddenException('Not your engraving');
-    if (engraving.order) throw new BadRequestException('Cannot cancel — already has order');
-    if (engraving.status === 'CANCELLED') throw new BadRequestException('Already cancelled');
+    if (engraving.user_id !== userId)
+      throw new ForbiddenException('Not your engraving');
+    if (engraving.order)
+      throw new BadRequestException('Cannot cancel — already has order');
+    if (engraving.status === 'CANCELLED')
+      throw new BadRequestException('Already cancelled');
 
     await this.prisma.engravings.update({
       where: { id },

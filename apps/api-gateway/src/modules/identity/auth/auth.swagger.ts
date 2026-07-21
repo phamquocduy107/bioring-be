@@ -101,7 +101,7 @@ export function ApiGetMeDocs() {
     ApiOperation({
       summary: 'Get current user profile + permissions',
       description:
-        'Returns the authenticated user\'s profile and permission slugs for UI rendering.',
+        "Returns the authenticated user's profile and permission slugs for UI rendering.",
     }),
     ApiResponse({
       status: 200,
@@ -121,7 +121,13 @@ export function ApiGetMeDocs() {
             updatedAt: '2026-01-01T00:00:00.000Z',
             roles: ['ADMIN'],
           },
-          permissions: ['user.read', 'user.write', 'order.read', 'order.write', 'dashboard.view'],
+          permissions: [
+            'user.read',
+            'user.write',
+            'order.read',
+            'order.write',
+            'dashboard.view',
+          ],
         },
       },
     }),

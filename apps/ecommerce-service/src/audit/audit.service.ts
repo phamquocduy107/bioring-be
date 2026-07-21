@@ -24,7 +24,9 @@ export class AuditService {
     const [data, total] = await Promise.all([
       this.prisma.audit_logs.findMany({
         where,
-        include: { users: { select: { id: true, full_name: true, email: true } } },
+        include: {
+          users: { select: { id: true, full_name: true, email: true } },
+        },
         orderBy: { created_at: 'desc' },
         skip: (params.page - 1) * params.limit,
         take: params.limit,
@@ -33,18 +35,24 @@ export class AuditService {
     ]);
 
     return {
-      data: data.map(log => ({
+      data: data.map((log) => ({
         id: log.id,
         timestamp: log.created_at?.toISOString() ?? '',
         actor: log.users
-          ? { id: log.users.id, name: log.users.full_name ?? '', email: log.users.email ?? '' }
+          ? {
+              id: log.users.id,
+              name: log.users.full_name ?? '',
+              email: log.users.email ?? '',
+            }
           : null,
         action: log.action ?? '',
         resource: log.entity_name ?? '',
         resource_id: log.entity_id ?? '',
         description: `${log.action ?? ''} on ${log.entity_name ?? ''} ${log.entity_id ?? ''}`,
         result: 'success',
-        metadata: log.new_value ? { newValue: log.new_value, oldValue: log.old_value } : null,
+        metadata: log.new_value
+          ? { newValue: log.new_value, oldValue: log.old_value }
+          : null,
       })),
       total,
       page: params.page,

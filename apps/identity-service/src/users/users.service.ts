@@ -132,8 +132,15 @@ export class UsersService {
     return { success: true };
   }
 
-  async createUser(data: { email: string; fullName: string; phone?: string; roleId?: string }) {
-    const existing = await this.prisma.users.findUnique({ where: { email: data.email } });
+  async createUser(data: {
+    email: string;
+    fullName: string;
+    phone?: string;
+    roleId?: string;
+  }) {
+    const existing = await this.prisma.users.findUnique({
+      where: { email: data.email },
+    });
     if (existing) throw new ConflictException('Email already exists');
 
     const id = randomUUID();
@@ -150,7 +157,9 @@ export class UsersService {
     });
 
     if (data.roleId) {
-      const role = await this.prisma.roles.findUnique({ where: { id: data.roleId } });
+      const role = await this.prisma.roles.findUnique({
+        where: { id: data.roleId },
+      });
       if (!role) throw new BadRequestException('Role not found');
       await this.prisma.user_roles.create({
         data: { user_id: id, role_id: data.roleId },
@@ -160,12 +169,20 @@ export class UsersService {
     return this.findById(id);
   }
 
-  async updateUser(data: { id: string; email?: string; fullName?: string; phone?: string; status?: string }) {
+  async updateUser(data: {
+    id: string;
+    email?: string;
+    fullName?: string;
+    phone?: string;
+    status?: string;
+  }) {
     const user = await this.prisma.users.findUnique({ where: { id: data.id } });
     if (!user) throw new NotFoundException('User not found');
 
     if (data.email && data.email !== user.email) {
-      const existing = await this.prisma.users.findUnique({ where: { email: data.email } });
+      const existing = await this.prisma.users.findUnique({
+        where: { email: data.email },
+      });
       if (existing) throw new ConflictException('Email already in use');
     }
 
@@ -201,7 +218,9 @@ export class UsersService {
 
     await this.prisma.$transaction([
       this.prisma.user_roles.deleteMany({ where: { user_id: userId } }),
-      this.prisma.user_roles.create({ data: { user_id: userId, role_id: roleId } }),
+      this.prisma.user_roles.create({
+        data: { user_id: userId, role_id: roleId },
+      }),
     ]);
 
     return { success: true };

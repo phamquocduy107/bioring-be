@@ -7,8 +7,9 @@ STAGE_APPROVED = "approved"
 
 TYPE_FINGERPRINT = "fingerprint"
 TYPE_SOUNDWAVE = "soundwave"
+TYPE_HEARTBEAT = "heartbeat"
 
-SUPPORTED_ARTIFACT_TYPES = [TYPE_FINGERPRINT, TYPE_SOUNDWAVE]
+SUPPORTED_ARTIFACT_TYPES = [TYPE_FINGERPRINT, TYPE_SOUNDWAVE, TYPE_HEARTBEAT]
 
 MANIFEST_FILENAME = "artifact_manifest.json"
 PLACEMENT_FILENAME = "placement.json"
@@ -16,6 +17,13 @@ PLACEMENT_FILENAME = "placement.json"
 DEFAULT_SURFACE = {
     TYPE_FINGERPRINT: "Fingerprint_Surface",
     TYPE_SOUNDWAVE: "Soundwave_Surface",
+    TYPE_HEARTBEAT: "Heartbeat_Surface",
+}
+
+ARTIFACT_ID_PREFIX = {
+    TYPE_FINGERPRINT: "fp",
+    TYPE_SOUNDWAVE: "sw",
+    TYPE_HEARTBEAT: "hb",
 }
 
 # --- Fingerprint ---

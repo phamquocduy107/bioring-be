@@ -85,12 +85,6 @@ rpc GetProductionTasks (GetProductionTasksRequest) returns (GetProductionTasksRe
   rpc GuestInitiatePayment (GuestInitiatePaymentRequest) returns (GuestInitiatePaymentResponse);
   rpc GuestSetShippingInfo (GuestSetShippingInfoRequest) returns (GuestSetShippingInfoResponse);
 
-  // Capture Session (P4)
-  rpc CreateCaptureSession (CreateCaptureSessionRequest) returns (CreateCaptureSessionResponse);
-  rpc CompleteCaptureSession (CompleteCaptureSessionRequest) returns (CreateCaptureSessionResponse);
-  rpc GetCaptureSessions (GetCaptureSessionsRequest) returns (GetCaptureSessionsResponse);
-  rpc GetCaptureSession (GetCaptureSessionRequest) returns (CreateCaptureSessionResponse);
-
   // Admin Dashboard (P5)
   rpc GetDashboardSummary (Empty) returns (DashboardSummaryResponse);
   rpc GetOrdersByStatus (Empty) returns (OrdersByStatusResponse);
@@ -454,8 +448,10 @@ message SubmitOrderResponse {
 message AttachBiometricRequest {
   string engravingId = 1;
   string biometricType = 2;
-  string rawFileUrl = 3;
-  string extraData = 4;
+  bytes fileContent = 3;
+  string filename = 4;
+  string contentType = 5;
+  string extraData = 6;
 }
 
 message AttachBiometricResponse {
@@ -469,8 +465,10 @@ message AttachBiometricsBulkRequest {
 
 message BulkBiometricItem {
   string biometricType = 1;
-  string rawFileUrl = 2;
-  string extraData = 3;
+  bytes fileContent = 2;
+  string filename = 3;
+  string contentType = 4;
+  string extraData = 5;
 }
 
 message AttachBiometricsBulkResponse {
@@ -1095,50 +1093,6 @@ message TopProductsResponse {
     int32 orderCount = 3;
   }
   repeated ProductSales data = 1;
-}
-
-// === Capture Session (P4) ===
-message CreateCaptureSessionRequest {
-  string orderId = 1;
-  string staffId = 2;
-  string deviceId = 3;
-}
-
-message CreateCaptureSessionResponse {
-  CaptureSession session = 1;
-}
-
-message CompleteCaptureSessionRequest {
-  string id = 1;
-  double qualityScore = 2;
-  string staffNote = 3;
-}
-
-message GetCaptureSessionsRequest {
-  string orderId = 1;
-}
-
-message GetCaptureSessionsResponse {
-  repeated CaptureSession data = 1;
-}
-
-message GetCaptureSessionRequest {
-  string id = 1;
-}
-
-message CaptureSession {
-  string id = 1;
-  string orderId = 2;
-  string engravingId = 3;
-  string customerId = 4;
-  string guestCustomerId = 5;
-  string staffId = 6;
-  string deviceId = 7;
-  string status = 8;
-  double qualityScore = 9;
-  string staffNote = 10;
-  string startedAt = 11;
-  string completedAt = 12;
 }
 
 // === MF-06: Warranty & Service Claim ===
