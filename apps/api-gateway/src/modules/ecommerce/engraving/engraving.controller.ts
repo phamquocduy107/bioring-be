@@ -1,16 +1,20 @@
 import {
+  BadRequestException,
+  Body,
   Controller,
   Get,
-  Patch,
-  Post,
-  Param,
-  ParseUUIDPipe,
-  Body,
-  Query,
   Inject,
   OnModuleInit,
   Optional,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import type { ClientGrpc } from '@nestjs/microservices';
 import { Observable, lastValueFrom } from 'rxjs';
 import {
@@ -25,9 +29,9 @@ import {
   GetMyEngravingsQueryDto,
   UpdateEngravingVersionConfigDto,
   AttachBiometricDto,
+  BIOMETRIC_MAX_UPLOAD_BYTES,
   Permission,
   Permissions,
-  AttachBiometricsBulkDto,
 } from '@app/common';
 import type { JwtPayload } from '@app/common';
 import {
@@ -39,6 +43,13 @@ import {
   ApiAttachBiometricsBulkDocs,
   ApiCancelEngravingDocs,
 } from './engraving.swagger';
+
+interface UploadedBiometricFile {
+  originalname: string;
+  mimetype: string;
+  size: number;
+  buffer: Buffer;
+}
 
 interface EcommerceGrpcService {
   createEngraving(data: {
@@ -76,12 +87,20 @@ interface EcommerceGrpcService {
   attachBiometric(data: {
     engravingId: string;
     biometricType: string;
-    rawFileUrl: string;
+    fileContent: Buffer;
+    filename: string;
+    contentType: string;
     extraData?: string;
   }): Observable<{ biometric: EngravingBioMetricResponse }>;
   attachBiometricsBulk(data: {
     engravingId: string;
-    biometrics: Array<{ biometricType: string; rawFileUrl: string; extraData?: string }>;
+    biometrics: Array<{
+      biometricType: string;
+      fileContent: Buffer;
+      filename: string;
+      contentType: string;
+      extraData?: string;
+    }>;
   }): Observable<{ count: number; biometrics: EngravingBioMetricResponse[] }>;
   cancelEngraving(data: {
     id: string;
@@ -175,15 +194,28 @@ export class EngravingController implements OnModuleInit {
   @Post(':id/biometrics')
   @Permissions(Permission.OrderWrite)
   @ApiAttachBiometricDocs()
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: BIOMETRIC_MAX_UPLOAD_BYTES },
+    }),
+  )
   attachBiometric(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @UploadedFile() file: UploadedBiometricFile | undefined,
     @Body() body: AttachBiometricDto,
   ) {
+    if (!file?.buffer?.length) {
+      throw new BadRequestException(
+        'file is required (multipart field "file")',
+      );
+    }
     return this.call(() =>
       this.grpc!.attachBiometric({
         engravingId: id,
         biometricType: body.biometricType,
-        rawFileUrl: body.rawFileUrl,
+        fileContent: file.buffer,
+        filename: file.originalname || 'upload.bin',
+        contentType: file.mimetype || 'application/octet-stream',
         extraData: body.extraData,
       }),
     );
@@ -192,19 +224,9 @@ export class EngravingController implements OnModuleInit {
   @Post(':id/biometrics/bulk')
   @Permissions(Permission.OrderWrite)
   @ApiAttachBiometricsBulkDocs()
-  attachBiometricsBulk(
-    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
-    @Body() body: AttachBiometricsBulkDto,
-  ) {
-    return this.call(() =>
-      this.grpc!.attachBiometricsBulk({
-        engravingId: id,
-        biometrics: body.biometrics.map((b) => ({
-          biometricType: b.biometricType,
-          rawFileUrl: b.rawFileUrl,
-          extraData: b.extraData,
-        })),
-      }),
+  attachBiometricsBulk() {
+    throw new BadRequestException(
+      'Bulk attach is deprecated. Upload each biometric via multipart POST /api/v1/engravings/:id/biometrics (field "file").',
     );
   }
 

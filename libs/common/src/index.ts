@@ -15,3 +15,4 @@ export * from './queue/rabbit-mq/rmq.service';
 export * from './swagger/common.swagger';
 export * from './payment';
 export * from './notification';
+export * from './biometric';

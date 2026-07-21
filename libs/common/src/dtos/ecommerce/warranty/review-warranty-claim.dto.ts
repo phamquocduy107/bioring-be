@@ -19,7 +19,10 @@ export class ReviewWarrantyClaimDto {
   @Min(0)
   extraFee?: number;
 
-  @ApiPropertyOptional({ description: 'Manager note', example: 'Cần thay đá mới' })
+  @ApiPropertyOptional({
+    description: 'Manager note',
+    example: 'Cần thay đá mới',
+  })
   @IsOptional()
   @IsString()
   managerNote?: string;

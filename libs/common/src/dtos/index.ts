@@ -5,4 +5,5 @@ export * from './pagination.dto';
 export * from './uuid.dto';
 export * from './identity';
 export * from './ecommerce';
+export * from './biometric';
 export * from './knowledge';

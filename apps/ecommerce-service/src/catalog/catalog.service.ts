@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '@app/prisma';
 import { randomUUID } from 'node:crypto';
@@ -115,8 +119,12 @@ export class CatalogService {
   }
 
   async createProduct(data: {
-    name: string; description?: string; base_material_id?: string;
-    base_price?: number; thumbnail_url?: string; model_3d_url?: string;
+    name: string;
+    description?: string;
+    base_material_id?: string;
+    base_price?: number;
+    thumbnail_url?: string;
+    model_3d_url?: string;
   }) {
     if (!data.name) throw new BadRequestException('Product name is required');
     const product = await this.prisma.products.create({
@@ -137,21 +145,36 @@ export class CatalogService {
   }
 
   async updateProduct(data: {
-    id: string; name?: string; description?: string; base_material_id?: string;
-    base_price?: number; thumbnail_url?: string; model_3d_url?: string;
+    id: string;
+    name?: string;
+    description?: string;
+    base_material_id?: string;
+    base_price?: number;
+    thumbnail_url?: string;
+    model_3d_url?: string;
   }) {
-    const existing = await this.prisma.products.findUnique({ where: { id: data.id } });
+    const existing = await this.prisma.products.findUnique({
+      where: { id: data.id },
+    });
     if (!existing) throw new NotFoundException('Product not found');
 
     await this.prisma.products.update({
       where: { id: data.id },
       data: {
         ...(data.name !== undefined && { name: data.name }),
-        ...(data.description !== undefined && { description: data.description }),
-        ...(data.base_material_id !== undefined && { base_material_id: data.base_material_id }),
+        ...(data.description !== undefined && {
+          description: data.description,
+        }),
+        ...(data.base_material_id !== undefined && {
+          base_material_id: data.base_material_id,
+        }),
         ...(data.base_price !== undefined && { base_price: data.base_price }),
-        ...(data.thumbnail_url !== undefined && { thumbnail_url: data.thumbnail_url }),
-        ...(data.model_3d_url !== undefined && { model_3d_url: data.model_3d_url }),
+        ...(data.thumbnail_url !== undefined && {
+          thumbnail_url: data.thumbnail_url,
+        }),
+        ...(data.model_3d_url !== undefined && {
+          model_3d_url: data.model_3d_url,
+        }),
         updated_at: new Date(),
       },
     });

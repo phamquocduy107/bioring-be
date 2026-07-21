@@ -33,16 +33,25 @@ export class CatalogController {
 
   @GrpcMethod('EcommerceService', 'CreateProduct')
   async createProduct(data: {
-    name: string; description?: string; base_material_id?: string;
-    base_price?: number; thumbnail_url?: string; model_3d_url?: string;
+    name: string;
+    description?: string;
+    base_material_id?: string;
+    base_price?: number;
+    thumbnail_url?: string;
+    model_3d_url?: string;
   }) {
     return this.catalogService.createProduct(data);
   }
 
   @GrpcMethod('EcommerceService', 'UpdateProduct')
   async updateProduct(data: {
-    id: string; name?: string; description?: string; base_material_id?: string;
-    base_price?: number; thumbnail_url?: string; model_3d_url?: string;
+    id: string;
+    name?: string;
+    description?: string;
+    base_material_id?: string;
+    base_price?: number;
+    thumbnail_url?: string;
+    model_3d_url?: string;
   }) {
     return this.catalogService.updateProduct(data);
   }

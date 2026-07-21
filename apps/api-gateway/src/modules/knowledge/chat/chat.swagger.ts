@@ -64,8 +64,7 @@ const ringRecommendationExample = {
       style: 'minimal',
       stoneName: 'sapphire',
       stoneColor: 'blue',
-      reason:
-        'Phù hợp ngân sách dưới 10 triệu và phong cách tối giản.',
+      reason: 'Phù hợp ngân sách dưới 10 triệu và phong cách tối giản.',
     },
   ],
   suggestedPackages: [],
@@ -178,7 +177,8 @@ export function ApiAskQuestionDocs() {
   return applyDecorators(
     ApiBearerAuth('access-token'),
     ApiOperation({
-      summary: 'Ask question, ask policy/package, or request ring recommendation',
+      summary:
+        'Ask question, ask policy/package, or request ring recommendation',
       description:
         'Ask question, ask policy/package, or request ring recommendation. The system automatically detects intent per message and supports intent switching in the same chat session.',
     }),

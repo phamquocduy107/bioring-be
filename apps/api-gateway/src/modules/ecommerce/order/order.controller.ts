@@ -323,7 +323,13 @@ interface EcommerceGrpcService {
     orderId: string;
     staffId: string;
     note?: string;
-  }): Observable<{ success: boolean; order: Record<string, unknown>; warrantyCode: string; warrantyExpiry: string; qrMemoryUnlocked: boolean }>;
+  }): Observable<{
+    success: boolean;
+    order: Record<string, unknown>;
+    warrantyCode: string;
+    warrantyExpiry: string;
+    qrMemoryUnlocked: boolean;
+  }>;
   manualPayment(data: {
     orderId: string;
     paymentPhase: string;
@@ -470,7 +476,12 @@ export class OrderController implements OnModuleInit {
     @Body() body: BulkReviewOrderDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    const results: { id: string; success: boolean; order?: OrderResponse; error?: string }[] = [];
+    const results: {
+      id: string;
+      success: boolean;
+      order?: OrderResponse;
+      error?: string;
+    }[] = [];
     for (const item of body.items) {
       try {
         const order = await this.call(() =>
@@ -726,7 +737,11 @@ export class OrderController implements OnModuleInit {
     @Body() body: { note?: string },
   ) {
     return this.call(() =>
-      this.grpc!.confirmPickup({ orderId: id, staffId: user.sub, note: body.note }),
+      this.grpc!.confirmPickup({
+        orderId: id,
+        staffId: user.sub,
+        note: body.note,
+      }),
     );
   }
 
@@ -743,7 +758,12 @@ export class OrderController implements OnModuleInit {
   manualPayment(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @Body()
-    body: { paymentPhase: string; amount: number; paymentMethod: string; reference?: string },
+    body: {
+      paymentPhase: string;
+      amount: number;
+      paymentMethod: string;
+      reference?: string;
+    },
     @CurrentUser() user: JwtPayload,
   ) {
     return this.call(() =>
@@ -789,7 +809,9 @@ export class OrderController implements OnModuleInit {
         search: search ?? '',
       }),
     );
-    return { data: ((result as Record<string, unknown>)?.data as unknown[]) ?? [] };
+    return {
+      data: ((result as Record<string, unknown>)?.data as unknown[]) ?? [],
+    };
   }
 
   @Post('lookup')

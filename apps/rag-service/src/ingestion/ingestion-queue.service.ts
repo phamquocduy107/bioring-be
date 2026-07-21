@@ -43,11 +43,7 @@ export class IngestionQueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   async publishReindexJob(document: knowledge_documents) {
-    await this.publishJob(
-      'REINDEX',
-      INGESTION_ROUTING_KEYS.REINDEX,
-      document,
-    );
+    await this.publishJob('REINDEX', INGESTION_ROUTING_KEYS.REINDEX, document);
   }
 
   async publishDeleteVectorsJob(document: knowledge_documents) {
@@ -270,7 +266,11 @@ export class IngestionQueueService implements OnModuleInit, OnModuleDestroy {
       exchange,
       INGESTION_ROUTING_KEYS.DELETE_VECTORS,
     );
-    await channel.bindQueue(statusQueue, exchange, INGESTION_ROUTING_KEYS.STATUS);
+    await channel.bindQueue(
+      statusQueue,
+      exchange,
+      INGESTION_ROUTING_KEYS.STATUS,
+    );
     await channel.bindQueue(dlq, dlxExchange, INGESTION_ROUTING_KEYS.FAILED);
   }
 

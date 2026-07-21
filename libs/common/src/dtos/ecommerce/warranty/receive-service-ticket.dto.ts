@@ -6,7 +6,10 @@ export class ReceiveServiceTicketDto {
   @IsUUID('4')
   claimId!: string;
 
-  @ApiPropertyOptional({ description: 'Condition note', example: 'Nhẫn có vết xước nhẹ' })
+  @ApiPropertyOptional({
+    description: 'Condition note',
+    example: 'Nhẫn có vết xước nhẹ',
+  })
   @IsOptional()
   @IsString()
   conditionNote?: string;

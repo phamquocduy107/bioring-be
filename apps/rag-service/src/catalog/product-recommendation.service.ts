@@ -33,7 +33,9 @@ export class ProductRecommendationService {
       if (material) {
         and.push({
           OR: [
-            { materials: { name: { contains: material, mode: 'insensitive' } } },
+            {
+              materials: { name: { contains: material, mode: 'insensitive' } },
+            },
             {
               product_materials: {
                 some: {

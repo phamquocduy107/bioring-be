@@ -82,10 +82,7 @@ export class ConversationSummaryService {
     }
     if (userPreferences.stoneColor || userPreferences.stoneName) {
       parts.push(
-        `đá: ${[
-          userPreferences.stoneName,
-          userPreferences.stoneColor,
-        ]
+        `đá: ${[userPreferences.stoneName, userPreferences.stoneColor]
           .filter(Boolean)
           .join(' / ')}`,
       );

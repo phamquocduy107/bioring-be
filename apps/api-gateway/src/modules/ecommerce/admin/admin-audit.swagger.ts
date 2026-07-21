@@ -27,13 +27,20 @@ export function ApiListAuditLogsDocs() {
             {
               id: 'uuid',
               timestamp: '2026-07-10T08:00:00.000Z',
-              actor: { id: 'uuid', name: 'Admin User', email: 'admin@example.com' },
+              actor: {
+                id: 'uuid',
+                name: 'Admin User',
+                email: 'admin@example.com',
+              },
               action: 'SUBMIT',
               resource: 'order',
               resource_id: 'order-uuid',
               description: 'SUBMIT on order order-uuid',
               result: 'success',
-              metadata: { newValue: { status: 'SUBMITTED' }, oldValue: { status: 'AWAITING_SUBMIT' } },
+              metadata: {
+                newValue: { status: 'SUBMITTED' },
+                oldValue: { status: 'AWAITING_SUBMIT' },
+              },
             },
           ],
           total: 1,

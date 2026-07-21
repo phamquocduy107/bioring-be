@@ -1,4 +1,10 @@
-import { IsEmail, IsOptional, IsString, IsUUID, IsNotEmpty } from 'class-validator';
+import {
+  IsEmail,
+  IsOptional,
+  IsString,
+  IsUUID,
+  IsNotEmpty,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateUserDto {
@@ -16,7 +22,10 @@ export class CreateUserDto {
   @IsString()
   phone?: string;
 
-  @ApiPropertyOptional({ example: '660e8400-e29b-41d4-a716-446655440001', description: 'Optional role UUID to assign' })
+  @ApiPropertyOptional({
+    example: '660e8400-e29b-41d4-a716-446655440001',
+    description: 'Optional role UUID to assign',
+  })
   @IsOptional()
   @IsUUID('4')
   roleId?: string;

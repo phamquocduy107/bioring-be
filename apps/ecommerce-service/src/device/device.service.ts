@@ -7,7 +7,12 @@ import { randomUUID } from 'node:crypto';
 export class DeviceService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async listDevices(params: { page: number; limit: number; status?: string; search?: string }) {
+  async listDevices(params: {
+    page: number;
+    limit: number;
+    status?: string;
+    search?: string;
+  }) {
     const where: Prisma.iot_devicesWhereInput = {};
     if (params.status) where.status = params.status;
     if (params.search) {
@@ -31,7 +36,7 @@ export class DeviceService {
     ]);
 
     return {
-      data: data.map(d => ({
+      data: data.map((d) => ({
         id: d.id,
         serial_number: d.mac_address ?? '',
         model: d.device_type ?? '',
@@ -40,8 +45,12 @@ export class DeviceService {
         last_seen: d.updated_at?.toISOString() ?? '',
         rssi: null as number | null,
         uptime: null as number | null,
-        cpu: d.device_health_logs[0]?.cpu_usage ? Number(d.device_health_logs[0].cpu_usage) : null,
-        memory: d.device_health_logs[0]?.memory_usage ? Number(d.device_health_logs[0].memory_usage) : null,
+        cpu: d.device_health_logs[0]?.cpu_usage
+          ? Number(d.device_health_logs[0].cpu_usage)
+          : null,
+        memory: d.device_health_logs[0]?.memory_usage
+          ? Number(d.device_health_logs[0].memory_usage)
+          : null,
       })),
       total,
       page: params.page,
@@ -68,13 +77,21 @@ export class DeviceService {
         last_seen: d.updated_at?.toISOString() ?? '',
         rssi: null as number | null,
         uptime: null as number | null,
-        cpu: d.device_health_logs[0]?.cpu_usage ? Number(d.device_health_logs[0].cpu_usage) : null,
-        memory: d.device_health_logs[0]?.memory_usage ? Number(d.device_health_logs[0].memory_usage) : null,
+        cpu: d.device_health_logs[0]?.cpu_usage
+          ? Number(d.device_health_logs[0].cpu_usage)
+          : null,
+        memory: d.device_health_logs[0]?.memory_usage
+          ? Number(d.device_health_logs[0].memory_usage)
+          : null,
       },
     };
   }
 
-  async createDevice(data: { device_name: string; mac_address: string; device_type: string }) {
+  async createDevice(data: {
+    device_name: string;
+    mac_address: string;
+    device_type: string;
+  }) {
     const d = await this.prisma.iot_devices.create({
       data: {
         id: randomUUID(),
@@ -103,23 +120,39 @@ export class DeviceService {
   }
 
   async deleteDevice(id: string) {
-    const existing = await this.prisma.iot_devices.findUnique({ where: { id } });
+    const existing = await this.prisma.iot_devices.findUnique({
+      where: { id },
+    });
     if (!existing) throw new NotFoundException('Device not found');
     await this.prisma.iot_devices.delete({ where: { id } });
     return { success: true };
   }
 
-  async updateDevice(data: { id: string; device_name?: string; device_type?: string; status?: string; firmware_version?: string }) {
-    const existing = await this.prisma.iot_devices.findUnique({ where: { id: data.id } });
+  async updateDevice(data: {
+    id: string;
+    device_name?: string;
+    device_type?: string;
+    status?: string;
+    firmware_version?: string;
+  }) {
+    const existing = await this.prisma.iot_devices.findUnique({
+      where: { id: data.id },
+    });
     if (!existing) throw new NotFoundException('Device not found');
 
     const d = await this.prisma.iot_devices.update({
       where: { id: data.id },
       data: {
-        ...(data.device_name !== undefined && { device_name: data.device_name }),
-        ...(data.device_type !== undefined && { device_type: data.device_type }),
+        ...(data.device_name !== undefined && {
+          device_name: data.device_name,
+        }),
+        ...(data.device_type !== undefined && {
+          device_type: data.device_type,
+        }),
         ...(data.status !== undefined && { status: data.status }),
-        ...(data.firmware_version !== undefined && { firmware_version: data.firmware_version }),
+        ...(data.firmware_version !== undefined && {
+          firmware_version: data.firmware_version,
+        }),
         updated_at: new Date(),
       },
       include: {
@@ -137,8 +170,12 @@ export class DeviceService {
         last_seen: d.updated_at?.toISOString() ?? '',
         rssi: null as number | null,
         uptime: null as number | null,
-        cpu: d.device_health_logs[0]?.cpu_usage ? Number(d.device_health_logs[0].cpu_usage) : null,
-        memory: d.device_health_logs[0]?.memory_usage ? Number(d.device_health_logs[0].memory_usage) : null,
+        cpu: d.device_health_logs[0]?.cpu_usage
+          ? Number(d.device_health_logs[0].cpu_usage)
+          : null,
+        memory: d.device_health_logs[0]?.memory_usage
+          ? Number(d.device_health_logs[0].memory_usage)
+          : null,
       },
     };
   }

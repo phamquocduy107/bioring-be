@@ -107,7 +107,7 @@ export class GuestService {
     });
     if (existingGuest) {
       return {
-        guest: this.mapGuest(existingGuest as unknown as GuestRecord),
+        guest: this.mapGuest(existingGuest),
         isMember: false,
         isExistingGuest: true,
         message: 'Guest already exists. Create new?',
@@ -278,7 +278,9 @@ export class GuestService {
             engraving_versions_engraving_versions_engraving_idToengravings: {
               orderBy: { version_number: 'desc' },
             },
-            engraving_biometrics: true,
+            engraving_biometrics: {
+              include: { biometric_asset: true },
+            },
             qr_memories: true,
           },
         },
@@ -375,7 +377,9 @@ export class GuestService {
       const raw = data.selectedBiometrics;
       if (raw.startsWith('[')) {
         try {
-          updateData.selected_biometrics = (JSON.parse(raw) as string[]).join(',');
+          updateData.selected_biometrics = (JSON.parse(raw) as string[]).join(
+            ',',
+          );
         } catch {
           updateData.selected_biometrics = raw;
         }
@@ -638,7 +642,11 @@ export class GuestService {
     };
   }
 
-  async listGuestCustomers(params: { page: number; limit: number; search?: string }) {
+  async listGuestCustomers(params: {
+    page: number;
+    limit: number;
+    search?: string;
+  }) {
     const where: any = {};
     if (params.search) {
       where.OR = [
@@ -658,18 +666,26 @@ export class GuestService {
           orders: {
             include: {
               engraving: {
-                select: { qr_memories: { select: { is_locked: true, activated_at: true } } },
+                select: {
+                  qr_memories: {
+                    select: { is_locked: true, activated_at: true },
+                  },
+                  engraving_biometrics: { select: { biometric_type: true } },
+                },
               },
               warranties: { select: { status: true, expiry_date: true } },
             },
           },
-          biometric_capture_sessions: {
-            include: { biometric_capture_items: { select: { capture_type: true } } },
-          },
           warranty_claims: {
             include: {
               service_tickets: {
-                select: { id: true, ticket_code: true, service_type: true, status: true, created_at: true },
+                select: {
+                  id: true,
+                  ticket_code: true,
+                  service_type: true,
+                  status: true,
+                  created_at: true,
+                },
               },
             },
           },
@@ -680,11 +696,20 @@ export class GuestService {
 
     return {
       data: rows.map((g) => {
-        const totalSpent = g.orders.reduce((s, o) => s + Number(o.total_price ?? 0), 0);
-        const sorted = [...g.orders].sort((a, b) => (b.created_at?.getTime() ?? 0) - (a.created_at?.getTime() ?? 0));
+        const totalSpent = g.orders.reduce(
+          (s, o) => s + Number(o.total_price ?? 0),
+          0,
+        );
+        const sorted = [...g.orders].sort(
+          (a, b) =>
+            (b.created_at?.getTime() ?? 0) - (a.created_at?.getTime() ?? 0),
+        );
         const latestOrder = sorted[0];
         const warrantyOrder = g.orders.find((o) => o.warranties.length > 0);
         const warranty = warrantyOrder?.warranties[0];
+        const biometricTypes = g.orders.flatMap(
+          (o) => o.engraving?.engraving_biometrics ?? [],
+        );
 
         return {
           id: g.id,
@@ -696,7 +721,7 @@ export class GuestService {
           total_spent: totalSpent,
           last_order_date: latestOrder?.created_at?.toISOString() ?? '',
           join_date: g.created_at?.toISOString() ?? '',
-          digital_assets: this.computeDigitalAssets(g.biometric_capture_sessions),
+          digital_assets: this.computeDigitalAssets(biometricTypes),
           qr_memory_status: latestOrder?.engraving?.qr_memories ? 'active' : '',
           service_tickets: g.warranty_claims.flatMap((wc) =>
             wc.service_tickets.map((st) => ({
@@ -708,7 +733,11 @@ export class GuestService {
             })),
           ),
           warranty: warranty
-            ? { is_active: warranty.status === 'ACTIVE', expiry_date: warranty.expiry_date?.toISOString() ?? '', used_free_count: 0 }
+            ? {
+                is_active: warranty.status === 'ACTIVE',
+                expiry_date: warranty.expiry_date?.toISOString() ?? '',
+                used_free_count: 0,
+              }
             : { is_active: false, expiry_date: '', used_free_count: 0 },
         };
       }),
@@ -719,17 +748,12 @@ export class GuestService {
     };
   }
 
-  private computeDigitalAssets(
-    sessions: Array<{ biometric_capture_items: Array<{ capture_type: string | null }> }>,
-  ) {
-    const types = new Set<string>();
-    for (const s of sessions)
-      for (const item of s.biometric_capture_items)
-        if (item.capture_type) types.add(item.capture_type);
+  private computeDigitalAssets(biometrics: Array<{ biometric_type: string }>) {
+    const types = new Set(biometrics.map((b) => b.biometric_type));
     return {
-      has_voice: types.has('VOICE'),
-      has_fingerprint: types.has('FINGERPRINT'),
-      has_heartbeat: types.has('HEARTBEAT'),
+      has_voice: types.has('SW'),
+      has_fingerprint: types.has('FP'),
+      has_heartbeat: types.has('HB'),
     };
   }
 

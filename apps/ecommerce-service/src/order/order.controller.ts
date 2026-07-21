@@ -22,13 +22,17 @@ export class OrderController {
   async attachBiometric(data: {
     engravingId: string;
     biometricType: string;
-    rawFileUrl: string;
+    fileContent: Buffer | Uint8Array;
+    filename?: string;
+    contentType?: string;
     extraData?: string;
   }) {
     return this.orderService.attachBiometric(
       data.engravingId,
       data.biometricType,
-      data.rawFileUrl,
+      data.fileContent,
+      data.filename || 'upload.bin',
+      data.contentType || 'application/octet-stream',
       data.extraData,
     );
   }
@@ -37,9 +41,18 @@ export class OrderController {
   @SkipTimeout()
   async attachBiometricsBulk(data: {
     engravingId: string;
-    biometrics: Array<{ biometricType: string; rawFileUrl: string; extraData?: string }>;
+    biometrics: Array<{
+      biometricType: string;
+      fileContent: Buffer | Uint8Array;
+      filename?: string;
+      contentType?: string;
+      extraData?: string;
+    }>;
   }) {
-    return this.orderService.attachBiometricsBulk(data.engravingId, data.biometrics);
+    return this.orderService.attachBiometricsBulk(
+      data.engravingId,
+      data.biometrics,
+    );
   }
 
   @GrpcMethod('EcommerceService', 'GetOrder')
@@ -217,8 +230,16 @@ export class OrderController {
   }
 
   @GrpcMethod('EcommerceService', 'ConfirmPickup')
-  async confirmPickup(data: { orderId: string; staffId: string; note?: string }) {
-    return this.orderService.confirmPickup(data.orderId, data.staffId, data.note);
+  async confirmPickup(data: {
+    orderId: string;
+    staffId: string;
+    note?: string;
+  }) {
+    return this.orderService.confirmPickup(
+      data.orderId,
+      data.staffId,
+      data.note,
+    );
   }
 
   @GrpcMethod('EcommerceService', 'ManualPayment')
@@ -278,8 +299,16 @@ export class OrderController {
   }
 
   @GrpcMethod('EcommerceService', 'RefundPayment')
-  async refundPayment(data: { paymentId: string; adminId: string; reason: string }) {
-    return this.orderService.refundPayment(data.paymentId, data.adminId, data.reason);
+  async refundPayment(data: {
+    paymentId: string;
+    adminId: string;
+    reason: string;
+  }) {
+    return this.orderService.refundPayment(
+      data.paymentId,
+      data.adminId,
+      data.reason,
+    );
   }
 
   @GrpcMethod('EcommerceService', 'UpdateShippingFee')
@@ -288,7 +317,11 @@ export class OrderController {
   }
 
   @GrpcMethod('EcommerceService', 'ListPickups')
-  async listPickups(data: { limit?: number; status?: string; search?: string }) {
+  async listPickups(data: {
+    limit?: number;
+    status?: string;
+    search?: string;
+  }) {
     return this.orderService.listPickups(data);
   }
 }

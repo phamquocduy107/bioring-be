@@ -94,10 +94,11 @@ export class DeviceController implements OnModuleInit {
   @Patch(':id')
   @Permissions(Permission.DeviceWrite)
   @ApiUpdateDeviceDocs()
-  async updateDevice(@Param('id') id: string, @Body() body: UpdateDeviceBodyDto) {
-    return this.call(() =>
-      this.grpc!.updateDevice({ id, ...body }),
-    );
+  async updateDevice(
+    @Param('id') id: string,
+    @Body() body: UpdateDeviceBodyDto,
+  ) {
+    return this.call(() => this.grpc!.updateDevice({ id, ...body }));
   }
 
   @Delete(':id')

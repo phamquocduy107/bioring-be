@@ -1,15 +1,7 @@
-import {
-  HttpException,
-  HttpStatus,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
-import type {
-  ChatHistoryMessage,
-  UserPreferences,
-} from '../chat/chat.types';
+import type { ChatHistoryMessage, UserPreferences } from '../chat/chat.types';
 import type {
   IntentDetectionResponse,
   RagQueryRequest,

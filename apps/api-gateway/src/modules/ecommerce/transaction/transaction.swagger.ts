@@ -1,17 +1,34 @@
 import { applyDecorators } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiBody, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiQuery,
+  ApiBody,
+  ApiResponse,
+} from '@nestjs/swagger';
 
 export function ApiListTransactionsDocs() {
   return applyDecorators(
     ApiBearerAuth('access-token'),
     ApiOperation({
       summary: 'List all transactions (paginated)',
-      description: 'Returns all payments across orders. Requires order.read permission.',
+      description:
+        'Returns all payments across orders. Requires order.read permission.',
     }),
     ApiQuery({ name: 'page', type: Number, required: false, example: 1 }),
     ApiQuery({ name: 'limit', type: Number, required: false, example: 20 }),
-    ApiQuery({ name: 'status', type: String, required: false, example: 'SUCCESS' }),
-    ApiQuery({ name: 'method', type: String, required: false, example: 'PAYOS' }),
+    ApiQuery({
+      name: 'status',
+      type: String,
+      required: false,
+      example: 'SUCCESS',
+    }),
+    ApiQuery({
+      name: 'method',
+      type: String,
+      required: false,
+      example: 'PAYOS',
+    }),
     ApiResponse({
       status: 200,
       description: 'Paginated transactions',
@@ -23,7 +40,11 @@ export function ApiListTransactionsDocs() {
               transactionId: 'PAY-txn_abc123',
               orderId: '550e8400-e29b-41d4-a716-446655440001',
               orderNumber: 'BIORING-A7B9X2',
-              customer: { id: '550e8400-...', name: 'Nguyễn Văn A', email: 'a@b.com' },
+              customer: {
+                id: '550e8400-...',
+                name: 'Nguyễn Văn A',
+                email: 'a@b.com',
+              },
               method: 'PAYOS',
               amount: 3960000,
               status: 'SUCCESS',
@@ -43,7 +64,8 @@ export function ApiTransactionOverviewDocs() {
     ApiBearerAuth('access-token'),
     ApiOperation({
       summary: 'Transaction overview',
-      description: 'Financial summary for current month vs last month. Requires order.read permission.',
+      description:
+        'Financial summary for current month vs last month. Requires order.read permission.',
     }),
     ApiResponse({
       status: 200,
@@ -70,14 +92,23 @@ export function ApiForcePaidDocs() {
     ApiBearerAuth('access-token'),
     ApiOperation({
       summary: 'Force mark payment as PAID',
-      description: 'Admin override — sets payment status to PAID and updates order amounts. Requires order.write permission.',
+      description:
+        'Admin override — sets payment status to PAID and updates order amounts. Requires order.write permission.',
     }),
     ApiResponse({
       status: 200,
       description: 'Payment forced to PAID',
       schema: {
         example: {
-          payment: { id: '550e8400-...', orderId: '550e8400-...', paymentPhase: 'REMAINING', amount: 5000000, method: 'PAYOS', status: 'PAID', paidAt: '2026-07-15T10:00:00.000Z' },
+          payment: {
+            id: '550e8400-...',
+            orderId: '550e8400-...',
+            paymentPhase: 'REMAINING',
+            amount: 5000000,
+            method: 'PAYOS',
+            status: 'PAID',
+            paidAt: '2026-07-15T10:00:00.000Z',
+          },
         },
       },
     }),
@@ -91,7 +122,8 @@ export function ApiSyncPaymentDocs() {
     ApiBearerAuth('access-token'),
     ApiOperation({
       summary: 'Sync payment status from PayOS',
-      description: 'Queries PayOS API for current transaction status and updates the payment record. Requires order.write permission.',
+      description:
+        'Queries PayOS API for current transaction status and updates the payment record. Requires order.write permission.',
     }),
     ApiResponse({
       status: 200,
@@ -114,12 +146,15 @@ export function ApiRefundDocs() {
     ApiBearerAuth('access-token'),
     ApiOperation({
       summary: 'Refund payment',
-      description: 'Marks payment as REFUNDED and adjusts order paid/remaining amounts. Requires order.write permission.',
+      description:
+        'Marks payment as REFUNDED and adjusts order paid/remaining amounts. Requires order.write permission.',
     }),
     ApiBody({
       schema: {
         type: 'object',
-        properties: { reason: { type: 'string', example: 'Khách hàng yêu cầu hoàn tiền' } },
+        properties: {
+          reason: { type: 'string', example: 'Khách hàng yêu cầu hoàn tiền' },
+        },
       },
     }),
     ApiResponse({
@@ -127,7 +162,11 @@ export function ApiRefundDocs() {
       description: 'Payment refunded',
       schema: {
         example: {
-          payment: { id: '550e8400-...', orderId: '550e8400-...', status: 'REFUNDED' },
+          payment: {
+            id: '550e8400-...',
+            orderId: '550e8400-...',
+            status: 'REFUNDED',
+          },
         },
       },
     }),
@@ -142,7 +181,8 @@ export function ApiUpdateShippingFeeDocs() {
     ApiBearerAuth('access-token'),
     ApiOperation({
       summary: 'Update shipping fee',
-      description: 'Updates extra_fee on the order associated with this payment. Requires order.write permission.',
+      description:
+        'Updates extra_fee on the order associated with this payment. Requires order.write permission.',
     }),
     ApiBody({
       schema: {

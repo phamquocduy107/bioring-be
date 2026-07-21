@@ -21,7 +21,9 @@ export class NotificationListener {
       where: { id: orderId },
       select: {
         order_code: true,
-        users_orders_user_idTousers: { select: { email: true, full_name: true } },
+        users_orders_user_idTousers: {
+          select: { email: true, full_name: true },
+        },
         guest_customers: { select: { email: true, full_name: true } },
       },
     });

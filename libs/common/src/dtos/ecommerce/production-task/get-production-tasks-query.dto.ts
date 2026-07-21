@@ -20,7 +20,10 @@ export class GetProductionTasksQueryDto extends PaginationDto {
   @IsUUID('4')
   jewelerId?: string;
 
-  @ApiPropertyOptional({ description: 'Show all tasks (manager only)', default: false })
+  @ApiPropertyOptional({
+    description: 'Show all tasks (manager only)',
+    default: false,
+  })
   @IsOptional()
   @Type(() => Boolean)
   @IsBoolean()

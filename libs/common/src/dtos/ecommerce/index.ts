@@ -14,7 +14,6 @@ export * from './production-task';
 export * from './delivery';
 export * from './address';
 export * from './guest';
-export * from './capture-session';
 export * from './admin';
 export * from './warranty';
 export * from './customer';

@@ -4,11 +4,18 @@ import { Type } from 'class-transformer';
 
 export class ListGuestCustomersQueryDto {
   @ApiPropertyOptional({ example: 1 })
-  @IsOptional() @Type(() => Number) @IsInt() @Min(1)
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
   page?: number;
 
   @ApiPropertyOptional({ example: 20 })
-  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(1000)
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(1000)
   limit?: number;
 
   @ApiPropertyOptional({ example: 'nguyen' })
