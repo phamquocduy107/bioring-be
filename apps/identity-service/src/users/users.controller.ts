@@ -8,7 +8,11 @@ export class UsersController {
 
   @GrpcMethod('IdentityService', 'GetUsers')
   async getUsers(data: { page?: number; limit?: number; role?: string }) {
-    return this.usersService.findAll(data.page ?? 1, data.limit ?? 10, data.role);
+    return this.usersService.findAll(
+      data.page ?? 1,
+      data.limit ?? 10,
+      data.role,
+    );
   }
 
   @GrpcMethod('IdentityService', 'GetUserById')
@@ -33,13 +37,24 @@ export class UsersController {
   }
 
   @GrpcMethod('IdentityService', 'CreateUser')
-  async createUser(data: { email: string; fullName: string; phone?: string; roleId?: string }) {
+  async createUser(data: {
+    email: string;
+    fullName: string;
+    phone?: string;
+    roleId?: string;
+  }) {
     const user = await this.usersService.createUser(data);
     return { user };
   }
 
   @GrpcMethod('IdentityService', 'UpdateUser')
-  async updateUser(data: { id: string; email?: string; fullName?: string; phone?: string; status?: string }) {
+  async updateUser(data: {
+    id: string;
+    email?: string;
+    fullName?: string;
+    phone?: string;
+    status?: string;
+  }) {
     const user = await this.usersService.updateUser(data);
     return { user };
   }

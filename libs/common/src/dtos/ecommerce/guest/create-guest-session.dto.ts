@@ -12,7 +12,10 @@ export class CreateGuestSessionDto {
   @MaxLength(50)
   phone!: string;
 
-  @ApiProperty({ description: 'Email (định danh chính, check trùng)', example: 'guest@example.com' })
+  @ApiProperty({
+    description: 'Email (định danh chính, check trùng)',
+    example: 'guest@example.com',
+  })
   @IsEmail()
   @MaxLength(255)
   email!: string;

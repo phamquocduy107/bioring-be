@@ -14,7 +14,10 @@ export class CreateWarrantyClaimByLookupDto {
   @IsIn(['WARRANTY', 'CLEANING', 'ADJUST_SIZE', 'REPAIR', 'OTHER'])
   serviceType!: string;
 
-  @ApiProperty({ description: 'Issue description', example: 'Nhẫn bị trầy xước' })
+  @ApiProperty({
+    description: 'Issue description',
+    example: 'Nhẫn bị trầy xước',
+  })
   @IsString()
   issueDescription!: string;
 

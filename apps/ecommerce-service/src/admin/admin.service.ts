@@ -75,7 +75,20 @@ export class AdminService {
       select: { amount: true, paid_at: true },
     });
 
-    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const monthNames = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     const map = new Map<string, number>();
 
     for (const p of payments) {
@@ -88,7 +101,10 @@ export class AdminService {
     for (let i = months - 1; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const key = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
-      data.push({ month: monthNames[d.getMonth()], revenue: map.get(key) ?? 0 });
+      data.push({
+        month: monthNames[d.getMonth()],
+        revenue: map.get(key) ?? 0,
+      });
     }
 
     return { data };
@@ -118,16 +134,20 @@ export class AdminService {
   }
 
   async getProductionStats() {
-    const [taskCountsByStatus, distinctJewelers, pendingQa] = await Promise.all([
-      this.prisma.production_tasks.groupBy({ by: ['status'], _count: true }),
-      this.prisma.production_tasks.findMany({
-        where: { assigned_jeweler_id: { not: null } },
-        distinct: ['assigned_jeweler_id'],
-        select: { assigned_jeweler_id: true },
-      }),
-      this.prisma.qa_checks.count({ where: { result: null } }),
-    ]);
-    const countMap = new Map(taskCountsByStatus.map(t => [t.status, t._count]));
+    const [taskCountsByStatus, distinctJewelers, pendingQa] = await Promise.all(
+      [
+        this.prisma.production_tasks.groupBy({ by: ['status'], _count: true }),
+        this.prisma.production_tasks.findMany({
+          where: { assigned_jeweler_id: { not: null } },
+          distinct: ['assigned_jeweler_id'],
+          select: { assigned_jeweler_id: true },
+        }),
+        this.prisma.qa_checks.count({ where: { result: null } }),
+      ],
+    );
+    const countMap = new Map(
+      taskCountsByStatus.map((t) => [t.status, t._count]),
+    );
     return {
       total_jewelers: distinctJewelers.length,
       in_progress: countMap.get('IN_PROGRESS') ?? 0,

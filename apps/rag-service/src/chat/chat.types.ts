@@ -3,13 +3,13 @@ import type {
   ProductCandidate,
 } from '../catalog/catalog.types';
 
-export const MAX_RECENT_MESSAGES = Number(
-  process.env.MAX_RECENT_MESSAGES ?? 8,
-);
+export const MAX_RECENT_MESSAGES = Number(process.env.MAX_RECENT_MESSAGES ?? 8);
 export const MAX_AMBIGUOUS_RECENT_MESSAGES = Number(
   process.env.MAX_AMBIGUOUS_RECENT_MESSAGES ?? 12,
 );
-export const MAX_HISTORY_TOKENS = Number(process.env.MAX_HISTORY_TOKENS ?? 1200);
+export const MAX_HISTORY_TOKENS = Number(
+  process.env.MAX_HISTORY_TOKENS ?? 1200,
+);
 export const MAX_PRODUCT_CANDIDATES = Number(
   process.env.MAX_PRODUCT_CANDIDATES ?? 5,
 );

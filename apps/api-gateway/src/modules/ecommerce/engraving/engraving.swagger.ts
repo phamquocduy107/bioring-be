@@ -1,6 +1,7 @@
 import { applyDecorators } from '@nestjs/common';
 import {
   ApiBody,
+  ApiConsumes,
   ApiOperation,
   ApiParam,
   ApiQuery,
@@ -210,10 +211,21 @@ export function ApiGetEngravingDocs() {
 export function ApiCancelEngravingDocs() {
   return applyDecorators(
     ApiBearerAuth('access-token'),
-    ApiOperation({ summary: 'Cancel engraving', description: 'Set engraving status to CANCELLED. Rejects if already has an order.' }),
+    ApiOperation({
+      summary: 'Cancel engraving',
+      description:
+        'Set engraving status to CANCELLED. Rejects if already has an order.',
+    }),
     ApiParam({ name: 'id', type: String, format: 'uuid' }),
-    ApiResponse({ status: 200, description: 'Cancelled', schema: { example: { success: true } } }),
-    ApiResponse({ status: 400, description: 'Cannot cancel — already has order or already cancelled' }),
+    ApiResponse({
+      status: 200,
+      description: 'Cancelled',
+      schema: { example: { success: true } },
+    }),
+    ApiResponse({
+      status: 400,
+      description: 'Cannot cancel — already has order or already cancelled',
+    }),
     ApiResponse({ status: 401, description: 'Unauthorized' }),
     ApiResponse({ status: 403, description: 'Not your engraving' }),
     ApiResponse({ status: 404, description: 'Engraving not found' }),
@@ -223,13 +235,14 @@ export function ApiCancelEngravingDocs() {
 export function ApiAttachBiometricDocs() {
   return applyDecorators(
     ApiBearerAuth('access-token'),
+    ApiConsumes('multipart/form-data'),
     ApiOperation({
-      summary: 'Attach biometric data (unified)',
+      summary: 'Attach biometric file (multipart → MinIO)',
       description:
-        'Uploads biometric file for an engraving. ' +
-        'Order must be in AWAITING_SUBMIT status. ' +
-        'SW → audio (rawFileUrl = full recording, extraData = {"startMs":0,"endMs":1000}). ' +
-        'FP/HB → fingerprint/hand biometric. Works for both MF-02 and MF-03.',
+        'Upload biometric file for an engraving (stored via personalization engine / MinIO). ' +
+        'Order must be in AWAITING_SUBMIT. ' +
+        'FP → fingerprint image; SW → audio + optional extraData `{"startMs":0,"endMs":1000}`; ' +
+        'HB → raw heartbeat file (no processing).',
     }),
     ApiParam({
       name: 'id',
@@ -237,21 +250,35 @@ export function ApiAttachBiometricDocs() {
       format: 'uuid',
       example: '550e8400-e29b-41d4-a716-446655440003',
     }),
+    ApiBody({
+      schema: {
+        type: 'object',
+        required: ['file', 'biometricType'],
+        properties: {
+          file: {
+            type: 'string',
+            format: 'binary',
+            description: 'Raw biometric file (image / audio)',
+          },
+          biometricType: {
+            type: 'string',
+            enum: ['FP', 'SW', 'HB'],
+            example: 'FP',
+          },
+          extraData: {
+            type: 'string',
+            example: '{"startMs":0,"endMs":1000}',
+            description: 'Optional JSON string (SW segment)',
+          },
+        },
+      },
+    }),
     ApiResponse({
       status: 201,
       description: 'Biometric attached successfully.',
       schema: {
         example: {
-          biometric: {
-            id: '550e8400-e29b-41d4-a716-446655440050',
-            engravingId: '550e8400-e29b-41d4-a716-446655440003',
-            biometricType: 'FP',
-            requiredChannel: 'ENGRAVING',
-            rawFileUrl: 'https://res.cloudinary.com/.../fingerprint.png',
-            processedSvgUrl: 'https://res.cloudinary.com/.../fingerprint.svg',
-            extraData: '',
-            status: 'CAPTURED',
-          },
+          biometric: biometricExample(),
         },
       },
     }),
@@ -267,8 +294,10 @@ function biometricExample() {
     engravingId: '550e8400-e29b-41d4-a716-446655440003',
     biometricType: 'FP',
     requiredChannel: 'ENGRAVING',
-    rawFileUrl: 'https://res.cloudinary.com/.../fingerprint.png',
-    processedSvgUrl: 'https://res.cloudinary.com/.../fingerprint.svg',
+    rawFileUrl:
+      'http://localhost:9000/bioring/personalization/approved/fingerprint/.../input.png',
+    processedSvgUrl:
+      'http://localhost:9000/bioring/personalization/approved/fingerprint/.../fingerprint.svg',
     extraData: '',
     status: 'CAPTURED',
   };
@@ -278,11 +307,11 @@ export function ApiAttachBiometricsBulkDocs() {
   return applyDecorators(
     ApiBearerAuth('access-token'),
     ApiOperation({
-      summary: 'Upload multiple biometric files at once',
+      summary: '[Deprecated] Bulk attach biometrics',
       description:
-        'Staff upload tất cả biometric files trong 1 call. ' +
-        'Endpoint này gọi cùng logic validate như single upload, nhưng xử lý đồng loạt. ' +
-        'Nếu 1 file lỗi → toàn bộ fail.',
+        'Deprecated. Use multipart POST /api/v1/engravings/:id/biometrics once per file. ' +
+        'This endpoint always returns 400.',
+      deprecated: true,
     }),
     ApiParam({
       name: 'id',
@@ -290,28 +319,11 @@ export function ApiAttachBiometricsBulkDocs() {
       format: 'uuid',
       example: '550e8400-e29b-41d4-a716-446655440003',
     }),
-    ApiBody({
-      schema: {
-        example: {
-          biometrics: [
-            { biometricType: 'FP', rawFileUrl: 'https://res.cloudinary.com/.../fp.png' },
-            { biometricType: 'SW', rawFileUrl: 'https://res.cloudinary.com/.../audio.mp3' },
-          ],
-        },
-      },
-    }),
     ApiResponse({
-      status: 201,
-      description: 'All biometrics uploaded successfully.',
-      schema: {
-        example: {
-          count: 2,
-          biometrics: [biometricExample(), { ...biometricExample(), biometricType: 'SW' }],
-        },
-      },
+      status: 400,
+      description:
+        'Use sequential multipart POST /api/v1/engravings/:id/biometrics instead.',
     }),
-    ApiResponse({ status: 400, description: 'Invalid input or validation failed' }),
     ApiResponse({ status: 401, description: 'Unauthorized' }),
-    ApiResponse({ status: 404, description: 'Engraving not found' }),
   );
 }

@@ -13,7 +13,12 @@ import {
 } from '@nestjs/common';
 import type { ClientGrpc } from '@nestjs/microservices';
 import { Observable, lastValueFrom } from 'rxjs';
-import { Permissions, Permission, ListPaymentsQueryDto, CurrentUser } from '@app/common';
+import {
+  Permissions,
+  Permission,
+  ListPaymentsQueryDto,
+  CurrentUser,
+} from '@app/common';
 import type { JwtPayload } from '@app/common';
 import {
   ApiListTransactionsDocs,
@@ -27,10 +32,20 @@ import {
 interface EcommerceGrpcService {
   listPayments(data: Record<string, unknown>): Observable<any>;
   getTransactionOverview(data: Record<string, never>): Observable<any>;
-  forcePaidPayment(data: { paymentId: string; adminId: string }): Observable<any>;
+  forcePaidPayment(data: {
+    paymentId: string;
+    adminId: string;
+  }): Observable<any>;
   syncPaymentStatus(data: { paymentId: string }): Observable<any>;
-  refundPayment(data: { paymentId: string; adminId: string; reason: string }): Observable<any>;
-  updateShippingFee(data: { paymentId: string; amount: number }): Observable<any>;
+  refundPayment(data: {
+    paymentId: string;
+    adminId: string;
+    reason: string;
+  }): Observable<any>;
+  updateShippingFee(data: {
+    paymentId: string;
+    amount: number;
+  }): Observable<any>;
 }
 
 @Controller('api/v1/transactions')
@@ -44,11 +59,13 @@ export class TransactionController implements OnModuleInit {
   ) {}
 
   onModuleInit() {
-    this.grpc = this.client?.getService<EcommerceGrpcService>('EcommerceService');
+    this.grpc =
+      this.client?.getService<EcommerceGrpcService>('EcommerceService');
   }
 
   private async call<T>(fn: () => Observable<T>): Promise<T> {
-    if (!this.grpc) throw new Error('ECOMMERCE_SERVICE gRPC client not initialized');
+    if (!this.grpc)
+      throw new Error('ECOMMERCE_SERVICE gRPC client not initialized');
     return lastValueFrom(fn());
   }
 
@@ -100,9 +117,7 @@ export class TransactionController implements OnModuleInit {
   async syncPayment(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
   ) {
-    return this.call(() =>
-      this.grpc!.syncPaymentStatus({ paymentId: id }),
-    );
+    return this.call(() => this.grpc!.syncPaymentStatus({ paymentId: id }));
   }
 
   @Post(':id/refund')
@@ -114,7 +129,11 @@ export class TransactionController implements OnModuleInit {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.call(() =>
-      this.grpc!.refundPayment({ paymentId: id, adminId: user.sub, reason: reason ?? '' }),
+      this.grpc!.refundPayment({
+        paymentId: id,
+        adminId: user.sub,
+        reason: reason ?? '',
+      }),
     );
   }
 
@@ -126,7 +145,10 @@ export class TransactionController implements OnModuleInit {
     @Body('amount') amount: number,
   ) {
     return this.call(() =>
-      this.grpc!.updateShippingFee({ paymentId: id, amount: Number(amount ?? 0) }),
+      this.grpc!.updateShippingFee({
+        paymentId: id,
+        amount: Number(amount ?? 0),
+      }),
     );
   }
 }

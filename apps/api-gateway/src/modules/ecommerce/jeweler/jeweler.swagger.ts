@@ -11,7 +11,8 @@ export function ApiGetMyPerformanceDocs() {
     ApiBearerAuth('access-token'),
     ApiOperation({
       summary: 'Get my jeweler performance',
-      description: 'Current jeweler\'s performance stats — completed today/shift, QA pass rate, avg hours, recent tasks.',
+      description:
+        "Current jeweler's performance stats — completed today/shift, QA pass rate, avg hours, recent tasks.",
     }),
     ApiQuery({ name: 'from_date', required: false, example: '2026-07-01' }),
     ApiResponse({

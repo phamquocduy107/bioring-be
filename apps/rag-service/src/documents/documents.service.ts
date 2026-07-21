@@ -13,7 +13,7 @@ import {
 } from '@app/common';
 import { knowledge_documents, Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
-import { MinioService } from '../storage/minio.service';
+import { MinioService } from '@app/minio';
 import { IngestionService } from '../ingestion/ingestion.service';
 
 /** Document statuses that are safe for RAG query. */
@@ -76,9 +76,7 @@ export class DocumentsService {
       },
     });
 
-    void this.ingestionService
-      .enqueueIngest(document)
-      .catch(() => undefined);
+    void this.ingestionService.enqueueIngest(document).catch(() => undefined);
 
     return { document: this.toResponse(document) };
   }
@@ -142,9 +140,7 @@ export class DocumentsService {
     });
 
     if (documents.length !== documentIds.length) {
-      throw new BadRequestException(
-        'Document not found or not accessible.',
-      );
+      throw new BadRequestException('Document not found or not accessible.');
     }
 
     const processing = documents.filter((doc) => doc.status === 'PROCESSING');
@@ -240,5 +236,7 @@ export function parseRetrievalTypes(
   if (!Array.isArray(value)) {
     return [];
   }
-  return value.filter((item): item is RetrievalType => typeof item === 'string');
+  return value.filter(
+    (item): item is RetrievalType => typeof item === 'string',
+  );
 }

@@ -13,7 +13,10 @@ import type { JwtPayload } from '@app/common';
 import { ApiGetMyPerformanceDocs } from './jeweler.swagger';
 
 interface EcommerceGrpcService {
-  getMyPerformance(data: { jewelerId: string; from_date?: string }): Observable<unknown>;
+  getMyPerformance(data: {
+    jewelerId: string;
+    from_date?: string;
+  }): Observable<unknown>;
 }
 
 @Controller('api/v1/jewelers')
@@ -27,7 +30,8 @@ export class JewelerController implements OnModuleInit {
   ) {}
 
   onModuleInit() {
-    this.grpc = this.client?.getService<EcommerceGrpcService>('EcommerceService');
+    this.grpc =
+      this.client?.getService<EcommerceGrpcService>('EcommerceService');
   }
 
   private async call<T>(fn: () => Observable<T>): Promise<T> {
@@ -44,7 +48,10 @@ export class JewelerController implements OnModuleInit {
     @Query('from_date') fromDate?: string,
   ) {
     return this.call(() =>
-      this.grpc!.getMyPerformance({ jewelerId: user.sub, from_date: fromDate ?? '' }),
+      this.grpc!.getMyPerformance({
+        jewelerId: user.sub,
+        from_date: fromDate ?? '',
+      }),
     );
   }
 }

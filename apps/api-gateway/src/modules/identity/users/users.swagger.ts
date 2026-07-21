@@ -1,5 +1,11 @@
 import { applyDecorators } from '@nestjs/common';
-import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiBody } from '@nestjs/swagger';
+import {
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiResponse,
+  ApiBody,
+} from '@nestjs/swagger';
 import { ApiAuthFailures } from '@app/common';
 
 const ADMIN_USERS_NOTE = 'Requires `user.read` permission';
@@ -15,7 +21,14 @@ export function ApiGetUsersDocs() {
     ApiAuthFailures(),
     ApiQuery({ name: 'page', required: false, type: 'number', example: 1 }),
     ApiQuery({ name: 'limit', required: false, type: 'number', example: 10 }),
-    ApiQuery({ name: 'role', required: false, type: 'string', example: 'JEWELER', description: 'Filter by role name (e.g. JEWELER, MANAGER, DELIVERY_STAFF)' }),
+    ApiQuery({
+      name: 'role',
+      required: false,
+      type: 'string',
+      example: 'JEWELER',
+      description:
+        'Filter by role name (e.g. JEWELER, MANAGER, DELIVERY_STAFF)',
+    }),
     ApiResponse({
       status: 200,
       description: 'Paginated user list',
@@ -176,7 +189,8 @@ export function ApiCreateUserDocs() {
   return applyDecorators(
     ApiOperation({
       summary: 'Create staff user',
-      description: 'Creates a new user (staff/customer-team). Optionally assign role in one call. Requires `user.write` permission.',
+      description:
+        'Creates a new user (staff/customer-team). Optionally assign role in one call. Requires `user.write` permission.',
     }),
     ApiAuthFailures(),
     ApiBody({
@@ -218,13 +232,24 @@ export function ApiUpdateUserDocs() {
   return applyDecorators(
     ApiOperation({
       summary: 'Update user info',
-      description: 'Update user email, fullName, phone, or status. Requires `user.write` permission.',
+      description:
+        'Update user email, fullName, phone, or status. Requires `user.write` permission.',
     }),
     ApiAuthFailures(),
-    ApiParam({ name: 'id', description: 'User UUID', type: 'string', format: 'uuid', example: '550e8400-e29b-41d4-a716-446655440000' }),
+    ApiParam({
+      name: 'id',
+      description: 'User UUID',
+      type: 'string',
+      format: 'uuid',
+      example: '550e8400-e29b-41d4-a716-446655440000',
+    }),
     ApiBody({
       schema: {
-        example: { fullName: 'Nguyen Van B', phone: '0909987654', status: 'ACTIVE' },
+        example: {
+          fullName: 'Nguyen Van B',
+          phone: '0909987654',
+          status: 'ACTIVE',
+        },
       },
     }),
     ApiResponse({

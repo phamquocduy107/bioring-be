@@ -8,8 +8,16 @@ import {
 } from '@nestjs/common';
 import type { ClientGrpc } from '@nestjs/microservices';
 import { Observable, lastValueFrom } from 'rxjs';
-import { Permissions, Permission, ListCustomersQueryDto, ListGuestCustomersQueryDto } from '@app/common';
-import { ApiListCustomersDocs, ApiListGuestCustomersDocs } from './customer.swagger';
+import {
+  Permissions,
+  Permission,
+  ListCustomersQueryDto,
+  ListGuestCustomersQueryDto,
+} from '@app/common';
+import {
+  ApiListCustomersDocs,
+  ApiListGuestCustomersDocs,
+} from './customer.swagger';
 
 interface EcommerceGrpcService {
   lookupCustomer(data: { email: string }): Observable<unknown>;

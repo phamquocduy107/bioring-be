@@ -29,13 +29,15 @@ export class WarrantyService {
       where: { id: data.warrantyId },
     });
     if (!warranty) throw new NotFoundException('Warranty not found');
-    if (warranty.order_id !== data.orderId) throw new BadRequestException('Warranty does not belong to this order');
+    if (warranty.order_id !== data.orderId)
+      throw new BadRequestException('Warranty does not belong to this order');
 
     const order = await this.prisma.orders.findUnique({
       where: { id: data.orderId },
     });
     if (!order) throw new NotFoundException('Order not found');
-    if (order.user_id !== data.userId) throw new ForbiddenException('Order does not belong to this user');
+    if (order.user_id !== data.userId)
+      throw new ForbiddenException('Order does not belong to this user');
 
     const claimCode = await this.generateClaimCode();
 
@@ -83,7 +85,8 @@ export class WarrantyService {
     if (!order) throw new NotFoundException('Order not found');
 
     const warranty = order.warranties?.[0];
-    if (!warranty) throw new NotFoundException('No warranty found for this order');
+    if (!warranty)
+      throw new NotFoundException('No warranty found for this order');
 
     const claimCode = await this.generateClaimCode();
 
@@ -123,7 +126,12 @@ export class WarrantyService {
     return { claim };
   }
 
-  async getMyClaims(userId: string, page: number, limit: number, viewAll?: boolean) {
+  async getMyClaims(
+    userId: string,
+    page: number,
+    limit: number,
+    viewAll?: boolean,
+  ) {
     const skip = (page - 1) * limit;
     const where = viewAll ? {} : { requested_by_user_id: userId };
     const [data, total] = await Promise.all([
@@ -157,7 +165,8 @@ export class WarrantyService {
       where: { id },
     });
     if (!claim) throw new NotFoundException('Claim not found');
-    if (claim.status !== 'PENDING_REVIEW') throw new BadRequestException('Claim must be PENDING_REVIEW');
+    if (claim.status !== 'PENDING_REVIEW')
+      throw new BadRequestException('Claim must be PENDING_REVIEW');
 
     const updateData: Record<string, unknown> = { manager_id: managerId };
 
@@ -165,14 +174,17 @@ export class WarrantyService {
       updateData.status = 'PENDING_RECEIVE';
       updateData.charge_status = 'FREE';
     } else if (action === 'quotation') {
-      if (!extraFee || extraFee <= 0) throw new BadRequestException('extraFee required for quotation');
+      if (!extraFee || extraFee <= 0)
+        throw new BadRequestException('extraFee required for quotation');
       updateData.status = 'QUOTATION_SENT';
       updateData.extra_fee = extraFee;
       updateData.charge_status = 'PAID';
     } else if (action === 'reject') {
       updateData.status = 'REJECTED';
     } else {
-      throw new BadRequestException('action must be approve, quotation, or reject');
+      throw new BadRequestException(
+        'action must be approve, quotation, or reject',
+      );
     }
 
     if (managerNote) updateData.manager_note = managerNote;
@@ -186,10 +198,14 @@ export class WarrantyService {
   }
 
   async confirmClaim(id: string, userId: string) {
-    const claim = await this.prisma.warranty_claims.findUnique({ where: { id } });
+    const claim = await this.prisma.warranty_claims.findUnique({
+      where: { id },
+    });
     if (!claim) throw new NotFoundException('Claim not found');
-    if (claim.requested_by_user_id !== userId) throw new ForbiddenException('Not your claim');
-    if (claim.status !== 'QUOTATION_SENT') throw new BadRequestException('Claim must be QUOTATION_SENT');
+    if (claim.requested_by_user_id !== userId)
+      throw new ForbiddenException('Not your claim');
+    if (claim.status !== 'QUOTATION_SENT')
+      throw new BadRequestException('Claim must be QUOTATION_SENT');
 
     const hasFee = Number(claim.extra_fee ?? 0) > 0;
     await this.prisma.warranty_claims.update({
@@ -209,15 +225,21 @@ export class WarrantyService {
     returnUrl: string,
     cancelUrl: string,
   ) {
-    const claim = await this.prisma.warranty_claims.findUnique({ where: { id: claimId } });
+    const claim = await this.prisma.warranty_claims.findUnique({
+      where: { id: claimId },
+    });
     if (!claim) throw new NotFoundException('Claim not found');
-    if (claim.requested_by_user_id !== userId) throw new ForbiddenException('Not your claim');
-    if (claim.status !== 'AWAITING_PAYMENT') throw new BadRequestException('Claim not awaiting payment');
+    if (claim.requested_by_user_id !== userId)
+      throw new ForbiddenException('Not your claim');
+    if (claim.status !== 'AWAITING_PAYMENT')
+      throw new BadRequestException('Claim not awaiting payment');
 
     const amount = Number(claim.extra_fee ?? 0);
     if (amount <= 0) throw new BadRequestException('No extra fee to pay');
 
-    const payosOrderCode = Number(`${Date.now()}${Math.floor(Math.random() * 100)}`);
+    const payosOrderCode = Number(
+      `${Date.now()}${Math.floor(Math.random() * 100)}`,
+    );
     const result = await this.payOS.createPaymentLink({
       orderCode: payosOrderCode,
       amount,
@@ -258,19 +280,26 @@ export class WarrantyService {
     };
   }
 
-  async receiveServiceTicket(claimId: string, data: {
-    conditionNote: string;
-    receivedImages: string[];
-    jewelerId: string;
-    staffId: string;
-  }) {
+  async receiveServiceTicket(
+    claimId: string,
+    data: {
+      conditionNote: string;
+      receivedImages: string[];
+      jewelerId: string;
+      staffId: string;
+    },
+  ) {
     const claim = await this.prisma.warranty_claims.findUnique({
       where: { id: claimId },
-      include: { service_tickets: { orderBy: { created_at: 'desc' }, take: 1 } },
+      include: {
+        service_tickets: { orderBy: { created_at: 'desc' }, take: 1 },
+      },
     });
     if (!claim) throw new NotFoundException('Claim not found');
     if (!['PENDING_RECEIVE', 'APPROVED'].includes(claim.status ?? '')) {
-      throw new BadRequestException('Claim must be PENDING_RECEIVE or APPROVED');
+      throw new BadRequestException(
+        'Claim must be PENDING_RECEIVE or APPROVED',
+      );
     }
 
     const ticket = claim.service_tickets?.[0];
@@ -312,17 +341,21 @@ export class WarrantyService {
     return { claim: await this.getClaimFull(claimId) };
   }
 
-  async completeServiceTicket(claimId: string, data: {
-    resultNote: string;
-    costUpdate: number;
-    jewelerId: string;
-  }) {
+  async completeServiceTicket(
+    claimId: string,
+    data: {
+      resultNote: string;
+      costUpdate: number;
+      jewelerId: string;
+    },
+  ) {
     const claim = await this.prisma.warranty_claims.findUnique({
       where: { id: claimId },
       include: { service_tickets: { where: { status: 'RECEIVED' }, take: 1 } },
     });
     if (!claim) throw new NotFoundException('Claim not found');
-    if (claim.status !== 'IN_SERVICE') throw new BadRequestException('Claim must be IN_SERVICE');
+    if (claim.status !== 'IN_SERVICE')
+      throw new BadRequestException('Claim must be IN_SERVICE');
 
     const ticket = claim.service_tickets?.[0];
     if (!ticket) throw new NotFoundException('No active service ticket');
@@ -346,9 +379,11 @@ export class WarrantyService {
       include: { service_tickets: { where: { status: 'COMPLETED' }, take: 1 } },
     });
     if (!claim) throw new NotFoundException('Claim not found');
-    if (claim.status !== 'IN_SERVICE') throw new BadRequestException('Claim must be IN_SERVICE');
+    if (claim.status !== 'IN_SERVICE')
+      throw new BadRequestException('Claim must be IN_SERVICE');
 
-    if (!claim.service_tickets?.[0]) throw new BadRequestException('Service ticket not completed yet');
+    if (!claim.service_tickets?.[0])
+      throw new BadRequestException('Service ticket not completed yet');
 
     await this.prisma.warranty_claims.update({
       where: { id },
@@ -366,7 +401,11 @@ export class WarrantyService {
       for (let i = 0; i < 6; i++) {
         code += chars[Math.floor(Math.random() * chars.length)];
       }
-    } while (await this.prisma.warranty_claims.findUnique({ where: { claim_code: code } }));
+    } while (
+      await this.prisma.warranty_claims.findUnique({
+        where: { claim_code: code },
+      })
+    );
     return code;
   }
 
@@ -378,7 +417,11 @@ export class WarrantyService {
       for (let i = 0; i < 6; i++) {
         code += chars[Math.floor(Math.random() * chars.length)];
       }
-    } while (await this.prisma.service_tickets.findUnique({ where: { ticket_code: code } }));
+    } while (
+      await this.prisma.service_tickets.findUnique({
+        where: { ticket_code: code },
+      })
+    );
     return code;
   }
 
@@ -423,7 +466,8 @@ export class WarrantyService {
       chargeStatus: c.charge_status ?? '',
       extraFee: Number(c.extra_fee ?? 0),
       managerNote: c.manager_note ?? '',
-      customerConfirmedAt: (c.customer_confirmed_at as Date)?.toISOString() ?? '',
+      customerConfirmedAt:
+        (c.customer_confirmed_at as Date)?.toISOString() ?? '',
       createdAt: (c.created_at as Date)?.toISOString() ?? '',
       updatedAt: (c.updated_at as Date)?.toISOString() ?? '',
       serviceTickets: tickets.map((t: unknown) => {
@@ -436,8 +480,10 @@ export class WarrantyService {
           assignedJewelerId: tk.assigned_jeweler_id ?? '',
           assignedJewelerName: '',
           status: tk.status ?? '',
-          receivedProductAt: (tk.received_product_at as Date)?.toISOString() ?? '',
-          serviceCompletedAt: (tk.service_completed_at as Date)?.toISOString() ?? '',
+          receivedProductAt:
+            (tk.received_product_at as Date)?.toISOString() ?? '',
+          serviceCompletedAt:
+            (tk.service_completed_at as Date)?.toISOString() ?? '',
           resultNote: tk.result_note ?? '',
           costUpdate: Number(tk.cost_update ?? 0),
         };

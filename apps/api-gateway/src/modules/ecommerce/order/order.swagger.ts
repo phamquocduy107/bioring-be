@@ -245,8 +245,10 @@ export function ApiAttachBiometricDocs() {
             engravingId: '550e8400-e29b-41d4-a716-446655440003',
             biometricType: 'FP',
             requiredChannel: 'ENGRAVING',
-            rawFileUrl: 'https://res.cloudinary.com/.../fingerprint.png',
-            processedSvgUrl: 'https://res.cloudinary.com/.../fingerprint.svg',
+            rawFileUrl:
+              'http://localhost:9000/bioring/personalization/approved/fingerprint/.../input.png',
+            processedSvgUrl:
+              'http://localhost:9000/bioring/personalization/approved/fingerprint/.../fingerprint.svg',
             extraData: '',
             status: 'CAPTURED',
           },
@@ -612,7 +614,10 @@ export function ApiConfirmPickupDocs() {
         },
       },
     }),
-    ApiResponse({ status: 400, description: 'Wrong status / remaining amount > 0' }),
+    ApiResponse({
+      status: 400,
+      description: 'Wrong status / remaining amount > 0',
+    }),
     ApiResponse({ status: 401, description: 'Unauthorized' }),
     ApiResponse({ status: 404, description: 'Order not found' }),
   );
@@ -639,7 +644,8 @@ export function ApiListDeliveriesDocs() {
     ApiBearerAuth('access-token'),
     ApiOperation({
       summary: 'List deliveries',
-      description: 'Paginated delivery list with filter by status, date range, search.',
+      description:
+        'Paginated delivery list with filter by status, date range, search.',
     }),
     ApiQuery({ name: 'page', required: false, example: 1 }),
     ApiQuery({ name: 'limit', required: false, example: 20 }),
@@ -657,9 +663,19 @@ export function ApiListDeliveriesDocs() {
               id: 'uuid-ship-1',
               order_code: 'DH001',
               tracking_code: 'VNPOST123456',
-              customer: { name: 'Nguyen Van A', phone: '0901234567', address: '123 Nguyen Hue, Q1, HCM' },
+              customer: {
+                name: 'Nguyen Van A',
+                phone: '0901234567',
+                address: '123 Nguyen Hue, Q1, HCM',
+              },
               payment_status: 'paid',
-              delivery_staff: { id: 'uuid-staff-1', name: 'Tran Van C', avatar: '', status: 'busy', current_deliveries: 3 },
+              delivery_staff: {
+                id: 'uuid-staff-1',
+                name: 'Tran Van C',
+                avatar: '',
+                status: 'busy',
+                current_deliveries: 3,
+              },
               status: 'in_transit',
               proof_of_delivery: null,
               created_at: '2026-07-14T10:00:00.000Z',
@@ -669,7 +685,11 @@ export function ApiListDeliveriesDocs() {
           page: 1,
           limit: 20,
           last_page: 1,
-          stats: { ready_for_delivery: 5, in_transit: 3, waiting_for_pickup: 2 },
+          stats: {
+            ready_for_delivery: 5,
+            in_transit: 3,
+            waiting_for_pickup: 2,
+          },
         },
       },
     }),
@@ -683,7 +703,8 @@ export function ApiListPickupsDocs() {
     ApiBearerAuth('access-token'),
     ApiOperation({
       summary: 'List in-store pickups',
-      description: 'Returns pickups (paginated). Filter by status (waiting/completed) and search by order code or customer name.',
+      description:
+        'Returns pickups (paginated). Filter by status (waiting/completed) and search by order code or customer name.',
     }),
     ApiQuery({ name: 'limit', required: false, example: 200 }),
     ApiQuery({ name: 'status', required: false, example: 'waiting' }),

@@ -28,7 +28,9 @@ import type { JwtPayload } from '@app/common';
 
 interface EcommerceGrpcService {
   createWarrantyClaim(data: Record<string, unknown>): Observable<unknown>;
-  createWarrantyClaimByLookup(data: Record<string, unknown>): Observable<unknown>;
+  createWarrantyClaimByLookup(
+    data: Record<string, unknown>,
+  ): Observable<unknown>;
   getWarrantyClaim(data: { id: string }): Observable<unknown>;
   getMyWarrantyClaims(data: {
     userId: string;
@@ -37,11 +39,17 @@ interface EcommerceGrpcService {
     viewAll?: boolean;
   }): Observable<unknown>;
   reviewWarrantyClaim(data: Record<string, unknown>): Observable<unknown>;
-  confirmWarrantyClaim(data: { id: string; userId: string }): Observable<unknown>;
+  confirmWarrantyClaim(data: {
+    id: string;
+    userId: string;
+  }): Observable<unknown>;
   initiateClaimPayment(data: Record<string, unknown>): Observable<unknown>;
   receiveServiceTicket(data: Record<string, unknown>): Observable<unknown>;
   completeServiceTicket(data: Record<string, unknown>): Observable<unknown>;
-  returnWarrantyClaim(data: { id: string; staffId: string }): Observable<unknown>;
+  returnWarrantyClaim(data: {
+    id: string;
+    staffId: string;
+  }): Observable<unknown>;
 }
 
 @Controller('api/v1/warranty-claims')
@@ -104,7 +112,7 @@ export class WarrantyController implements OnModuleInit {
     @Query('view') view: string,
     @CurrentUser() user: JwtPayload,
   ) {
-    const isAdmin = user.role?.some(r => ['ADMIN', 'MANAGER'].includes(r));
+    const isAdmin = user.role?.some((r) => ['ADMIN', 'MANAGER'].includes(r));
     const viewAll = view === 'all' && isAdmin;
     const result = await this.call(() =>
       this.grpc!.getMyWarrantyClaims({
@@ -127,9 +135,7 @@ export class WarrantyController implements OnModuleInit {
   }
 
   @Get(':id')
-  async getClaim(
-    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
-  ) {
+  async getClaim(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.call(() => this.grpc!.getWarrantyClaim({ id }));
   }
 

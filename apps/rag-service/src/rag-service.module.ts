@@ -1,3 +1,4 @@
+import { MinioModule } from '@app/minio';
 import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import {
@@ -22,6 +23,7 @@ import { IngestionModule } from './ingestion/ingestion.module';
 @Module({
   imports: [
     CommonModule,
+    MinioModule,
     DocumentsModule,
     IngestionModule,
     ChatModule,

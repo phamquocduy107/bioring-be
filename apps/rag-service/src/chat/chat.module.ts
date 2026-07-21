@@ -14,12 +14,7 @@ import { WorkspacePermissionService } from './workspace-permission.service';
  * Chat tư vấn nhẫn: session/message DB, intent orchestration, gọi rag-engine.
  */
 @Module({
-  imports: [
-    PrismaModule,
-    DocumentsModule,
-    RagEngineModule,
-    CatalogModule,
-  ],
+  imports: [PrismaModule, DocumentsModule, RagEngineModule, CatalogModule],
   controllers: [ChatController],
   providers: [
     ChatService,

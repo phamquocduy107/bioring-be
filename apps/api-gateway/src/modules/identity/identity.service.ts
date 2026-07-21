@@ -157,7 +157,9 @@ export class IdentityService implements OnModuleInit {
 
   // Users
   getUsers(page: number, limit: number, role?: string) {
-    return this.call(() => this.grpc!.getUsers({ page, limit, role: role ?? '' }));
+    return this.call(() =>
+      this.grpc!.getUsers({ page, limit, role: role ?? '' }),
+    );
   }
   getUserById(id: string) {
     return this.call(() => this.grpc!.getUserById({ id }));
@@ -171,10 +173,21 @@ export class IdentityService implements OnModuleInit {
   assignRole(userId: string, roleId: string) {
     return this.call(() => this.grpc!.assignRole({ userId, roleId }));
   }
-  createUser(dto: { email: string; fullName: string; phone?: string; roleId?: string }) {
+  createUser(dto: {
+    email: string;
+    fullName: string;
+    phone?: string;
+    roleId?: string;
+  }) {
     return this.call(() => this.grpc!.createUser(dto));
   }
-  updateUser(dto: { id: string; email?: string; fullName?: string; phone?: string; status?: string }) {
+  updateUser(dto: {
+    id: string;
+    email?: string;
+    fullName?: string;
+    phone?: string;
+    status?: string;
+  }) {
     return this.call(() => this.grpc!.updateUser(dto));
   }
 
