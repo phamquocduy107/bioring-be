@@ -22,6 +22,7 @@ export class GuestController {
     guestCode: string;
     productId?: string;
     staffId: string;
+    selectedBiometrics?: string;
   }) {
     return this.guestService.createGuestOrder(data);
   }

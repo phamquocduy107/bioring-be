@@ -1,4 +1,4 @@
-import { IsString, IsOptional, MaxLength } from 'class-validator';
+import { IsString, IsOptional, IsArray, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateGuestOrderDto {
@@ -14,4 +14,13 @@ export class CreateGuestOrderDto {
   @IsOptional()
   @IsString()
   productId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Danh sách biometrics đã chọn. Lưu thẳng vào version khi tạo order, bỏ qua bước PATCH config riêng cho walk-in flow.',
+    example: ['SW', 'FP'],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  selectedBiometrics?: string[];
 }

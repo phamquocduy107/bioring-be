@@ -137,6 +137,7 @@ export class GuestService {
     guestCode: string;
     productId?: string;
     staffId: string;
+    selectedBiometrics?: string;
   }) {
     const guest = await this.prisma.guest_customers.findUnique({
       where: { guest_code: data.guestCode },
@@ -192,11 +193,16 @@ export class GuestService {
       },
     })) as unknown as EngravingRecord;
 
+    const normalizedBiometrics = data.selectedBiometrics
+      ? (JSON.parse(data.selectedBiometrics) as string[]).join(',')
+      : undefined;
+
     const version = (await this.prisma.engraving_versions.create({
       data: {
         id: randomUUID(),
         engraving_id: engraving.id,
         version_number: 1,
+        selected_biometrics: normalizedBiometrics,
         status: 'PENDING',
       },
     })) as unknown as VersionRecord;
@@ -218,6 +224,14 @@ export class GuestService {
     const serviceFee = Math.round(subtotal * 0.1);
     const totalPrice = subtotal + serviceFee;
 
+    let packageType: string | undefined;
+    let captureRoute: string | undefined;
+    if (normalizedBiometrics) {
+      const selected = normalizedBiometrics.split(',');
+      packageType = selected.join('_');
+      captureRoute = packageType === 'SW' ? 'ONLINE' : 'OFFLINE';
+    }
+
     const order = (await this.prisma.orders.create({
       data: {
         id: randomUUID(),
@@ -227,6 +241,8 @@ export class GuestService {
         guest_customer_id: guest.id,
         created_by_staff_id: data.staffId,
         design_source: 'WALK_IN',
+        package_type: packageType,
+        capture_route: captureRoute,
         status: 'AWAITING_SUBMIT',
         subtotal,
         service_fee: serviceFee,

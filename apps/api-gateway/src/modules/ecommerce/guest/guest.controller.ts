@@ -85,6 +85,7 @@ interface EcommerceGrpcService {
     guestCode: string;
     productId?: string;
     staffId: string;
+    selectedBiometrics?: string;
   }): Observable<GuestOrderResponse>;
 }
 
@@ -139,6 +140,7 @@ export class GuestController implements OnModuleInit {
         guestCode: dto.guestCode,
         productId: dto.productId,
         staffId: user.sub,
+        selectedBiometrics: dto.selectedBiometrics ? JSON.stringify(dto.selectedBiometrics) : undefined,
       }),
     );
   }

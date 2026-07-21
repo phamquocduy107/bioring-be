@@ -1,5 +1,6 @@
 import { Controller } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
+import { SkipTimeout } from '@app/common';
 import { OrderService } from './order.service';
 
 @Controller()
@@ -17,6 +18,7 @@ export class OrderController {
   }
 
   @GrpcMethod('EcommerceService', 'AttachBiometric')
+  @SkipTimeout()
   async attachBiometric(data: {
     engravingId: string;
     biometricType: string;
@@ -32,6 +34,7 @@ export class OrderController {
   }
 
   @GrpcMethod('EcommerceService', 'AttachBiometricsBulk')
+  @SkipTimeout()
   async attachBiometricsBulk(data: {
     engravingId: string;
     biometrics: Array<{ biometricType: string; rawFileUrl: string; extraData?: string }>;

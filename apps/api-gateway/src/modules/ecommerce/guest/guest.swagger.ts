@@ -135,6 +135,7 @@ export function ApiCreateGuestOrderDocs() {
         example: {
           guestCode: 'GUE-A7B9X2',
           productId: '550e8400-e29b-41d4-a716-446655440020',
+          selectedBiometrics: ['SW', 'FP'],
         },
       },
     }),

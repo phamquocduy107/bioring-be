@@ -1027,6 +1027,7 @@ message CreateGuestOrderRequest {
   string guestCode = 1;
   string productId = 2;
   string staffId = 3;
+  string selectedBiometrics = 4;
 }
 
 message CreateGuestOrderResponse {
