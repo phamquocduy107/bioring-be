@@ -132,10 +132,11 @@ def create_alpha_png(binary_img: np.ndarray) -> np.ndarray:
     return alpha
 
 
-def generate_fingerprint_texture_maps(
-    final_png_path: PathLike,
+def generate_texture_maps(
+    source_png_path: PathLike,
     output_dir: PathLike,
     *,
+    name_prefix: str = "fingerprint",
     blur_radius: float = 1.2,
     normal_strength: float = 2.5,
     roughness_base: int = 180,
@@ -144,16 +145,16 @@ def generate_fingerprint_texture_maps(
     invert_heightmap: bool = False,
 ) -> Dict[str, str]:
     """
-    From 06_final_clean.png write viewer texture maps:
-      fingerprint_overlay.png, fingerprint_alpha.png,
-      fingerprint_heightmap.png, fingerprint_normal.png,
-      fingerprint_roughness.png, fingerprint_ao.png
+    From a binary-ish PNG write viewer texture maps:
+      {prefix}_overlay.png, {prefix}_alpha.png,
+      {prefix}_heightmap.png, {prefix}_normal.png,
+      {prefix}_roughness.png, {prefix}_ao.png
     """
-    final_png_path = Path(final_png_path)
+    source_png_path = Path(source_png_path)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    binary = load_binary_final(final_png_path)
+    binary = load_binary_final(source_png_path)
     heightmap = create_heightmap(
         binary, blur_radius=blur_radius, invert=invert_heightmap
     )
@@ -166,12 +167,12 @@ def generate_fingerprint_texture_maps(
     alpha = create_alpha_png(binary)
 
     paths = {
-        "overlay": output_dir / "fingerprint_overlay.png",
-        "alpha": output_dir / "fingerprint_alpha.png",
-        "heightmap": output_dir / "fingerprint_heightmap.png",
-        "normal": output_dir / "fingerprint_normal.png",
-        "roughness": output_dir / "fingerprint_roughness.png",
-        "ao": output_dir / "fingerprint_ao.png",
+        "overlay": output_dir / f"{name_prefix}_overlay.png",
+        "alpha": output_dir / f"{name_prefix}_alpha.png",
+        "heightmap": output_dir / f"{name_prefix}_heightmap.png",
+        "normal": output_dir / f"{name_prefix}_normal.png",
+        "roughness": output_dir / f"{name_prefix}_roughness.png",
+        "ao": output_dir / f"{name_prefix}_ao.png",
     }
 
     cv2.imwrite(str(paths["overlay"]), overlay)
@@ -182,3 +183,28 @@ def generate_fingerprint_texture_maps(
     cv2.imwrite(str(paths["ao"]), ao)
 
     return {key: str(path) for key, path in paths.items()}
+
+
+def generate_fingerprint_texture_maps(
+    final_png_path: PathLike,
+    output_dir: PathLike,
+    *,
+    blur_radius: float = 1.2,
+    normal_strength: float = 2.5,
+    roughness_base: int = 180,
+    roughness_ridge: int = 235,
+    ao_strength: float = 0.45,
+    invert_heightmap: bool = False,
+) -> Dict[str, str]:
+    """From 06_final_clean.png write fingerprint_* viewer texture maps."""
+    return generate_texture_maps(
+        final_png_path,
+        output_dir,
+        name_prefix="fingerprint",
+        blur_radius=blur_radius,
+        normal_strength=normal_strength,
+        roughness_base=roughness_base,
+        roughness_ridge=roughness_ridge,
+        ao_strength=ao_strength,
+        invert_heightmap=invert_heightmap,
+    )
