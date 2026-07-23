@@ -665,10 +665,10 @@ Content-Type: application/json
            PayOS webhook → AWAITING_SUBMIT
                      │
                      ▼
-     ┌────[Staff] POST /engravings/:id/biometrics (SW, FP, HB...)
+     ┌────[Staff] POST /admin/biometric-assets/... (Upload -> Approve -> Assign)
      │                    │
      │                    ▼
-     │          FE GET engraving → thấy biometrics → render
+     │          FE GET engraving → thấy biometrics → lấy viewer-assets → render
      │                    │
      │                    ▼
      │          PATCH /orders/:id/submit → PENDING_REVIEW

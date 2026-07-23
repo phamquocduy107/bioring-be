@@ -50,7 +50,11 @@ Route prefix: `auth` (class-level @Public())
 **Response:**
 ```json
 {
-  "accessToken": "eyJhbGciOiJIUzI1NiIs..."
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "accessToken": "eyJhbGciOiJIUzI1NiIs..."
+  }
 }
 ```
 
@@ -65,7 +69,11 @@ Route prefix: `auth` (class-level @Public())
 **Response:**
 ```json
 {
-  "message": "Logged out successfully"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "message": "Logged out successfully"
+  }
 }
 ```
 
@@ -78,21 +86,25 @@ Route prefix: `auth` (class-level @Public())
 **Response:**
 ```json
 {
-  "user": {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
-    "email": "admin@bioring.com",
-    "fullName": "Admin",
-    "phone": "0909123456",
-    "avatarUrl": null,
-    "status": "ACTIVE",
-    "customerType": null,
-    "isVip": false,
-    "createdAt": "2026-01-01T00:00:00.000Z",
-    "updatedAt": "2026-01-01T00:00:00.000Z",
-    "roles": ["ADMIN"],
-    "lastLogin": "2026-07-16T09:00:00.000Z"
-  },
-  "permissions": ["user.read", "user.write", "order.read", "order.write", "dashboard.view"]
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "user": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "email": "admin@bioring.com",
+      "fullName": "Admin",
+      "phone": "0909123456",
+      "avatarUrl": null,
+      "status": "ACTIVE",
+      "customerType": null,
+      "isVip": false,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "roles": ["ADMIN"],
+      "lastLogin": "2026-07-16T09:00:00.000Z"
+    },
+    "permissions": ["user.read", "user.write", "order.read", "order.write", "dashboard.view"]
+  }
 }
 ```
 
@@ -116,26 +128,30 @@ Route prefix: `users` (@ApiBearerAuth class-level)
 **Response:**
 ```json
 {
-  "data": [
-    {
-      "id": "550e8400-e29b-41d4-a716-446655440000",
-      "email": "user@gmail.com",
-      "fullName": "John Doe",
-      "phone": "0987654321",
-      "status": "ACTIVE",
-      "customerType": null,
-      "isVip": false,
-      "createdAt": "2026-01-01T00:00:00.000Z",
-      "updatedAt": "2026-01-01T00:00:00.000Z",
-      "roles": ["CUSTOMER"],
-      "lastLogin": "2026-07-15T14:30:00.000Z"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "data": [
+      {
+        "id": "550e8400-e29b-41d4-a716-446655440000",
+        "email": "user@gmail.com",
+        "fullName": "John Doe",
+        "phone": "0987654321",
+        "status": "ACTIVE",
+        "customerType": null,
+        "isVip": false,
+        "createdAt": "2026-01-01T00:00:00.000Z",
+        "updatedAt": "2026-01-01T00:00:00.000Z",
+        "roles": ["CUSTOMER"],
+        "lastLogin": "2026-07-15T14:30:00.000Z"
+      }
+    ],
+    "meta": {
+      "total": 1,
+      "page": 1,
+      "limit": 10,
+      "lastPage": 1
     }
-  ],
-  "meta": {
-    "total": 1,
-    "page": 1,
-    "limit": 10,
-    "lastPage": 1
   }
 }
 ```
@@ -151,19 +167,23 @@ Route prefix: `users` (@ApiBearerAuth class-level)
 **Response:**
 ```json
 {
-  "user": {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
-    "email": "user@gmail.com",
-    "fullName": "John Doe",
-    "phone": "0987654321",
-    "avatarUrl": null,
-    "status": "ACTIVE",
-    "customerType": null,
-    "isVip": false,
-    "createdAt": "2026-01-01T00:00:00.000Z",
-    "updatedAt": "2026-01-01T00:00:00.000Z",
-    "roles": ["CUSTOMER"],
-    "lastLogin": "2026-07-15T14:30:00.000Z"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "user": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "email": "user@gmail.com",
+      "fullName": "John Doe",
+      "phone": "0987654321",
+      "avatarUrl": null,
+      "status": "ACTIVE",
+      "customerType": null,
+      "isVip": false,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "roles": ["CUSTOMER"],
+      "lastLogin": "2026-07-15T14:30:00.000Z"
+    }
   }
 }
 ```
@@ -252,10 +272,14 @@ Route prefix: `rbac` (@ApiBearerAuth class-level)
 **Response:**
 ```json
 {
-  "roles": [
-    { "id": "660e8400-e29b-41d4-a716-446655440001", "name": "ADMIN", "description": "Administrator" },
-    { "id": "660e8400-e29b-41d4-a716-446655440002", "name": "CUSTOMER", "description": "Customer" }
-  ]
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "roles": [
+      { "id": "660e8400-e29b-41d4-a716-446655440001", "name": "ADMIN", "description": "Administrator" },
+      { "id": "660e8400-e29b-41d4-a716-446655440002", "name": "CUSTOMER", "description": "Customer" }
+    ]
+  }
 }
 ```
 
@@ -270,13 +294,17 @@ Route prefix: `rbac` (@ApiBearerAuth class-level)
 **Response:**
 ```json
 {
-  "role": {
-    "id": "660e8400-e29b-41d4-a716-446655440001",
-    "name": "ADMIN",
-    "description": "Administrator",
-    "permissions": [
-      { "id": "770e8400-e29b-41d4-a716-446655440001", "slug": "users.read", "description": "Read users" }
-    ]
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "role": {
+      "id": "660e8400-e29b-41d4-a716-446655440001",
+      "name": "ADMIN",
+      "description": "Administrator",
+      "permissions": [
+        { "id": "770e8400-e29b-41d4-a716-446655440001", "slug": "users.read", "description": "Read users" }
+      ]
+    }
   }
 }
 ```
@@ -298,10 +326,14 @@ Route prefix: `rbac` (@ApiBearerAuth class-level)
 **Response:**
 ```json
 {
-  "role": {
-    "id": "660e8400-e29b-41d4-a716-446655440003",
-    "name": "MANAGER",
-    "description": "Manager role"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "role": {
+      "id": "660e8400-e29b-41d4-a716-446655440003",
+      "name": "MANAGER",
+      "description": "Manager role"
+    }
   }
 }
 ```
@@ -325,10 +357,14 @@ Route prefix: `rbac` (@ApiBearerAuth class-level)
 **Response:**
 ```json
 {
-  "role": {
-    "id": "660e8400-e29b-41d4-a716-446655440003",
-    "name": "SUPER_MANAGER",
-    "description": "Updated description"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "role": {
+      "id": "660e8400-e29b-41d4-a716-446655440003",
+      "name": "SUPER_MANAGER",
+      "description": "Updated description"
+    }
   }
 }
 ```
@@ -352,10 +388,14 @@ Route prefix: `rbac` (@ApiBearerAuth class-level)
 **Response:**
 ```json
 {
-  "permissions": [
-    { "id": "770e8400-e29b-41d4-a716-446655440001", "slug": "users.read", "description": "Read users" },
-    { "id": "770e8400-e29b-41d4-a716-446655440002", "slug": "users.write", "description": "Create/update users" }
-  ]
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "permissions": [
+      { "id": "770e8400-e29b-41d4-a716-446655440001", "slug": "users.read", "description": "Read users" },
+      { "id": "770e8400-e29b-41d4-a716-446655440002", "slug": "users.write", "description": "Create/update users" }
+    ]
+  }
 }
 ```
 
@@ -1163,26 +1203,30 @@ Route prefix: `api/v1` (class-level @Public())
 **Response:**
 ```json
 {
-  "products": [
-    {
-      "id": "prod-classic-band",
-      "name": "Classic Solitaire",
-      "description": "A timeless solitaire engagement ring",
-      "baseMaterialId": "mat-gold-18k",
-      "basePrice": 1200,
-      "thumbnailUrl": "https://cdn.bioring.com/placeholder/ring-default.png",
-      "model3dUrl": "https://cdn.bioring.com/placeholder/ring-default.glb",
-      "availableMaterials": [
-        { "id": "mat-gold-18k", "name": "Vàng 18K", "purity": "75%", "color": "Vàng", "currentPricePerGram": 1200 }
-      ],
-      "availableGemstones": [
-        { "id": "gmt-diamond-05", "type": "Kim cương", "carat": 0.5, "cut": "Brilliant", "color": "D", "clarity": "VS1", "certificationCode": "GIA-123456", "price": 3000, "isAvailable": true }
-      ]
-    }
-  ],
-  "total": 1,
-  "page": 1,
-  "limit": 10
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "products": [
+      {
+        "id": "prod-classic-band",
+        "name": "Classic Solitaire",
+        "description": "A timeless solitaire engagement ring",
+        "baseMaterialId": "mat-gold-18k",
+        "basePrice": 1200,
+        "thumbnailUrl": "https://cdn.bioring.com/placeholder/ring-default.png",
+        "model3dUrl": "https://cdn.bioring.com/placeholder/ring-default.glb",
+        "availableMaterials": [
+          { "id": "mat-gold-18k", "name": "Vàng 18K", "purity": "75%", "color": "Vàng", "currentPricePerGram": 1200 }
+        ],
+        "availableGemstones": [
+          { "id": "gmt-diamond-05", "type": "Kim cương", "carat": 0.5, "cut": "Brilliant", "color": "D", "clarity": "VS1", "certificationCode": "GIA-123456", "price": 3000, "isAvailable": true }
+        ]
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "limit": 10
+  }
 }
 ```
 
@@ -1197,16 +1241,20 @@ Route prefix: `api/v1` (class-level @Public())
 **Response:**
 ```json
 {
-  "product": {
-    "id": "prod-classic-band",
-    "name": "Classic Solitaire",
-    "description": "A timeless solitaire engagement ring",
-    "baseMaterialId": "mat-gold-18k",
-    "basePrice": 1200,
-    "thumbnailUrl": "https://cdn.bioring.com/placeholder/ring-default.png",
-    "model3dUrl": "https://cdn.bioring.com/placeholder/ring-default.glb",
-    "availableMaterials": [],
-    "availableGemstones": []
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "product": {
+      "id": "prod-classic-band",
+      "name": "Classic Solitaire",
+      "description": "A timeless solitaire engagement ring",
+      "baseMaterialId": "mat-gold-18k",
+      "basePrice": 1200,
+      "thumbnailUrl": "https://cdn.bioring.com/placeholder/ring-default.png",
+      "model3dUrl": "https://cdn.bioring.com/placeholder/ring-default.glb",
+      "availableMaterials": [],
+      "availableGemstones": []
+    }
   }
 }
 ```
@@ -1220,9 +1268,13 @@ Route prefix: `api/v1` (class-level @Public())
 **Response:**
 ```json
 {
-  "materials": [
-    { "id": "mat-gold-18k", "name": "Vàng 18K", "purity": "75%", "color": "Vàng", "currentPricePerGram": 1600000, "renderConfig": "{\"colorHex\":\"#FFD700\",\"roughness\":0.2,\"metalness\":0.95}" }
-  ]
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "materials": [
+      { "id": "mat-gold-18k", "name": "Vàng 18K", "purity": "75%", "color": "Vàng", "currentPricePerGram": 1600000, "renderConfig": "{\"colorHex\":\"#FFD700\",\"roughness\":0.2,\"metalness\":0.95}" }
+    ]
+  }
 }
 ```
 
@@ -1235,9 +1287,13 @@ Route prefix: `api/v1` (class-level @Public())
 **Response:**
 ```json
 {
-  "gemstones": [
-    { "id": "gmt-diamond-05", "type": "Kim cương", "carat": 0.5, "cut": "Brilliant", "color": "D", "clarity": "VS1", "certificationCode": "GIA-123456", "price": 15000000, "isAvailable": true, "renderConfig": "{\"colorHex\":\"#FFFFFF\",\"refractiveIndex\":2.42,\"dispersion\":0.044}" }
-  ]
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "gemstones": [
+      { "id": "gmt-diamond-05", "type": "Kim cương", "carat": 0.5, "cut": "Brilliant", "color": "D", "clarity": "VS1", "certificationCode": "GIA-123456", "price": 15000000, "isAvailable": true, "renderConfig": "{\"colorHex\":\"#FFFFFF\",\"refractiveIndex\":2.42,\"dispersion\":0.044}" }
+    ]
+  }
 }
 ```
 
@@ -1262,8 +1318,12 @@ Route prefix: `api/v1` (class-level @Public())
 **Response:**
 ```json
 {
-  "success": true,
-  "id": "550e8400-..."
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "success": true,
+    "id": "550e8400-..."
+  }
 }
 ```
 
@@ -1324,19 +1384,23 @@ Route prefix: `api/v1/design`
 **Response:**
 ```json
 {
-  "draft": {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
-    "productId": "prod-classic-band",
-    "designCode": "RS-A7B9X2",
-    "designSource": "WEB",
-    "ringStyle": "CLASSIC",
-    "status": "DRAFT",
-    "product": {},
-    "selectedMaterial": {},
-    "selectedGemstone": {},
-    "createdAt": "2026-06-24T10:00:00.000Z"
-  },
-  "designCode": "RS-A7B9X2"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "draft": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "productId": "prod-classic-band",
+      "designCode": "RS-A7B9X2",
+      "designSource": "WEB",
+      "ringStyle": "CLASSIC",
+      "status": "DRAFT",
+      "product": {},
+      "selectedMaterial": {},
+      "selectedGemstone": {},
+      "createdAt": "2026-06-24T10:00:00.000Z"
+    },
+    "designCode": "RS-A7B9X2"
+  }
 }
 ```
 
@@ -1351,7 +1415,11 @@ Route prefix: `api/v1/design`
 **Response:**
 ```json
 {
-  "draft": { "id": "...", "designCode": "RS-A7B9X2", "ringStyle": "CLASSIC", ... }
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "draft": { "id": "...", "designCode": "RS-A7B9X2", "ringStyle": "CLASSIC", ... }
+  }
 }
 ```
 
@@ -1371,7 +1439,11 @@ Route prefix: `api/v1/design`
 **Response:**
 ```json
 {
-  "drafts": [{ "id": "...", "designCode": "RS-A7B9X2", ... }]
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "drafts": [{ "id": "...", "designCode": "RS-A7B9X2", ... }]
+  }
 }
 ```
 
@@ -1389,7 +1461,11 @@ Route prefix: `api/v1/design`
 **Response:**
 ```json
 {
-  "draft": { "id": "...", "ringStyle": "CLASSIC", ... }
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "draft": { "id": "...", "ringStyle": "CLASSIC", ... }
+  }
 }
 ```
 
@@ -1409,19 +1485,23 @@ Route prefix: `api/v1/design`
 **Response:**
 ```json
 {
-  "draft": { "id": "...", "designCode": "RS-A7B9X2" },
-  "engraving": {
-    "id": "550e8400-e29b-41d4-a716-446655440003",
-    "productId": "prod-classic-band",
-    "status": "PENDING",
-    "versions": [{ "id": "550e8400-...", "versionNumber": 1, "status": "PENDING" }],
-    "biometrics": []
-  },
-  "engravingVersion": {
-    "id": "550e8400-e29b-41d4-a716-446655440004",
-    "engravingId": "550e8400-...",
-    "versionNumber": 1,
-    "status": "PENDING"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "draft": { "id": "...", "designCode": "RS-A7B9X2" },
+    "engraving": {
+      "id": "550e8400-e29b-41d4-a716-446655440003",
+      "productId": "prod-classic-band",
+      "status": "PENDING",
+      "versions": [{ "id": "550e8400-...", "versionNumber": 1, "status": "PENDING" }],
+      "biometrics": []
+    },
+    "engravingVersion": {
+      "id": "550e8400-e29b-41d4-a716-446655440004",
+      "engravingId": "550e8400-...",
+      "versionNumber": 1,
+      "status": "PENDING"
+    }
   }
 }
 ```
@@ -1447,9 +1527,13 @@ Route prefix: `api/v1/engravings`
 **Response:**
 ```json
 {
-  "engraving": { "id": "...", "status": "PENDING", "versions": [], "biometrics": [] },
-  "engravingVersion": { "id": "...", "versionNumber": 1, "status": "PENDING" },
-  "qrCode": "a1b2c3d4e5f6"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "engraving": { "id": "...", "status": "PENDING", "versions": [], "biometrics": [] },
+    "engravingVersion": { "id": "...", "versionNumber": 1, "status": "PENDING" },
+    "qrCode": "a1b2c3d4e5f6"
+  }
 }
 ```
 
@@ -1469,17 +1553,21 @@ Route prefix: `api/v1/engravings`
 **Response:**
 ```json
 {
-  "engravings": [
-    {
-      "id": "550e8400-...",
-      "orderId": "550e8400-...",
-      "status": "PENDING",
-      "currentVersion": { "id": "...", "versionNumber": 1 }
-    }
-  ],
-  "total": 1,
-  "page": 1,
-  "limit": 10
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "engravings": [
+      {
+        "id": "550e8400-...",
+        "orderId": "550e8400-...",
+        "status": "PENDING",
+        "currentVersion": { "id": "...", "versionNumber": 1 }
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "limit": 10
+  }
 }
 ```
 
@@ -1494,12 +1582,16 @@ Route prefix: `api/v1/engravings`
 **Response:**
 ```json
 {
-  "engraving": {
-    "id": "550e8400-...",
-    "status": "PENDING",
-    "versions": [],
-    "biometrics": [],
-    "currentVersion": { "id": "...", "versionNumber": 1 }
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "engraving": {
+      "id": "550e8400-...",
+      "status": "PENDING",
+      "versions": [],
+      "biometrics": [],
+      "currentVersion": { "id": "...", "versionNumber": 1 }
+    }
   }
 }
 ```
@@ -1531,17 +1623,21 @@ Route prefix: `api/v1/engravings`
 **Response:**
 ```json
 {
-  "version": {
-    "id": "550e8400-...",
-    "versionNumber": 1,
-    "selectedMaterialId": "a1111111-...",
-    "ringSize": "7",
-    "ringStyle": "CLASSIC",
-    "selectedMaterial": { "id": "...", "name": "Vàng 18K", "purity": "75%", "color": "Vàng", "currentPricePerGram": 1600000 },
-    "selectedGemstone": { "id": "...", "type": "Kim cương", "carat": 0.5, "price": 15000000 }
-  },
-  "orderId": "",
-  "orderStatus": ""
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "version": {
+      "id": "550e8400-...",
+      "versionNumber": 1,
+      "selectedMaterialId": "a1111111-...",
+      "ringSize": "7",
+      "ringStyle": "CLASSIC",
+      "selectedMaterial": { "id": "...", "name": "Vàng 18K", "purity": "75%", "color": "Vàng", "currentPricePerGram": 1600000 },
+      "selectedGemstone": { "id": "...", "type": "Kim cương", "carat": 0.5, "price": 15000000 }
+    },
+    "orderId": "",
+    "orderStatus": ""
+  }
 }
 ```
 
@@ -1561,16 +1657,20 @@ Route prefix: `api/v1/engravings`
 **Response:**
 ```json
 {
-  "biometric": {
-    "id": "550e8400-...",
-    "engravingId": "550e8400-...",
-    "biometricType": "FP",
-    "requiredChannel": "ENGRAVING",
-    "rawFileUrl": "http://localhost:9000/bioring-personalization/personalization/review/fingerprint/fp_12345/fingerprint_overlay.png",
-    "processedSvgUrl": "http://localhost:9000/bioring-personalization/personalization/review/fingerprint/fp_12345/fingerprint.svg",
-    "biometricAssetId": "550e8400-...",
-    "extraData": "{}",
-    "status": "CAPTURED"
+  "statusCode": 200,
+  "message": "Success",
+  "data": {
+    "biometric": {
+      "id": "550e8400-...",
+      "engravingId": "550e8400-...",
+      "biometricType": "FP",
+      "requiredChannel": "ENGRAVING",
+      "rawFileUrl": "http://...",
+      "processedSvgUrl": "http://...",
+      "biometricAssetId": "550e8400-...",
+      "extraData": {},
+      "status": "CAPTURED"
+    }
   }
 }
 ```
@@ -1586,7 +1686,11 @@ Route prefix: `api/v1/engravings`
 **Response:**
 ```json
 {
-  "success": true
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "success": true
+  }
 }
 ```
 
@@ -1611,26 +1715,30 @@ Route prefix: `api/v1/orders`
 **Response:**
 ```json
 {
-  "order": {
-    "id": "550e8400-e29b-41d4-a716-446655440001",
-    "orderCode": "BIORING-A7B9X2",
-    "status": "AWAITING_SUBMIT",
-    "captureRoute": "ONLINE",
-    "designSource": "MOBILE",
-    "subtotal": 12000000,
-    "serviceFee": 1200000,
-    "totalPrice": 13200000,
-    "paidAmount": 0,
-    "remainingAmount": 13200000,
-    "payments": [],
-    "engraving": {
-      "id": "550e8400-...",
-      "productId": "prod-classic-band",
-      "status": "ACTIVE",
-      "versions": [{ "id": "550e8400-...", "versionNumber": 1, "ringStyle": "CLASSIC", ... }],
-      "biometrics": []
-    },
-    "createdAt": "2026-06-24T10:00:00.000Z"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "order": {
+      "id": "550e8400-e29b-41d4-a716-446655440001",
+      "orderCode": "BIORING-A7B9X2",
+      "status": "AWAITING_SUBMIT",
+      "captureRoute": "ONLINE",
+      "designSource": "MOBILE",
+      "subtotal": 12000000,
+      "serviceFee": 1200000,
+      "totalPrice": 13200000,
+      "paidAmount": 0,
+      "remainingAmount": 13200000,
+      "payments": [],
+      "engraving": {
+        "id": "550e8400-...",
+        "productId": "prod-classic-band",
+        "status": "ACTIVE",
+        "versions": [{ "id": "550e8400-...", "versionNumber": 1, "ringStyle": "CLASSIC", ... }],
+        "biometrics": []
+      },
+      "createdAt": "2026-06-24T10:00:00.000Z"
+    }
   }
 }
 ```
@@ -1646,7 +1754,11 @@ Route prefix: `api/v1/orders`
 **Response:**
 ```json
 {
-  "order": { "id": "...", "orderCode": "BIORING-A7B9X2", "status": "PENDING_REVIEW", ... }
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "order": { "id": "...", "orderCode": "BIORING-A7B9X2", "status": "PENDING_REVIEW", ... }
+  }
 }
 ```
 
@@ -1667,29 +1779,33 @@ Route prefix: `api/v1/orders`
 **Response:**
 ```json
 {
-  "data": [
-    {
-      "id": "550e8400-...",
-      "orderId": "550e8400-...",
-      "engravingId": "550e8400-...",
-      "assignedJewelerId": "550e8400-...",
-      "assignedJewelerName": "Nguyễn Văn A",
-      "taskName": "Ring production - BIORING-A7B9X2",
-      "taskDescription": "",
-      "status": "IN_PROGRESS",
-      "note": "",
-      "startedAt": "2026-06-24T10:00:00.000Z",
-      "completedAt": "",
-      "createdAt": "2026-06-24T10:00:00.000Z",
-      "orderCode": "BIORING-A7B9X2",
-      "customerName": "Nguyễn Văn A",
-      "ringSize": "7"
-    }
-  ],
-  "total": 1,
-  "page": 1,
-  "limit": 10,
-  "lastPage": 1
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "data": [
+      {
+        "id": "550e8400-...",
+        "orderId": "550e8400-...",
+        "engravingId": "550e8400-...",
+        "assignedJewelerId": "550e8400-...",
+        "assignedJewelerName": "Nguyễn Văn A",
+        "taskName": "Ring production - BIORING-A7B9X2",
+        "taskDescription": "",
+        "status": "IN_PROGRESS",
+        "note": "",
+        "startedAt": "2026-06-24T10:00:00.000Z",
+        "completedAt": "",
+        "createdAt": "2026-06-24T10:00:00.000Z",
+        "orderCode": "BIORING-A7B9X2",
+        "customerName": "Nguyễn Văn A",
+        "ringSize": "7"
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "limit": 10,
+    "lastPage": 1
+  }
 }
 ```
 
@@ -1704,7 +1820,11 @@ Route prefix: `api/v1/orders`
 **Response:**
 ```json
 {
-  "order": { "id": "...", "orderCode": "BIORING-A7B9X2", "status": "AWAITING_SUBMIT", ... }
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "order": { "id": "...", "orderCode": "BIORING-A7B9X2", "status": "AWAITING_SUBMIT", ... }
+  }
 }
 ```
 
@@ -1722,10 +1842,14 @@ Route prefix: `api/v1/orders`
 **Response:**
 ```json
 {
-  "orders": [{ "id": "...", "orderCode": "BIORING-A7B9X2", "status": "AWAITING_SUBMIT", ... }],
-  "total": 1,
-  "page": 1,
-  "limit": 10
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "orders": [{ "id": "...", "orderCode": "BIORING-A7B9X2", "status": "AWAITING_SUBMIT", ... }],
+    "total": 1,
+    "page": 1,
+    "limit": 10
+  }
 }
 ```
 
@@ -1748,7 +1872,11 @@ Route prefix: `api/v1/orders`
 **Response:**
 ```json
 {
-  "order": { "id": "...", "orderCode": "BIORING-A7B9X2", "status": "AWAITING_DEPOSIT", ... }
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "order": { "id": "...", "orderCode": "BIORING-A7B9X2", "status": "AWAITING_DEPOSIT", ... }
+  }
 }
 ```
 
@@ -1771,10 +1899,14 @@ Route prefix: `api/v1/orders`
 **Response:**
 ```json
 {
-  "results": [
-    { "id": "...", "success": true, "order": { "id": "...", "orderCode": "BIORING-A7B9X2", ... } },
-    { "id": "...", "success": false, "error": "Order not in PENDING_REVIEW status" }
-  ]
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "results": [
+      { "id": "...", "success": true, "order": { "id": "...", "orderCode": "BIORING-A7B9X2", ... } },
+      { "id": "...", "success": false, "error": "Order not in PENDING_REVIEW status" }
+    ]
+  }
 }
 ```
 
@@ -1798,19 +1930,23 @@ Route prefix: `api/v1/orders`
 **Response:**
 ```json
 {
-  "payment": {
-    "id": "550e8400-...",
-    "orderId": "550e8400-...",
-    "paymentPhase": "DEPOSIT_2",
-    "amount": 3960000,
-    "method": "PAYOS",
-    "status": "PENDING",
-    "payosTransactionId": "txn_abc123",
-    "paymentUrl": "https://pay.payos.vn/checkout/abc123",
-    "paidAt": "",
-    "createdAt": "2026-06-24T10:00:00.000Z"
-  },
-  "paymentUrl": "https://pay.payos.vn/checkout/abc123"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "payment": {
+      "id": "550e8400-...",
+      "orderId": "550e8400-...",
+      "paymentPhase": "DEPOSIT_2",
+      "amount": 3960000,
+      "method": "PAYOS",
+      "status": "PENDING",
+      "payosTransactionId": "txn_abc123",
+      "paymentUrl": "https://pay.payos.vn/checkout/abc123",
+      "paidAt": "",
+      "createdAt": "2026-06-24T10:00:00.000Z"
+    },
+    "paymentUrl": "https://pay.payos.vn/checkout/abc123"
+  }
 }
 ```
 
@@ -1825,8 +1961,12 @@ Route prefix: `api/v1/orders`
 **Response:**
 ```json
 {
-  "success": true,
-  "orderCode": "BIORING-A7B9X2"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "success": true,
+    "orderCode": "BIORING-A7B9X2"
+  }
 }
 ```
 
@@ -1872,16 +2012,20 @@ data: { "status": "PAID", "transactionId": "txn_abc123", "orderCode": "172000000
 **Response:**
 ```json
 {
-  "task": {
-    "id": "550e8400-...",
-    "orderId": "550e8400-...",
-    "engravingId": "550e8400-...",
-    "assignedJewelerId": "550e8400-...",
-    "assignedJewelerName": "Nguyễn Văn A",
-    "status": "IN_PROGRESS",
-    "startedAt": "2026-06-24T10:00:00.000Z",
-    "completedAt": "",
-    "createdAt": "2026-06-24T10:00:00.000Z"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "task": {
+      "id": "550e8400-...",
+      "orderId": "550e8400-...",
+      "engravingId": "550e8400-...",
+      "assignedJewelerId": "550e8400-...",
+      "assignedJewelerName": "Nguyễn Văn A",
+      "status": "IN_PROGRESS",
+      "startedAt": "2026-06-24T10:00:00.000Z",
+      "completedAt": "",
+      "createdAt": "2026-06-24T10:00:00.000Z"
+    }
   }
 }
 ```
@@ -1905,11 +2049,15 @@ data: { "status": "PAID", "transactionId": "txn_abc123", "orderCode": "172000000
 **Response:**
 ```json
 {
-  "task": {
-    "id": "550e8400-...",
-    "status": "COMPLETED",
-    "note": "Ring production finished",
-    "completedAt": "2026-06-24T11:30:00.000Z"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "task": {
+      "id": "550e8400-...",
+      "status": "COMPLETED",
+      "note": "Ring production finished",
+      "completedAt": "2026-06-24T11:30:00.000Z"
+    }
   }
 }
 ```
@@ -1935,7 +2083,11 @@ data: { "status": "PAID", "transactionId": "txn_abc123", "orderCode": "172000000
 **Response:**
 ```json
 {
-  "order": { "id": "...", "orderCode": "BIORING-A7B9X2", "status": "READY_FOR_DELIVERY", ... }
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "order": { "id": "...", "orderCode": "BIORING-A7B9X2", "status": "READY_FOR_DELIVERY", ... }
+  }
 }
 ```
 
@@ -1961,14 +2113,18 @@ data: { "status": "PAID", "transactionId": "txn_abc123", "orderCode": "172000000
 **Response:**
 ```json
 {
-  "id": "550e8400-...",
-  "orderId": "550e8400-...",
-  "deliveryMethod": "DELIVERY",
-  "status": "PENDING",
-  "recipientName": "Nguyen Van A",
-  "recipientPhone": "0909123456",
-  "shippingAddressText": "123 đường ABC",
-  "createdAt": "2026-07-03T10:00:00.000Z"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "id": "550e8400-...",
+    "orderId": "550e8400-...",
+    "deliveryMethod": "DELIVERY",
+    "status": "PENDING",
+    "recipientName": "Nguyen Van A",
+    "recipientPhone": "0909123456",
+    "shippingAddressText": "123 đường ABC",
+    "createdAt": "2026-07-03T10:00:00.000Z"
+  }
 }
 ```
 
@@ -1995,7 +2151,11 @@ data: { "status": "PAID", "transactionId": "txn_abc123", "orderCode": "172000000
 **Response:**
 ```json
 {
-  "order": { "id": "...", "orderCode": "BIORING-A7B9X2", "status": "COMPLETED", ... }
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "order": { "id": "...", "orderCode": "BIORING-A7B9X2", "status": "COMPLETED", ... }
+  }
 }
 ```
 
@@ -2010,14 +2170,18 @@ data: { "status": "PAID", "transactionId": "txn_abc123", "orderCode": "172000000
 **Response:**
 ```json
 {
-  "id": "550e8400-...",
-  "orderId": "550e8400-...",
-  "deliveryMethod": "DELIVERY",
-  "status": "PENDING",
-  "recipientName": "Nguyen Van A",
-  "recipientPhone": "0909123456",
-  "shippingAddressText": "123 đường ABC",
-  "createdAt": "2026-07-03T10:00:00.000Z"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "id": "550e8400-...",
+    "orderId": "550e8400-...",
+    "deliveryMethod": "DELIVERY",
+    "status": "PENDING",
+    "recipientName": "Nguyen Van A",
+    "recipientPhone": "0909123456",
+    "shippingAddressText": "123 đường ABC",
+    "createdAt": "2026-07-03T10:00:00.000Z"
+  }
 }
 ```
 
@@ -2032,16 +2196,20 @@ data: { "status": "PAID", "transactionId": "txn_abc123", "orderCode": "172000000
 **Response:**
 ```json
 {
-  "warranty": {
-    "id": "550e8400-...",
-    "engravingId": "550e8400-...",
-    "orderId": "550e8400-...",
-    "warrantyCode": "WAR-BIORING-A7B9X2",
-    "warrantyType": "STANDARD",
-    "issueDate": "2026-07-03T10:00:00.000Z",
-    "expiryDate": "2027-07-03T10:00:00.000Z",
-    "status": "ACTIVE",
-    "warrantyScope": "{\"description\":\"1 năm bảo hành chính hãng\",\"coverage\":[\"manufacturing_defect\"]}"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "warranty": {
+      "id": "550e8400-...",
+      "engravingId": "550e8400-...",
+      "orderId": "550e8400-...",
+      "warrantyCode": "WAR-BIORING-A7B9X2",
+      "warrantyType": "STANDARD",
+      "issueDate": "2026-07-03T10:00:00.000Z",
+      "expiryDate": "2027-07-03T10:00:00.000Z",
+      "status": "ACTIVE",
+      "warrantyScope": "{\"description\":\"1 năm bảo hành chính hãng\",\"coverage\":[\"manufacturing_defect\"]}"
+    }
   }
 }
 ```
@@ -2057,24 +2225,28 @@ data: { "status": "PAID", "transactionId": "txn_abc123", "orderCode": "172000000
 **Response:**
 ```json
 {
-  "task": {
-    "id": "550e8400-...",
-    "orderId": "550e8400-...",
-    "engravingId": "550e8400-...",
-    "assignedJewelerName": "Nguyễn Văn A",
-    "status": "COMPLETED",
-    "startedAt": "2026-06-24T10:00:00.000Z",
-    "completedAt": "2026-06-24T11:30:00.000Z"
-  },
-  "qaCheck": {
-    "id": "550e8400-...",
-    "orderId": "550e8400-...",
-    "result": "PASS",
-    "checklist": "{\"engraving\":true,\"material\":true,\"size\":true}",
-    "proofImages": ["https://cloudinary.com/img1.jpg"],
-    "note": "Sản phẩm đạt yêu cầu",
-    "checkedAt": "2026-07-03T10:00:00.000Z",
-    "checkedByManagerId": "550e8400-..."
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "task": {
+      "id": "550e8400-...",
+      "orderId": "550e8400-...",
+      "engravingId": "550e8400-...",
+      "assignedJewelerName": "Nguyễn Văn A",
+      "status": "COMPLETED",
+      "startedAt": "2026-06-24T10:00:00.000Z",
+      "completedAt": "2026-06-24T11:30:00.000Z"
+    },
+    "qaCheck": {
+      "id": "550e8400-...",
+      "orderId": "550e8400-...",
+      "result": "PASS",
+      "checklist": "{\"engraving\":true,\"material\":true,\"size\":true}",
+      "proofImages": ["https://cloudinary.com/img1.jpg"],
+      "note": "Sản phẩm đạt yêu cầu",
+      "checkedAt": "2026-07-03T10:00:00.000Z",
+      "checkedByManagerId": "550e8400-..."
+    }
   }
 }
 ```
@@ -2134,7 +2306,11 @@ data: { "status": "PAID", "transactionId": "txn_abc123", "orderCode": "172000000
 **Response:**
 ```json
 {
-  "order": { "id": "...", "orderCode": "BIORING-ABC123", "status": "AWAITING_SUBMIT", ... }
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "order": { "id": "...", "orderCode": "BIORING-ABC123", "status": "AWAITING_SUBMIT", ... }
+  }
 }
 ```
 
@@ -2156,7 +2332,11 @@ data: { "status": "PAID", "transactionId": "txn_abc123", "orderCode": "172000000
 **Response:**
 ```json
 {
-  "order": { "id": "...", "orderCode": "BIORING-A7B9X2", "status": "CANCELLED", ... }
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "order": { "id": "...", "orderCode": "BIORING-A7B9X2", "status": "CANCELLED", ... }
+  }
 }
 ```
 
@@ -2177,24 +2357,28 @@ data: { "status": "PAID", "transactionId": "txn_abc123", "orderCode": "172000000
 **Response:**
 ```json
 {
-  "data": [
-    {
-      "id": "550e8400-...",
-      "order_code": "DH001",
-      "tracking_code": "VNPOST123456",
-      "customer": { "name": "Nguyen Van A", "phone": "0901234567", "address": "123 Nguyen Hue, Q1, HCM" },
-      "payment_status": "paid",
-      "delivery_staff": { "id": "550e8400-...", "name": "Tran Van C", "avatar": "", "status": "busy", "current_deliveries": 3 },
-      "status": "in_transit",
-      "proof_of_delivery": null,
-      "created_at": "2026-07-14T10:00:00.000Z"
-    }
-  ],
-  "total": 1,
-  "page": 1,
-  "limit": 20,
-  "last_page": 1,
-  "stats": { "ready_for_delivery": 5, "in_transit": 3, "waiting_for_pickup": 2 }
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "data": [
+      {
+        "id": "550e8400-...",
+        "order_code": "DH001",
+        "tracking_code": "VNPOST123456",
+        "customer": { "name": "Nguyen Van A", "phone": "0901234567", "address": "123 Nguyen Hue, Q1, HCM" },
+        "payment_status": "paid",
+        "delivery_staff": { "id": "550e8400-...", "name": "Tran Van C", "avatar": "", "status": "busy", "current_deliveries": 3 },
+        "status": "in_transit",
+        "proof_of_delivery": null,
+        "created_at": "2026-07-14T10:00:00.000Z"
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "limit": 20,
+    "last_page": 1,
+    "stats": { "ready_for_delivery": 5, "in_transit": 3, "waiting_for_pickup": 2 }
+  }
 }
 ```
 
@@ -2213,19 +2397,23 @@ data: { "status": "PAID", "transactionId": "txn_abc123", "orderCode": "172000000
 **Response:**
 ```json
 {
-  "data": [
-    {
-      "id": "550e8400-...",
-      "order_code": "ORD-005",
-      "customer_name": "David Chen",
-      "customer_phone": "0945678901",
-      "payment_status": "final_pending",
-      "status": "waiting",
-      "handover_staff_name": null,
-      "handover_note": null,
-      "proof_image": null
-    }
-  ]
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "data": [
+      {
+        "id": "550e8400-...",
+        "order_code": "ORD-005",
+        "customer_name": "David Chen",
+        "customer_phone": "0945678901",
+        "payment_status": "final_pending",
+        "status": "waiting",
+        "handover_staff_name": null,
+        "handover_note": null,
+        "proof_image": null
+      }
+    ]
+  }
 }
 ```
 
@@ -2248,8 +2436,12 @@ data: { "status": "PAID", "transactionId": "txn_abc123", "orderCode": "172000000
 **Response:**
 ```json
 {
-  "shipmentId": "550e8400-e29b-41d4-a716-446655440051",
-  "status": "PENDING"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "shipmentId": "550e8400-e29b-41d4-a716-446655440051",
+    "status": "PENDING"
+  }
 }
 ```
 
@@ -2267,21 +2459,25 @@ Route prefix: `api/v1/addresses`
 **Response:**
 ```json
 {
-  "addresses": [
-    {
-      "id": "550e8400-e29b-41d4-a716-446655440050",
-      "userId": "550e8400-e29b-41d4-a716-446655440000",
-      "recipientName": "Nguyen Van A",
-      "phone": "0901234567",
-      "fullAddress": "123 Nguyen Hue, Bến Nghé",
-      "ward": "Bến Nghé",
-      "district": "Quận 1",
-      "province": "TP Hồ Chí Minh",
-      "isDefault": true,
-      "createdAt": "2026-07-18T10:00:00.000Z",
-      "updatedAt": "2026-07-18T10:00:00.000Z"
-    }
-  ]
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "addresses": [
+      {
+        "id": "550e8400-e29b-41d4-a716-446655440050",
+        "userId": "550e8400-e29b-41d4-a716-446655440000",
+        "recipientName": "Nguyen Van A",
+        "phone": "0901234567",
+        "fullAddress": "123 Nguyen Hue, Bến Nghé",
+        "ward": "Bến Nghé",
+        "district": "Quận 1",
+        "province": "TP Hồ Chí Minh",
+        "isDefault": true,
+        "createdAt": "2026-07-18T10:00:00.000Z",
+        "updatedAt": "2026-07-18T10:00:00.000Z"
+      }
+    ]
+  }
 }
 ```
 
@@ -2307,18 +2503,22 @@ Route prefix: `api/v1/addresses`
 **Response:**
 ```json
 {
-  "address": {
-    "id": "550e8400-e29b-41d4-a716-446655440050",
-    "userId": "550e8400-e29b-41d4-a716-446655440000",
-    "recipientName": "Nguyen Van A",
-    "phone": "0901234567",
-    "fullAddress": "123 Nguyen Hue, Bến Nghé",
-    "ward": "Bến Nghé",
-    "district": "Quận 1",
-    "province": "TP Hồ Chí Minh",
-    "isDefault": true,
-    "createdAt": "2026-07-18T10:00:00.000Z",
-    "updatedAt": "2026-07-18T10:00:00.000Z"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "address": {
+      "id": "550e8400-e29b-41d4-a716-446655440050",
+      "userId": "550e8400-e29b-41d4-a716-446655440000",
+      "recipientName": "Nguyen Van A",
+      "phone": "0901234567",
+      "fullAddress": "123 Nguyen Hue, Bến Nghé",
+      "ward": "Bến Nghé",
+      "district": "Quận 1",
+      "province": "TP Hồ Chí Minh",
+      "isDefault": true,
+      "createdAt": "2026-07-18T10:00:00.000Z",
+      "updatedAt": "2026-07-18T10:00:00.000Z"
+    }
   }
 }
 ```
@@ -2342,7 +2542,11 @@ Route prefix: `api/v1/addresses`
 **Response:**
 ```json
 {
-  "address": { "id": "...", "fullAddress": "123 Nguyen Hue, Bến Nghé, Quận 1", "isDefault": true, ... }
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "address": { "id": "...", "fullAddress": "123 Nguyen Hue, Bến Nghé, Quận 1", "isDefault": true, ... }
+  }
 }
 ```
 
@@ -2357,7 +2561,11 @@ Route prefix: `api/v1/addresses`
 **Response:**
 ```json
 {
-  "success": true
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "success": true
+  }
 }
 ```
 
@@ -2389,15 +2597,19 @@ Route prefix: `api/v1/qr-memories`
 **Response:**
 ```json
 {
-  "qrMemory": {
-    "id": "...",
-    "engravingId": "550e8400-...",
-    "qrCode": "a1b2c3d4e5f6",
-    "cardTitle": "Our Special Ring",
-    "greetingMessage": "Thank you for being with me!",
-    "recipientEmail": "friend@example.com",
-    "isLocked": false,
-    "createdAt": "2026-07-07T10:00:00.000Z"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "qrMemory": {
+      "id": "...",
+      "engravingId": "550e8400-...",
+      "qrCode": "a1b2c3d4e5f6",
+      "cardTitle": "Our Special Ring",
+      "greetingMessage": "Thank you for being with me!",
+      "recipientEmail": "friend@example.com",
+      "isLocked": false,
+      "createdAt": "2026-07-07T10:00:00.000Z"
+    }
   }
 }
 ```
@@ -2413,7 +2625,11 @@ Route prefix: `api/v1/qr-memories`
 **Response:**
 ```json
 {
-  "qrMemory": { "id": "...", "engravingId": "550e8400-...", "cardTitle": "...", ... }
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "qrMemory": { "id": "...", "engravingId": "550e8400-...", "cardTitle": "...", ... }
+  }
 }
 ```
 
@@ -2434,7 +2650,11 @@ Route prefix: `api/v1/qr-memories`
 **Response:**
 ```json
 {
-  "qrMemory": { "id": "...", "qrCode": "a1b2c3d4e5f6", "isLocked": false, ... }
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "qrMemory": { "id": "...", "qrCode": "a1b2c3d4e5f6", "isLocked": false, ... }
+  }
 }
 ```
 
@@ -2457,20 +2677,24 @@ Route prefix: `api/v1/card-themes`
 **Response:**
 ```json
 {
-  "cardThemes": [
-    {
-      "id": "550e8400-...",
-      "themeCode": "ROMANTIC",
-      "name": "Lãng mạn",
-      "defaultBgUrl": "https://cdn.bioring.com/themes/romantic-bg.png",
-      "styleConfig": "{\"fontFamily\":\"serif\",\"primaryColor\":\"#FF69B4\"}",
-      "isActive": true,
-      "createdAt": "2026-01-01T00:00:00.000Z"
-    }
-  ],
-  "total": 1,
-  "page": 1,
-  "limit": 10
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "cardThemes": [
+      {
+        "id": "550e8400-...",
+        "themeCode": "ROMANTIC",
+        "name": "Lãng mạn",
+        "defaultBgUrl": "https://cdn.bioring.com/themes/romantic-bg.png",
+        "styleConfig": "{\"fontFamily\":\"serif\",\"primaryColor\":\"#FF69B4\"}",
+        "isActive": true,
+        "createdAt": "2026-01-01T00:00:00.000Z"
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "limit": 10
+  }
 }
 ```
 
@@ -2485,7 +2709,11 @@ Route prefix: `api/v1/card-themes`
 **Response:**
 ```json
 {
-  "cardTheme": { "id": "...", "themeCode": "ROMANTIC", "name": "Lãng mạn", ... }
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "cardTheme": { "id": "...", "themeCode": "ROMANTIC", "name": "Lãng mạn", ... }
+  }
 }
 ```
 
@@ -2508,7 +2736,11 @@ Route prefix: `api/v1/card-themes`
 **Response:**
 ```json
 {
-  "cardTheme": { "id": "...", "themeCode": "ROMANTIC", "name": "Lãng mạn", ... }
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "cardTheme": { "id": "...", "themeCode": "ROMANTIC", "name": "Lãng mạn", ... }
+  }
 }
 ```
 
@@ -2525,7 +2757,11 @@ Route prefix: `api/v1/card-themes`
 **Response:**
 ```json
 {
-  "cardTheme": { "id": "...", "themeCode": "ROMANTIC", ... }
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "cardTheme": { "id": "...", "themeCode": "ROMANTIC", ... }
+  }
 }
 ```
 
@@ -2633,17 +2869,21 @@ Route prefix: `api/v1/guest`
 **Response:**
 ```json
 {
-  "order": {
-    "id": "550e8400-...",
-    "orderCode": "172000000042",
-    "guestCustomerId": "550e8400-...",
-    "designSource": "WALK_IN",
-    "status": "AWAITING_SUBMIT",
-    "totalPrice": 13200000,
-    "paidAmount": 0
-  },
-  "engraving": { "id": "550e8400-...", "productId": "550e8400-...", "status": "PENDING" },
-  "version": { "id": "550e8400-...", "versionNumber": 1, "status": "PENDING" }
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "order": {
+      "id": "550e8400-...",
+      "orderCode": "172000000042",
+      "guestCustomerId": "550e8400-...",
+      "designSource": "WALK_IN",
+      "status": "AWAITING_SUBMIT",
+      "totalPrice": 13200000,
+      "paidAmount": 0
+    },
+    "engraving": { "id": "550e8400-...", "productId": "550e8400-...", "status": "PENDING" },
+    "version": { "id": "550e8400-...", "versionNumber": 1, "status": "PENDING" }
+  }
 }
 ```
 
@@ -2663,23 +2903,27 @@ Route prefix: `api/v1/guest-tablet` (class-level @Public())
 **Response:**
 ```json
 {
-  "guest": {
-    "id": "550e8400-...",
-    "guestCode": "GUE-A7B9X2",
-    "fullName": "Nguyễn Văn A",
-    "phone": "0909123456"
-  },
-  "order": {
-    "id": "550e8400-...",
-    "orderCode": "172000000042",
-    "status": "AWAITING_SUBMIT",
-    "totalPrice": 13200000,
-    "engraving": {
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "guest": {
       "id": "550e8400-...",
-      "status": "PENDING",
-      "versions": [{ "id": "550e8400-...", "versionNumber": 1, "status": "PENDING" }],
-      "biometrics": [],
-      "qrMemory": null
+      "guestCode": "GUE-A7B9X2",
+      "fullName": "Nguyễn Văn A",
+      "phone": "0909123456"
+    },
+    "order": {
+      "id": "550e8400-...",
+      "orderCode": "172000000042",
+      "status": "AWAITING_SUBMIT",
+      "totalPrice": 13200000,
+      "engraving": {
+        "id": "550e8400-...",
+        "status": "PENDING",
+        "versions": [{ "id": "550e8400-...", "versionNumber": 1, "status": "PENDING" }],
+        "biometrics": [],
+        "qrMemory": null
+      }
     }
   }
 }
@@ -2725,8 +2969,12 @@ Route prefix: `api/v1/guest-tablet` (class-level @Public())
 **Response:**
 ```json
 {
-  "order": { "id": "550e8400-...", "orderCode": "172000000042", "status": "PENDING_REVIEW" },
-  "isResubmit": false
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "order": { "id": "550e8400-...", "orderCode": "172000000042", "status": "PENDING_REVIEW" },
+    "isResubmit": false
+  }
 }
 ```
 
@@ -2764,17 +3012,21 @@ Route prefix: `api/v1/guest-tablet` (class-level @Public())
 **Response:**
 ```json
 {
-  "payment": {
-    "id": "550e8400-...",
-    "orderId": "550e8400-...",
-    "paymentPhase": "FULL",
-    "amount": 13200000,
-    "method": "PAYOS",
-    "status": "PENDING",
-    "paymentUrl": "https://pay.payos.vn/..."
-  },
-  "paymentUrl": "https://pay.payos.vn/...",
-  "qrCode": "000201010212..."
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "payment": {
+      "id": "550e8400-...",
+      "orderId": "550e8400-...",
+      "paymentPhase": "FULL",
+      "amount": 13200000,
+      "method": "PAYOS",
+      "status": "PENDING",
+      "paymentUrl": "https://pay.payos.vn/..."
+    },
+    "paymentUrl": "https://pay.payos.vn/...",
+    "qrCode": "000201010212..."
+  }
 }
 ```
 
@@ -2820,13 +3072,17 @@ Route prefix: `api/v1/guest-tablet` (class-level @Public())
 **Response:**
 ```json
 {
-  "id": "550e8400-...",
-  "orderId": "550e8400-...",
-  "deliveryMethod": "DELIVERY",
-  "status": "PENDING",
-  "recipientName": "Nguyễn Văn A",
-  "recipientPhone": "0909123456",
-  "shippingAddressText": "123 Đường ABC, Quận 1, TP.HCM"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "id": "550e8400-...",
+    "orderId": "550e8400-...",
+    "deliveryMethod": "DELIVERY",
+    "status": "PENDING",
+    "recipientName": "Nguyễn Văn A",
+    "recipientPhone": "0909123456",
+    "shippingAddressText": "123 Đường ABC, Quận 1, TP.HCM"
+  }
 }
 ```
 
@@ -2905,10 +3161,14 @@ Route prefix: `api/v1/admin/dashboard`
 **Response:**
 ```json
 {
-  "totalOrders": 156,
-  "completedOrders": 89,
-  "totalRevenue": 1250000000,
-  "activeUsers": 342
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "totalOrders": 156,
+    "completedOrders": 89,
+    "totalRevenue": 1250000000,
+    "activeUsers": 342
+  }
 }
 ```
 
@@ -2921,11 +3181,15 @@ Route prefix: `api/v1/admin/dashboard`
 **Response:**
 ```json
 {
-  "data": [
-    { "status": "COMPLETED", "count": 89 },
-    { "status": "AWAITING_SUBMIT", "count": 12 },
-    { "status": "PENDING_REVIEW", "count": 7 }
-  ]
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "data": [
+      { "status": "COMPLETED", "count": 89 },
+      { "status": "AWAITING_SUBMIT", "count": 12 },
+      { "status": "PENDING_REVIEW", "count": 7 }
+    ]
+  }
 }
 ```
 
@@ -2942,10 +3206,14 @@ Route prefix: `api/v1/admin/dashboard`
 **Response:**
 ```json
 {
-  "data": [
-    { "date": "2026-07-01", "revenue": 45000000 },
-    { "date": "2026-07-02", "revenue": 32000000 }
-  ]
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "data": [
+      { "date": "2026-07-01", "revenue": 45000000 },
+      { "date": "2026-07-02", "revenue": 32000000 }
+    ]
+  }
 }
 ```
 
@@ -2962,11 +3230,15 @@ Route prefix: `api/v1/admin/dashboard`
 **Response:**
 ```json
 {
-  "data": [
-    { "month": "Jan", "revenue": 0 },
-    { "month": "Feb", "revenue": 35000000 },
-    { "month": "Mar", "revenue": 52000000 }
-  ]
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "data": [
+      { "month": "Jan", "revenue": 0 },
+      { "month": "Feb", "revenue": 35000000 },
+      { "month": "Mar", "revenue": 52000000 }
+    ]
+  }
 }
 ```
 
@@ -2983,10 +3255,14 @@ Route prefix: `api/v1/admin/dashboard`
 **Response:**
 ```json
 {
-  "data": [
-    { "id": "prod-classic-band", "name": "Classic Band", "orderCount": 42 },
-    { "id": "prod-diamond-halo", "name": "Diamond Halo", "orderCount": 28 }
-  ]
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "data": [
+      { "id": "prod-classic-band", "name": "Classic Band", "orderCount": 42 },
+      { "id": "prod-diamond-halo", "name": "Diamond Halo", "orderCount": 28 }
+    ]
+  }
 }
 ```
 
@@ -2998,9 +3274,13 @@ Route prefix: `api/v1/admin/dashboard`
 **Response:**
 ```json
 {
-  "total_jewelers": 6,
-  "in_progress": 3,
-  "pending_qa": 2
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "total_jewelers": 6,
+    "in_progress": 3,
+    "pending_qa": 2
+  }
 }
 ```
 
@@ -3027,23 +3307,27 @@ Route prefix: `api/v1/transactions`
 **Response:**
 ```json
 {
-  "data": [
-    {
-      "id": "550e8400-...",
-      "transaction_id": "PAY-txn_abc123",
-      "order_id": "550e8400-...",
-      "order_number": "BIORING-A7B9X2",
-      "customer": { "id": "550e8400-...", "name": "Nguyen Van A", "email": "a@example.com" },
-      "method": "PAYOS",
-      "amount": 3960000,
-      "status": "SUCCESS",
-      "created_at": "2026-07-10T08:00:00.000Z"
-    }
-  ],
-  "total": 1,
-  "page": 1,
-  "limit": 20,
-  "last_page": 1
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "data": [
+      {
+        "id": "550e8400-...",
+        "transaction_id": "PAY-txn_abc123",
+        "order_id": "550e8400-...",
+        "order_number": "BIORING-A7B9X2",
+        "customer": { "id": "550e8400-...", "name": "Nguyen Van A", "email": "a@example.com" },
+        "method": "PAYOS",
+        "amount": 3960000,
+        "status": "SUCCESS",
+        "created_at": "2026-07-10T08:00:00.000Z"
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "limit": 20,
+    "last_page": 1
+  }
 }
 ```
 
@@ -3056,14 +3340,18 @@ Route prefix: `api/v1/transactions`
 **Response:**
 ```json
 {
-  "gross_revenue": 125000000,
-  "net_revenue": 120000000,
-  "pending_cod": 5000000,
-  "refunded": 2000000,
-  "gross_change": 12.5,
-  "net_change": 10.2,
-  "pending_change": -5.0,
-  "refunded_change": 0.0
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "gross_revenue": 125000000,
+    "net_revenue": 120000000,
+    "pending_cod": 5000000,
+    "refunded": 2000000,
+    "gross_change": 12.5,
+    "net_change": 10.2,
+    "pending_change": -5.0,
+    "refunded_change": 0.0
+  }
 }
 ```
 
@@ -3078,7 +3366,11 @@ Route prefix: `api/v1/transactions`
 **Response:**
 ```json
 {
-  "payment": { "id": "...", "status": "PAID", "paidAt": "2026-07-15T10:00:00.000Z" }
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "payment": { "id": "...", "status": "PAID", "paidAt": "2026-07-15T10:00:00.000Z" }
+  }
 }
 ```
 
@@ -3093,9 +3385,13 @@ Route prefix: `api/v1/transactions`
 **Response:**
 ```json
 {
-  "payment": { "id": "...", "status": "PAID" },
-  "payosStatus": "PAID",
-  "orderCode": "172000000042"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "payment": { "id": "...", "status": "PAID" },
+    "payosStatus": "PAID",
+    "orderCode": "172000000042"
+  }
 }
 ```
 
@@ -3117,7 +3413,11 @@ Route prefix: `api/v1/transactions`
 **Response:**
 ```json
 {
-  "payment": { "id": "...", "status": "REFUNDED" }
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "payment": { "id": "...", "status": "REFUNDED" }
+  }
 }
 ```
 
@@ -3139,7 +3439,11 @@ Route prefix: `api/v1/transactions`
 **Response:**
 ```json
 {
-  "success": true
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "success": true
+  }
 }
 ```
 
@@ -3164,25 +3468,29 @@ Route prefix: `api/v1/customers`
 **Response:**
 ```json
 {
-  "data": [
-    {
-      "id": "550e8400-...",
-      "name": "Nguyen Van A",
-      "email": "a@example.com",
-      "phone": "0901234567",
-      "avatar": null,
-      "status": "active",
-      "total_orders": 5,
-      "total_spent": 25000000,
-      "last_order_date": "2026-07-10T08:00:00.000Z",
-      "join_date": "2026-01-15T08:00:00.000Z",
-      "location": "Hanoi"
-    }
-  ],
-  "total": 1,
-  "page": 1,
-  "limit": 20,
-  "last_page": 1
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "data": [
+      {
+        "id": "550e8400-...",
+        "name": "Nguyen Van A",
+        "email": "a@example.com",
+        "phone": "0901234567",
+        "avatar": null,
+        "status": "active",
+        "total_orders": 5,
+        "total_spent": 25000000,
+        "last_order_date": "2026-07-10T08:00:00.000Z",
+        "join_date": "2026-01-15T08:00:00.000Z",
+        "location": "Hanoi"
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "limit": 20,
+    "last_page": 1
+  }
 }
 ```
 
@@ -3212,29 +3520,33 @@ Route prefix: `api/v1/customers`
 **Response:**
 ```json
 {
-  "data": [
-    {
-      "id": "550e8400-...",
-      "name": "Nguyen Van A",
-      "email": "guest@example.com",
-      "phone": "0901234567",
-      "status": "active",
-      "total_orders": 3,
-      "total_spent": 25000000,
-      "last_order_date": "2026-07-10T08:00:00.000Z",
-      "join_date": "2026-06-01T08:00:00.000Z",
-      "digital_assets": { "has_voice": true, "has_fingerprint": false, "has_heartbeat": false },
-      "qr_memory_status": "active",
-      "service_tickets": [
-        { "id": "tkt-1", "ticket_code": "ST-001", "service_type": "resize", "status": "resolved", "created_at": "2026-07-01T09:00:00Z" }
-      ],
-      "warranty": { "is_active": true, "expiry_date": "2027-06-01T00:00:00Z", "used_free_count": 1 }
-    }
-  ],
-  "total": 1,
-  "page": 1,
-  "limit": 20,
-  "last_page": 1
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "data": [
+      {
+        "id": "550e8400-...",
+        "name": "Nguyen Van A",
+        "email": "guest@example.com",
+        "phone": "0901234567",
+        "status": "active",
+        "total_orders": 3,
+        "total_spent": 25000000,
+        "last_order_date": "2026-07-10T08:00:00.000Z",
+        "join_date": "2026-06-01T08:00:00.000Z",
+        "digital_assets": { "has_voice": true, "has_fingerprint": false, "has_heartbeat": false },
+        "qr_memory_status": "active",
+        "service_tickets": [
+          { "id": "tkt-1", "ticket_code": "ST-001", "service_type": "resize", "status": "resolved", "created_at": "2026-07-01T09:00:00Z" }
+        ],
+        "warranty": { "is_active": true, "expiry_date": "2027-06-01T00:00:00Z", "used_free_count": 1 }
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "limit": 20,
+    "last_page": 1
+  }
 }
 ```
 
@@ -3262,23 +3574,27 @@ Route prefix: `api/v1/admin/audit-logs`
 **Response:**
 ```json
 {
-  "data": [
-    {
-      "id": "550e8400-...",
-      "timestamp": "2026-07-10T08:00:00.000Z",
-      "actor": { "id": "550e8400-...", "name": "Admin User", "email": "admin@example.com" },
-      "action": "SUBMIT",
-      "resource": "order",
-      "resource_id": "550e8400-...",
-      "description": "SUBMIT on order 550e8400-...",
-      "result": "success",
-      "metadata": { "newValue": { "status": "SUBMITTED" }, "oldValue": { "status": "AWAITING_SUBMIT" } }
-    }
-  ],
-  "total": 1,
-  "page": 1,
-  "limit": 50,
-  "last_page": 1
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "data": [
+      {
+        "id": "550e8400-...",
+        "timestamp": "2026-07-10T08:00:00.000Z",
+        "actor": { "id": "550e8400-...", "name": "Admin User", "email": "admin@example.com" },
+        "action": "SUBMIT",
+        "resource": "order",
+        "resource_id": "550e8400-...",
+        "description": "SUBMIT on order 550e8400-...",
+        "result": "success",
+        "metadata": { "newValue": { "status": "SUBMITTED" }, "oldValue": { "status": "AWAITING_SUBMIT" } }
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "limit": 50,
+    "last_page": 1
+  }
 }
 ```
 
@@ -3303,24 +3619,28 @@ Route prefix: `api/v1/devices`
 **Response:**
 ```json
 {
-  "data": [
-    {
-      "id": "550e8400-...",
-      "serial_number": "AA:BB:CC:DD:EE:FF",
-      "model": "SCANNER",
-      "status": "ONLINE",
-      "firmware": "v2.1.0",
-      "last_seen": "2026-07-10T08:00:00.000Z",
-      "rssi": null,
-      "uptime": null,
-      "cpu": 45.5,
-      "memory": 62.3
-    }
-  ],
-  "total": 1,
-  "page": 1,
-  "limit": 20,
-  "last_page": 1
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "data": [
+      {
+        "id": "550e8400-...",
+        "serial_number": "AA:BB:CC:DD:EE:FF",
+        "model": "SCANNER",
+        "status": "ONLINE",
+        "firmware": "v2.1.0",
+        "last_seen": "2026-07-10T08:00:00.000Z",
+        "rssi": null,
+        "uptime": null,
+        "cpu": 45.5,
+        "memory": 62.3
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "limit": 20,
+    "last_page": 1
+  }
 }
 ```
 
@@ -3437,8 +3757,12 @@ Route prefix: `api/v1/warranty-claims`
 **Response:**
 ```json
 {
-  "data": [{ "id": "...", "status": "PENDING_REVIEW", ... }],
-  "meta": { "total": 1, "page": 1, "limit": 10, "lastPage": 1 }
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "data": [{ "id": "...", "status": "PENDING_REVIEW", ... }],
+    "meta": { "total": 1, "page": 1, "limit": 10, "lastPage": 1 }
+  }
 }
 ```
 
@@ -3556,19 +3880,23 @@ Route prefix: `api/v1/jewelers`
 **Response:**
 ```json
 {
-  "completed_today": 3,
-  "completed_shift": 7,
-  "qa_pass_rate": 92.0,
-  "avg_hours": 6.4,
-  "recent_tasks": [
-    {
-      "id": "550e8400-...",
-      "order_code": "ORD-2026-X09",
-      "completed_at": "2026-07-14T08:00:00.000Z",
-      "qa_result": "passed",
-      "duration_hours": 5.2
-    }
-  ]
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "completed_today": 3,
+    "completed_shift": 7,
+    "qa_pass_rate": 92.0,
+    "avg_hours": 6.4,
+    "recent_tasks": [
+      {
+        "id": "550e8400-...",
+        "order_code": "ORD-2026-X09",
+        "completed_at": "2026-07-14T08:00:00.000Z",
+        "qa_result": "passed",
+        "duration_hours": 5.2
+      }
+    ]
+  }
 }
 ```
 
@@ -3817,4 +4145,5 @@ IN_SERVICE → COMPLETED                  (return, sau khi ticket completed)
 | Ecommerce | Jeweler | 1 |
 | Track | Track | 1 |
 | **Total** | **21 controllers** | **120 endpoints** |
+
 

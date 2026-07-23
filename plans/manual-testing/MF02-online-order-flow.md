@@ -240,13 +240,13 @@ Ghi nhớ `ORDER_ID`. Order ở `AWAITING_SUBMIT` — không edit được gì n
 
 ---
 
-## 6. Upload audio biometric + chọn segment
+## 6. Upload audio biometric + Lấy PBR Textures
 
-> Sau tạo order, user ghi âm → upload file audio trực tiếp qua multipart `POST /api/v1/engravings/:id/biometrics`.
-> Server gửi file sang Personalization Engine xử lý & lưu trên MinIO (stage `REVIEW`), tự động gán `biometricAssetId` và sinh `processedSvgUrl` (Waveform SVG).
+> Sau tạo order, user ghi âm → upload file audio trực tiếp qua multipart `POST /api/v1/me/engravings/:engravingId/biometrics`.
+> Server (Auto-Approve): gửi file sang Python Engine xử lý, tự động duyệt và tự động gán (`BiometricAsset`) vào bản khắc. Trả về `biometricAssetId`.
 
 ```http
-POST /api/v1/engravings/ENGRAVING_ID/biometrics
+POST /api/v1/me/engravings/ENGRAVING_ID/biometrics
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
 
@@ -283,8 +283,35 @@ Content-Disposition: form-data; name="extraData"
 }
 ```
 
-> Server nhận file qua multipart, gọi Python Personalization Engine xử lý waveform → tạo `biometric_assets` record & trả về `processedSvgUrl` (SVG đã xử lý). Cả raw audio (dùng cho mem card) và processed SVG (dùng cho khắc) đều được lưu.
-> FE có thể gọi GET engraving → thấy `engraving_biometrics` list → render SW vào vị trí đã đặt.
+> Backend gọi Python Pipeline xử lý waveform, tự động Publish (Approve) và gán Asset cho Customer. Trả về `biometricAssetId`.
+
+### 6b. Lấy PBR Textures (viewer-assets) để hiển thị 3D
+
+> FE dùng `biometricAssetId` vừa nhận để lấy các map (normal, alpha...) render Decal Mesh.
+
+```http
+GET /api/v1/me/biometric-assets/ASSET_ID_001/viewer-assets
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+```
+
+**Response mẫu:**
+```json
+{
+  "statusCode": 200,
+  "message": "Success",
+  "data": {
+    "asset": {
+      "assetId": "ASSET_ID_001",
+      "viewerFiles": {
+        "overlayPng": "http://...",
+        "alphaMap": "http://...",
+        "normalMap": "http://..."
+      }
+    }
+  }
+}
+```
+> FE lấy `viewerFiles` ốp vào 3D model. Sau đó người dùng chỉnh slider vị trí và `PATCH /api/v1/engravings/versions/VERSION_ID/config` để lưu tọa độ.
 
 ---
 
@@ -695,10 +722,10 @@ Nếu đã thanh toán hết → order → `READY_FOR_DELIVERY` (hoặc `READY_F
             CHỈ block đổi package / selectedBiometrics)
                      │
                      ▼
-           POST /engravings/:id/biometrics { SW, rawFileUrl, extraData (segment) }
+           POST /me/engravings/:id/biometrics (Upload audio -> auto-approve -> assetId)
                      │
                      ▼
-           FE GET engraving → thấy biometrics → render
+           FE GET engraving → thấy biometrics → lấy viewer-assets → render
                      │
                      ▼
            PATCH /orders/:id/submit → PENDING_REVIEW
