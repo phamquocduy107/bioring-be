@@ -220,6 +220,7 @@ interface EcommerceGrpcService {
     page?: number;
     limit?: number;
     userId?: string;
+    customerEmail?: string;
   }): Observable<{
     orders: OrderResponse[];
     total: number;
@@ -439,6 +440,7 @@ export class OrderController implements OnModuleInit {
     const result = await this.call(() =>
       this.grpc!.getMyOrders({
         userId: user.sub,
+        customerEmail: query.customerEmail,
         page: query.page ?? 1,
         limit: query.limit ?? 10,
       }),

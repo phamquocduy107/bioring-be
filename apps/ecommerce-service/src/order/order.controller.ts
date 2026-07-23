@@ -61,11 +61,17 @@ export class OrderController {
   }
 
   @GrpcMethod('EcommerceService', 'GetMyOrders')
-  async getMyOrders(data: { page?: number; limit?: number; userId?: string }) {
+  async getMyOrders(data: {
+    page?: number;
+    limit?: number;
+    userId?: string;
+    customerEmail?: string;
+  }) {
     return this.orderService.getMyOrders(
       data.userId ?? '',
       data.page ?? 1,
       data.limit ?? 10,
+      data.customerEmail,
     );
   }
 

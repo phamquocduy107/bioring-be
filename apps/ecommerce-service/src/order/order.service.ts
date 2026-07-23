@@ -185,14 +185,44 @@ export class OrderService implements OnModuleInit {
     return { order: await this.mapOrderFull(order) };
   }
 
-  async getMyOrders(userId: string, page: number, limit: number) {
-    if (!userId) {
-      throw new BadRequestException('userId is required');
-    }
+  async getMyOrders(
+    userId: string,
+    page: number,
+    limit: number,
+    customerEmail?: string,
+  ) {
     const skip = (page - 1) * limit;
+    let where: Prisma.ordersWhereInput = { user_id: userId };
+
+    if (customerEmail && customerEmail.trim()) {
+      const email = customerEmail.trim();
+      const [user, guest] = await Promise.all([
+        this.prisma.users.findUnique({
+          where: { email },
+          select: { id: true },
+        }),
+        this.prisma.guest_customers.findFirst({
+          where: { email },
+          select: { id: true },
+        }),
+      ]);
+
+      const orConditions: Prisma.ordersWhereInput[] = [];
+      if (user) orConditions.push({ user_id: user.id });
+      if (guest) orConditions.push({ guest_customer_id: guest.id });
+
+      if (orConditions.length > 0) {
+        where = { OR: orConditions };
+      } else {
+        return { orders: [], total: 0, page, limit };
+      }
+    } else if (!userId) {
+      throw new BadRequestException('userId or customerEmail is required');
+    }
+
     const [orders, total] = await Promise.all([
       this.prisma.orders.findMany({
-        where: { user_id: userId },
+        where,
         orderBy: { created_at: 'desc' },
         skip,
         take: limit,
@@ -200,7 +230,7 @@ export class OrderService implements OnModuleInit {
           payments: true,
         },
       }),
-      this.prisma.orders.count({ where: { user_id: userId } }),
+      this.prisma.orders.count({ where }),
     ]);
 
     return {

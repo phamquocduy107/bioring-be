@@ -32,6 +32,7 @@ export class CatalogService {
     limit?: number;
     materialId?: string;
     maxPrice?: number;
+    search?: string;
   }) {
     const page = data.page ?? 1;
     const limit = data.limit ?? 10;
@@ -40,6 +41,18 @@ export class CatalogService {
     const where: Prisma.productsWhereInput = { is_active: true };
     if (data.materialId) where.base_material_id = data.materialId;
     if (data.maxPrice) where.base_price = { lte: data.maxPrice };
+    if (data.search && data.search.trim()) {
+      const searchTrim = data.search.trim();
+      const isUuid =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          searchTrim,
+        );
+      where.OR = [
+        { name: { contains: searchTrim, mode: 'insensitive' } },
+        { description: { contains: searchTrim, mode: 'insensitive' } },
+        ...(isUuid ? [{ id: searchTrim }] : []),
+      ];
+    }
 
     const [products, total] = await Promise.all([
       this.prisma.products.findMany({

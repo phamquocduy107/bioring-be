@@ -197,6 +197,7 @@ message GetProductsRequest {
   int32 limit = 2;
   string materialId = 3;
   double maxPrice = 4;
+  optional string search = 5;
 }
 
 message GetProductsResponse {
@@ -428,6 +429,7 @@ message GetMyOrdersRequest {
   int32 page = 1;
   int32 limit = 2;
   string userId = 3;
+  optional string customerEmail = 4;
 }
 
 message GetMyOrdersResponse {
