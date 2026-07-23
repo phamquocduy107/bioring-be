@@ -32,6 +32,7 @@ import {
   BIOMETRIC_MAX_UPLOAD_BYTES,
   Permission,
   Permissions,
+  SkipTimeout,
 } from '@app/common';
 import type { JwtPayload } from '@app/common';
 import {
@@ -192,6 +193,7 @@ export class EngravingController implements OnModuleInit {
   }
 
   @Post(':id/biometrics')
+  @SkipTimeout()
   @Permissions(Permission.OrderWrite)
   @ApiAttachBiometricDocs()
   @UseInterceptors(

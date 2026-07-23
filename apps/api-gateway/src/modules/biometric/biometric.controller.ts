@@ -5,6 +5,7 @@ import {
   Permission,
   Permissions,
   ProcessSoundwaveDto,
+  SkipTimeout,
   type JwtPayload,
 } from '@app/common';
 import {
@@ -66,6 +67,7 @@ export class AdminBiometricAssetsController {
   constructor(private readonly biometricService: BiometricService) {}
 
   @Post('fingerprint')
+  @SkipTimeout()
   @Permissions(Permission.OrderWrite)
   @UseInterceptors(
     FileInterceptor('file', {
@@ -88,6 +90,7 @@ export class AdminBiometricAssetsController {
   }
 
   @Post('soundwave')
+  @SkipTimeout()
   @Permissions(Permission.OrderWrite)
   @UseInterceptors(
     FileInterceptor('file', {
@@ -116,6 +119,7 @@ export class AdminBiometricAssetsController {
   }
 
   @Post('heartbeat')
+  @SkipTimeout()
   @Permissions(Permission.OrderWrite)
   @UseInterceptors(
     FileInterceptor('file', {
@@ -138,6 +142,7 @@ export class AdminBiometricAssetsController {
   }
 
   @Post(':assetId/reprocess')
+  @SkipTimeout()
   @Permissions(Permission.OrderWrite)
   @ApiAdminReprocessBiometricAssetDocs()
   reprocess(
@@ -151,6 +156,7 @@ export class AdminBiometricAssetsController {
   }
 
   @Post(':assetId/textures')
+  @SkipTimeout()
   @Permissions(Permission.OrderWrite)
   @ApiAdminRegenerateBiometricTexturesDocs()
   regenerateTextures(
@@ -166,6 +172,7 @@ export class AdminBiometricAssetsController {
   }
 
   @Post(':assetId/approve')
+  @SkipTimeout()
   @Permissions(Permission.OrderWrite)
   @ApiAdminApproveBiometricAssetDocs()
   approve(
@@ -237,6 +244,7 @@ export class MeEngravingBiometricsController {
   }
 
   @Post(':engravingId/biometrics')
+  @SkipTimeout()
   @UseInterceptors(
     FileInterceptor('file', {
       limits: { fileSize: BIOMETRIC_MAX_UPLOAD_BYTES },
