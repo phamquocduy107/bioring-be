@@ -392,9 +392,13 @@ Route prefix: `biometric`
 **Response:**
 ```json
 {
-  "status": "ok",
-  "message": "API Gateway is healthy",
-  "timestamp": "2026-06-24T10:00:00.000Z"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "status": "ok",
+    "message": "API Gateway is healthy",
+    "timestamp": "2026-06-24T10:00:00.000Z"
+  }
 }
 ```
 
@@ -407,9 +411,13 @@ Route prefix: `biometric`
 **Response:**
 ```json
 {
-  "pong": true,
-  "receivedAt": "2026-06-24T10:00:00.000Z",
-  "data": "ping from api-gateway"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "pong": true,
+    "receivedAt": "2026-06-24T10:00:00.000Z",
+    "data": "ping from api-gateway"
+  }
 }
 ```
 
@@ -425,12 +433,50 @@ Route prefix: `api/v1/admin/biometric-assets`
 **Description:** Upload & process fingerprint image (stage `REVIEW`)
 
 **Request:** `multipart/form-data`
-- `file`: Image binary (`png`/`jpeg`)
+- `file`: Image binary (`png`/`jpeg`), giới hạn 10MB.
 
 **Response:**
 ```json
 {
-  "assetJson": "{\"id\":\"...\",\"artifactId\":\"fp_...\",\"assetType\":\"fingerprint\",\"status\":\"READY_FOR_REVIEW\",\"reviewFiles\":{...}}"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "asset": {
+      "assetId": "468e8d1c-bc28-40dc-bb4d-bb70ab2b7c9a",
+      "artifactId": "fp_210f361e-1c11-4024-97c6-c30b08360580",
+      "status": "READY_FOR_REVIEW",
+      "reviewFiles": {
+        "viewerFiles": {
+          "overlayPng": "...",
+          "alphaMap": "...",
+          "heightmap": "...",
+          "normalMap": "...",
+          "roughnessMap": "...",
+          "aoMap": "..."
+        },
+        "productionFiles": {
+          "svg": "..."
+        },
+        "sourceFiles": {
+          "raw": "..."
+        },
+        "debugFiles": {
+          "previewPng": "..."
+        }
+      },
+      "manifestUrl": "http://...",
+      "viewerFiles": {
+        "overlayPng": "...",
+        "alphaMap": "...",
+        "heightmap": "...",
+        "normalMap": "...",
+        "roughnessMap": "...",
+        "aoMap": "..."
+      },
+      "createdAt": "2026-07-23T15:12:08.037Z",
+      "updatedAt": "2026-07-23T15:12:09.582Z"
+    }
+  }
 }
 ```
 
@@ -443,7 +489,15 @@ Route prefix: `api/v1/admin/biometric-assets`
 **Response:**
 ```json
 {
-  "presetsJson": "{\"standard\":{...},\"keep_ridges\":{...}}"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "presets": [
+      { "name": "standard" },
+      { "name": "keep_ridges" }
+    ],
+    "parameterGuide": {}
+  }
 }
 ```
 
@@ -454,14 +508,56 @@ Route prefix: `api/v1/admin/biometric-assets`
 **Description:** Upload & process soundwave audio (stage `REVIEW`)
 
 **Request:** `multipart/form-data`
-- `file`: Audio binary (`mp3`/`wav`/`m4a`)
-- `segmentStartMs` (optional): number (default 0)
-- `segmentDurationMs` (optional): number (default 3000)
+- `file`: Audio binary (`mp3`/`wav`/`m4a`), giới hạn 10MB.
+- `segmentStartMs` (optional): number (Integer, $\ge 0$, default `0`).
+- `segmentDurationMs` (optional): number (Integer, $1 \le x \le 3000$, default `3000`). Trích xuất đoạn audio tối đa 3 giây.
 
 **Response:**
 ```json
 {
-  "assetJson": "{\"id\":\"...\",\"artifactId\":\"sw_...\",\"assetType\":\"soundwave\",\"status\":\"READY_FOR_REVIEW\",\"reviewFiles\":{...}}"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "asset": {
+      "assetId": "468e8d1c-bc28-40dc-bb4d-bb70ab2b7c9a",
+      "artifactId": "sw_210f361e-1c11-4024-97c6-c30b08360580",
+      "status": "READY_FOR_REVIEW",
+      "reviewFiles": {
+        "viewerFiles": {
+          "overlayPng": "...",
+          "alphaMap": "...",
+          "heightmap": "...",
+          "normalMap": "...",
+          "roughnessMap": "...",
+          "aoMap": "..."
+        },
+        "productionFiles": {
+          "svg": "...",
+          "waveformPoints": "...",
+          "audioOriginal": "...",
+          "audioSegment": "..."
+        },
+        "sourceFiles": {
+          "raw": "..."
+        },
+        "debugFiles": {
+          "previewPng": "...",
+          "segmentWav": "..."
+        }
+      },
+      "manifestUrl": "http://...",
+      "viewerFiles": {
+        "overlayPng": "...",
+        "alphaMap": "...",
+        "heightmap": "...",
+        "normalMap": "...",
+        "roughnessMap": "...",
+        "aoMap": "..."
+      },
+      "createdAt": "2026-07-23T15:12:08.037Z",
+      "updatedAt": "2026-07-23T15:12:09.582Z"
+    }
+  }
 }
 ```
 
@@ -474,7 +570,15 @@ Route prefix: `api/v1/admin/biometric-assets`
 **Response:**
 ```json
 {
-  "presetsJson": "{\"standard\":{...},\"ridge\":{...}}"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "presets": [
+      { "name": "standard" },
+      { "name": "ridge" }
+    ],
+    "parameterGuide": {}
+  }
 }
 ```
 
@@ -490,7 +594,22 @@ Route prefix: `api/v1/admin/biometric-assets`
 **Response:**
 ```json
 {
-  "assetJson": "{\"id\":\"...\",\"assetType\":\"heartbeat\",\"status\":\"ASSET_APPROVED\"}"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "asset": {
+      "assetId": "468e8d1c-bc28-40dc-bb4d-bb70ab2b7c9a",
+      "artifactId": "hb_210f361e-1c11-4024-97c6-c30b08360580",
+      "status": "ASSET_APPROVED",
+      "reviewFiles": null,
+      "manifestUrl": "http://...",
+      "viewerFiles": {
+        "overlayPng": "..."
+      },
+      "createdAt": "2026-07-23T15:12:08.037Z",
+      "updatedAt": "2026-07-23T15:12:09.582Z"
+    }
+  }
 }
 ```
 
@@ -503,7 +622,49 @@ Route prefix: `api/v1/admin/biometric-assets`
 **Response:**
 ```json
 {
-  "assetJson": "{\"id\":\"...\",\"status\":\"READY_FOR_REVIEW\",...}"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "asset": {
+      "assetId": "468e8d1c-bc28-40dc-bb4d-bb70ab2b7c9a",
+      "artifactId": "...",
+      "status": "READY_FOR_REVIEW",
+      "reviewFiles": {
+        "viewerFiles": {
+          "overlayPng": "http://...",
+          "alphaMap": "http://...",
+          "heightmap": "http://...",
+          "normalMap": "http://...",
+          "roughnessMap": "http://...",
+          "aoMap": "http://..."
+        },
+        "productionFiles": {
+          "svg": "http://...",
+          "waveformPoints": "http://...",
+          "audioOriginal": "http://...",
+          "audioSegment": "http://..."
+        },
+        "sourceFiles": {
+          "raw": "http://..."
+        },
+        "debugFiles": {
+          "previewPng": "http://...",
+          "segmentWav": "http://..."
+        }
+      },
+      "manifestUrl": "http://...",
+      "viewerFiles": {
+        "overlayPng": "http://...",
+        "alphaMap": "http://...",
+        "heightmap": "http://...",
+        "normalMap": "http://...",
+        "roughnessMap": "http://...",
+        "aoMap": "http://..."
+      },
+      "createdAt": "2026-07-23T15:12:08.037Z",
+      "updatedAt": "2026-07-23T15:12:09.582Z"
+    }
+  }
 }
 ```
 
@@ -517,14 +678,59 @@ Route prefix: `api/v1/admin/biometric-assets`
 ```json
 {
   "preset": "keep_ridges",
-  "minArea": 8
+  "threshold": 128
 }
 ```
+*Chi tiết Request Body:*
+- `preset`: string (Tùy chọn). Tên của processing preset.
+- `threshold`: number (Tùy chọn). Ngưỡng binarization (chỉ dùng cho Fingerprint).
 
 **Response:**
 ```json
 {
-  "assetJson": "{\"id\":\"...\",\"status\":\"READY_FOR_REVIEW\",...}"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "asset": {
+      "assetId": "468e8d1c-bc28-40dc-bb4d-bb70ab2b7c9a",
+      "artifactId": "...",
+      "status": "READY_FOR_REVIEW",
+      "reviewFiles": {
+        "viewerFiles": {
+          "overlayPng": "http://...",
+          "alphaMap": "http://...",
+          "heightmap": "http://...",
+          "normalMap": "http://...",
+          "roughnessMap": "http://...",
+          "aoMap": "http://..."
+        },
+        "productionFiles": {
+          "svg": "http://...",
+          "waveformPoints": "http://...",
+          "audioOriginal": "http://...",
+          "audioSegment": "http://..."
+        },
+        "sourceFiles": {
+          "raw": "http://..."
+        },
+        "debugFiles": {
+          "previewPng": "http://...",
+          "segmentWav": "http://..."
+        }
+      },
+      "manifestUrl": "http://...",
+      "viewerFiles": {
+        "overlayPng": "http://...",
+        "alphaMap": "http://...",
+        "heightmap": "http://...",
+        "normalMap": "http://...",
+        "roughnessMap": "http://...",
+        "aoMap": "http://..."
+      },
+      "createdAt": "2026-07-23T15:12:08.037Z",
+      "updatedAt": "2026-07-23T15:12:09.582Z"
+    }
+  }
 }
 ```
 
@@ -544,7 +750,49 @@ Route prefix: `api/v1/admin/biometric-assets`
 **Response:**
 ```json
 {
-  "assetJson": "{\"id\":\"...\",\"status\":\"READY_FOR_REVIEW\",...}"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "asset": {
+      "assetId": "468e8d1c-bc28-40dc-bb4d-bb70ab2b7c9a",
+      "artifactId": "...",
+      "status": "READY_FOR_REVIEW",
+      "reviewFiles": {
+        "viewerFiles": {
+          "overlayPng": "http://...",
+          "alphaMap": "http://...",
+          "heightmap": "http://...",
+          "normalMap": "http://...",
+          "roughnessMap": "http://...",
+          "aoMap": "http://..."
+        },
+        "productionFiles": {
+          "svg": "http://...",
+          "waveformPoints": "http://...",
+          "audioOriginal": "http://...",
+          "audioSegment": "http://..."
+        },
+        "sourceFiles": {
+          "raw": "http://..."
+        },
+        "debugFiles": {
+          "previewPng": "http://...",
+          "segmentWav": "http://..."
+        }
+      },
+      "manifestUrl": "http://...",
+      "viewerFiles": {
+        "overlayPng": "http://...",
+        "alphaMap": "http://...",
+        "heightmap": "http://...",
+        "normalMap": "http://...",
+        "roughnessMap": "http://...",
+        "aoMap": "http://..."
+      },
+      "createdAt": "2026-07-23T15:12:08.037Z",
+      "updatedAt": "2026-07-23T15:12:09.582Z"
+    }
+  }
 }
 ```
 
@@ -561,11 +809,34 @@ Route prefix: `api/v1/admin/biometric-assets`
   "copyDebugFiles": false
 }
 ```
+*Chi tiết Request Body:*
+- `note`: string (Tùy chọn). Ghi chú của Staff khi duyệt chất lượng.
+- `copyDebugFiles`: boolean (Tùy chọn, default `false`). Copy các debug/work files vào stage APPROVED (thường chỉ dùng cho Fingerprint pipeline).
 
 **Response:**
 ```json
 {
-  "assetJson": "{\"id\":\"...\",\"status\":\"ASSET_APPROVED\",...}"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "asset": {
+      "assetId": "468e8d1c-bc28-40dc-bb4d-bb70ab2b7c9a",
+      "artifactId": "...",
+      "status": "ASSET_APPROVED",
+      "reviewFiles": null,
+      "manifestUrl": "http://...",
+      "viewerFiles": {
+        "overlayPng": "http://...",
+        "alphaMap": "http://...",
+        "heightmap": "http://...",
+        "normalMap": "http://...",
+        "roughnessMap": "http://...",
+        "aoMap": "http://..."
+      },
+      "createdAt": "2026-07-23T15:12:08.037Z",
+      "updatedAt": "2026-07-23T15:12:09.582Z"
+    }
+  }
 }
 ```
 
@@ -582,11 +853,33 @@ Route prefix: `api/v1/admin/biometric-assets`
   "userId": "550e8400-e29b-41d4-a716-446655440002"
 }
 ```
+*Chi tiết Request Body:*
+- `engravingId`: UUID v4 (Bắt buộc). ID của bản khắc cần gán.
+- `userId`: UUID v4 (Tùy chọn). ID của customer. Nếu không truyền, hệ thống sẽ tự động suy ra từ `engravingId`.
 
 **Response:**
 ```json
 {
-  "assetJson": "{\"id\":\"...\",\"assigned_user_id\":\"...\",...}"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "asset": {
+      "assetId": "468e8d1c-bc28-40dc-bb4d-bb70ab2b7c9a",
+      "assigned_user_id": "...",
+      "status": "ASSET_APPROVED",
+      "manifestUrl": "http://...",
+      "viewerFiles": {
+        "overlayPng": "http://...",
+        "alphaMap": "http://...",
+        "heightmap": "http://...",
+        "normalMap": "http://...",
+        "roughnessMap": "http://...",
+        "aoMap": "http://..."
+      },
+      "createdAt": "2026-07-23T15:12:08.037Z",
+      "updatedAt": "2026-07-23T15:12:09.582Z"
+    }
+  }
 }
 ```
 
@@ -603,7 +896,26 @@ Route prefix: `api/v1/me`
 **Response:**
 ```json
 {
-  "assetJson": "{\"artifactId\":\"...\",\"viewerFiles\":{\"overlayPng\":\"...\",\"normalMap\":\"...\"}}"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "asset": {
+      "assetId": "468e8d1c-bc28-40dc-bb4d-bb70ab2b7c9a",
+      "artifactId": "...",
+      "status": "ASSET_APPROVED",
+      "manifestUrl": "http://...",
+      "viewerFiles": {
+        "overlayPng": "...",
+        "alphaMap": "...",
+        "heightmap": "...",
+        "normalMap": "...",
+        "roughnessMap": "...",
+        "aoMap": "..."
+      },
+      "createdAt": "2026-07-23T15:12:08.037Z",
+      "updatedAt": "2026-07-23T15:12:09.582Z"
+    }
+  }
 }
 ```
 
@@ -616,14 +928,101 @@ Route prefix: `api/v1/me`
 **Request:**
 ```json
 {
-  "placement": { "x": 0.5, "y": 0.3, "rotation": 45, "scale": 1.0 }
+  "modelCode": "RING-CLASSIC-01",
+  "surface": "outer",
+  "placement": { "rotation": 45, "scale": 1.0, "offsetU": 0.1, "offsetV": -0.05 }
 }
 ```
+*Chi tiết Request Body:*
+- `modelCode`: string (Bắt buộc). Mã model 3D đang dùng.
+- `surface`: string (Bắt buộc). Bề mặt nhẫn (vd: `outer`, `inner`).
+- `placement`: Object (Bắt buộc). Chứa thông tin transform (rotation, scale, UV offsets).
 
 **Response:**
 ```json
 {
-  "assetJson": "{\"id\":\"...\",\"status\":\"PLACEMENT_CONFIRMED\",...}"
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "asset": {
+      "assetId": "468e8d1c-bc28-40dc-bb4d-bb70ab2b7c9a",
+      "status": "PLACEMENT_CONFIRMED",
+      "manifestUrl": "http://...",
+      "viewerFiles": {
+        "overlayPng": "http://...",
+        "alphaMap": "http://...",
+        "heightmap": "http://...",
+        "normalMap": "http://...",
+        "roughnessMap": "http://...",
+        "aoMap": "http://..."
+      },
+      "createdAt": "2026-07-23T15:12:08.037Z",
+      "updatedAt": "2026-07-23T15:12:09.582Z"
+    }
+  }
+}
+```
+
+---
+
+### 21m. GET `/api/v1/me/engravings/:engravingId/biometrics`
+**Auth:** Bearer token (Customer)
+**Description:** Customer — danh sách biometric checklist của engraving
+
+**Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "biometrics": [
+      {
+        "id": "550e8400-e29b-41d4-a716-446655440005",
+        "engravingId": "...",
+        "biometricType": "FP",
+        "requiredChannel": "ONLINE",
+        "biometricAssetId": "468e8d1c-bc28-40dc-bb4d-bb70ab2b7c9a",
+        "rawFileUrl": "http://...",
+        "processedSvgUrl": "http://...",
+        "status": "CAPTURED",
+        "artifactId": "fp_210f361e-1c11-4024-97c6-c30b08360580",
+        "extraData": {}
+      }
+    ]
+  }
+}
+```
+
+---
+
+### 21n. POST `/api/v1/me/engravings/:engravingId/biometrics`
+**Auth:** Bearer token (Customer)
+**Description:** Customer — gắn biometric vào engraving (Workflow B)
+
+**Request:** `multipart/form-data`
+- `file`: Ảnh tĩnh biometric (Vân tay/Âm thanh...), Max 10MB.
+- `biometricType`: string. Thuộc enum `['SW', 'FP', 'HB']` (Bắt buộc).
+- `extraData`: JSON string (Tùy chọn). Chứa thông số bổ sung. Ví dụ với âm thanh (SW) có thể truyền `{"startMs":0,"endMs":1000}` để crop audio.
+
+**Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "biometric": {
+      "id": "550e8400-e29b-41d4-a716-446655440005",
+      "engravingId": "...",
+      "biometricType": "FP",
+      "requiredChannel": "ONLINE",
+      "biometricAssetId": "468e8d1c-bc28-40dc-bb4d-bb70ab2b7c9a",
+      "rawFileUrl": "http://...",
+      "processedSvgUrl": "http://...",
+      "status": "CAPTURED",
+      "artifactId": "fp_210f361e-1c11-4024-97c6-c30b08360580",
+      "extraData": {}
+    }
+  }
 }
 ```
 
@@ -633,29 +1032,33 @@ Route prefix: `api/v1/me`
 
 Route prefix: `/api/v1/ring-sizes` hoặc `/api/v1/me/ring-sizes`
 
-### 21m. GET `/api/v1/ring-sizes`
+### 21o. GET `/api/v1/ring-sizes`
 **Auth:** Bearer token (Customer)
 **Description:** Lấy danh sách kết quả đo/hồ sơ size nhẫn đã lưu của người dùng.
 
 **Response:**
 ```json
 {
-  "ringSizes": [
-    {
-      "id": "550e8400-e29b-41d4-a716-446655440000",
-      "label": "Ngón áp út tay trái",
-      "handSide": "LEFT",
-      "fingerType": "RING",
-      "sizeSystem": "VN",
-      "ringSize": "7",
-      "diameterMm": 17.3,
-      "circumferenceMm": 54.4,
-      "measurementMethod": "PAPER_STRIP",
-      "measurementSource": "SELF",
-      "isDefault": true,
-      "createdAt": "2026-07-23T10:00:00.000Z"
-    }
-  ]
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "ringSizes": [
+      {
+        "id": "550e8400-e29b-41d4-a716-446655440000",
+        "label": "Ngón áp út tay trái",
+        "handSide": "LEFT",
+        "fingerType": "RING",
+        "sizeSystem": "VN",
+        "ringSize": "7",
+        "diameterMm": 17.3,
+        "circumferenceMm": 54.4,
+        "measurementMethod": "PAPER_STRIP",
+        "measurementSource": "SELF",
+        "isDefault": true,
+        "createdAt": "2026-07-23T10:00:00.000Z"
+      }
+    ]
+  }
 }
 ```
 
@@ -685,10 +1088,14 @@ Route prefix: `/api/v1/ring-sizes` hoặc `/api/v1/me/ring-sizes`
 **Response:**
 ```json
 {
-  "ringSize": {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
-    "ringSize": "7",
-    "isDefault": true
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "ringSize": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "ringSize": "7",
+      "isDefault": true
+    }
   }
 }
 ```
@@ -708,7 +1115,11 @@ Route prefix: `/api/v1/ring-sizes` hoặc `/api/v1/me/ring-sizes`
 **Response:**
 ```json
 {
-  "success": true
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "success": true
+  }
 }
 ```
 
@@ -718,34 +1129,14 @@ Route prefix: `/api/v1/ring-sizes` hoặc `/api/v1/me/ring-sizes`
 **Auth:** Bearer token (Customer)
 **Description:** Đặt bản ghi size nhẫn làm mặc định cho người dùng.
 
-### 21r. GET `/api/v1/me/engravings/:engravingId/biometrics`
-**Auth:** Bearer token (Customer)
-**Description:** List biometrics attached to an engraving
-
 **Response:**
 ```json
 {
-  "biometrics": [
-    { "id": "...", "biometricType": "FP", "status": "CAPTURED", "processedSvgUrl": "..." }
-  ]
-}
-```
-
----
-
-### 21n. POST `/api/v1/me/engravings/:engravingId/biometrics`
-**Auth:** Bearer token (Customer)
-**Description:** Upload biometric file for customer's engraving
-
-**Request:** `multipart/form-data`
-- `file`: Binary file
-- `biometricType`: `FP` / `SW` / `HB`
-- `extraData`: JSON string
-
-**Response:**
-```json
-{
-  "biometric": { "id": "...", "biometricType": "FP", "status": "CAPTURED" }
+  "statusCode": 200,
+  "message": "Success",
+  "data":   {
+    "success": true
+  }
 }
 ```
 
@@ -3407,7 +3798,7 @@ IN_SERVICE → COMPLETED                  (return, sau khi ticket completed)
 | Identity | Auth | 5 |
 | Identity | Users | 7 |
 | Identity | RBAC | 7 |
-| Biometric | Biometric | 2 |
+| Biometric | Biometric | 14 |
 | Ecommerce | Catalog | 7 |
 | Ecommerce | Design | 5 |
 | Ecommerce | Engraving | 7 |
@@ -3426,3 +3817,4 @@ IN_SERVICE → COMPLETED                  (return, sau khi ticket completed)
 | Ecommerce | Jeweler | 1 |
 | Track | Track | 1 |
 | **Total** | **21 controllers** | **120 endpoints** |
+
