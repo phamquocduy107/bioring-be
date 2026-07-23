@@ -12,7 +12,10 @@ export class CreateAddressDto {
   @IsNotEmpty()
   phone!: string;
 
-  @ApiProperty({ description: 'Full address', example: '123 Nguyen Hue, Bến Nghé' })
+  @ApiProperty({
+    description: 'Full address',
+    example: '123 Nguyen Hue, Bến Nghé',
+  })
   @IsString()
   @IsNotEmpty()
   fullAddress!: string;
@@ -32,7 +35,10 @@ export class CreateAddressDto {
   @IsString()
   province?: string;
 
-  @ApiPropertyOptional({ description: 'Set as default address', example: false })
+  @ApiPropertyOptional({
+    description: 'Set as default address',
+    example: false,
+  })
   @IsOptional()
   @IsBoolean()
   isDefault?: boolean;

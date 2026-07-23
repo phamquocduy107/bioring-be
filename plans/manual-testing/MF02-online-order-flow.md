@@ -242,19 +242,28 @@ Ghi nhớ `ORDER_ID`. Order ở `AWAITING_SUBMIT` — không edit được gì n
 
 ## 6. Upload audio biometric + chọn segment
 
-> Sau tạo order, user ghi âm → upload raw audio lên Cloudinary → gọi POST biometrics.
-> `rawFileUrl` lưu toàn bộ audio gốc (dùng cho mem card). `extraData` chứa segment để xử lý khắc.
+> Sau tạo order, user ghi âm → upload file audio trực tiếp qua multipart `POST /api/v1/engravings/:id/biometrics`.
+> Server gửi file sang Personalization Engine xử lý & lưu trên MinIO (stage `REVIEW`), tự động gán `biometricAssetId` và sinh `processedSvgUrl` (Waveform SVG).
 
 ```http
 POST /api/v1/engravings/ENGRAVING_ID/biometrics
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
-Content-Type: application/json
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
 
-{
-  "biometricType": "SW",
-  "rawFileUrl": "https://res.cloudinary.com/dpm0zc06s/video/upload/v1782360241/hn8hyejtzt6h0tqo25ns.mp3",
-  "extraData": "{\"startMs\":2000,\"endMs\":5000}"
-}
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="voice.mp3"
+Content-Type: audio/mp3
+
+<binary audio content>
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="biometricType"
+
+SW
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="extraData"
+
+{"startMs":2000,"endMs":5000}
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
 ```
 
 **Response mẫu:**
@@ -265,15 +274,16 @@ Content-Type: application/json
     "engravingId": "ENGRAVING_ID",
     "biometricType": "SW",
     "requiredChannel": "ENGRAVING",
-    "rawFileUrl": "https://res.cloudinary.com/.../audio.mp3",
-    "processedSvgUrl": "https://res.cloudinary.com/.../waveform.svg",
+    "rawFileUrl": "http://localhost:9000/bioring-personalization/personalization/review/soundwave/sw_12345/audio_original.mp3",
+    "processedSvgUrl": "http://localhost:9000/bioring-personalization/personalization/review/soundwave/sw_12345/soundwave.svg",
+    "biometricAssetId": "ASSET_ID_001",
     "extraData": "{\"startMs\":2000,\"endMs\":5000}",
     "status": "CAPTURED"
   }
 }
 ```
 
-> Server nhận `rawFileUrl`, gọi Python service xử lý waveform → trả về `processedSvgUrl` (SVG đã xử lý). Cả raw (dùng cho mem card) và processed (dùng cho engraving) đều được lưu.
+> Server nhận file qua multipart, gọi Python Personalization Engine xử lý waveform → tạo `biometric_assets` record & trả về `processedSvgUrl` (SVG đã xử lý). Cả raw audio (dùng cho mem card) và processed SVG (dùng cho khắc) đều được lưu.
 > FE có thể gọi GET engraving → thấy `engraving_biometrics` list → render SW vào vị trí đã đặt.
 
 ---
@@ -581,8 +591,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 ## 13. Chọn phương thức nhận hàng (Delivery Preference)
 
-> Sau deposit, customer chọn địa chỉ + phương thức nhận hàng.
-> Lưu vào `shipments` với `status = 'PENDING'`. Order **giữ nguyên** `AWAITING_REMAINING`.
+> Khi nhẫn đã hoàn thiện chế tác và chuyển sang bước tất toán phần tiền còn lại (`AWAITING_REMAINING` hoặc `READY_FOR_DELIVERY`), customer chọn địa chỉ + phương thức nhận hàng (DELIVERY từ danh bạ địa chỉ hoặc PICKUP tại cửa hàng).
+> Lưu vào `shipments` với `status = 'PENDING'`. Order chuyển sang `READY_FOR_DELIVERY` (hoặc `READY_FOR_PICKUP`) sau khi thanh toán REMAINING hoàn tất.
 
 ```http
 POST /api/v1/orders/ORDER_ID/delivery-preference
@@ -713,35 +723,31 @@ Nếu đã thanh toán hết → order → `READY_FOR_DELIVERY` (hoặc `READY_F
      │                    ▼
      │              PayOS webhook → DEPOSIT_PAID
      │                    │
+     │                    ▼
+     │              POST assign-jeweler → IN_PRODUCTION
+     │                    │
+     │                    ▼
+     │              PUT production status → COMPLETED → PENDING_QC
+     │                    │
+     │                    ▼
+     │              PUT /orders/:id/qc-accept (PASS) → AWAITING_REMAINING
+     │                    │
      │                    ├── [NEW] GET/POST/PUT/DELETE /api/v1/addresses
-     │                    │         (quản lý địa chỉ giao hàng)
+     │                    │         (quản lý danh bạ địa chỉ giao hàng)
      │                    │
      │                    ├── [NEW] POST /orders/:id/delivery-preference
      │                    │         { addressId, method: DELIVERY|PICKUP }
      │                    │         → shipments PENDING
      │                    │
      │                    ▼
-     │              POST assign-jeweler → IN_PRODUCTION
+     │              POST initiatePayment (REMAINING)
      │                    │
      │                    ▼
-              │              PUT production status → COMPLETED → PENDING_QC
-              │                    │
-              │                    ▼
-              │              PUT /orders/:id/qc-accept (PASS)
-              │                    │
-              │                    ├── còn nợ → AWAITING_REMAINING
-              │                    │         │
-              │                    │         ▼
-              │                    │    POST initiatePayment (REMAINING)
-              │                    │         │
-              │                    │         ▼
-              │                    │    PayOS webhook
-              │                    │         │
-              │                    │         ├── có shipment PENDING → ACTIVE
-              │                    │         │
-              │                    │         ├── method DELIVERY → READY_FOR_DELIVERY
-              │                    │         │
-              │                    │         └── method PICKUP → READY_FOR_PICKUP
-              │                    │
-              │                    └── hết nợ → READY_FOR_DELIVERY / READY_FOR_PICKUP
+     │              PayOS webhook
+     │                    │
+     │                    ├── có shipment PENDING → ACTIVE
+     │                    │
+     │                    ├── method DELIVERY → READY_FOR_DELIVERY
+     │                    │
+     │                    └── method PICKUP → READY_FOR_PICKUP
 ```

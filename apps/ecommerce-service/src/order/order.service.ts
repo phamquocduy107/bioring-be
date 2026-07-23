@@ -736,9 +736,10 @@ export class OrderService implements OnModuleInit {
             where: { id: pendingShipment.id },
             data: { status: 'ACTIVE' },
           });
-          newStatus = pendingShipment.delivery_method === 'PICKUP'
-            ? 'READY_FOR_PICKUP'
-            : 'READY_FOR_DELIVERY';
+          newStatus =
+            pendingShipment.delivery_method === 'PICKUP'
+              ? 'READY_FOR_PICKUP'
+              : 'READY_FOR_DELIVERY';
         } else {
           newStatus = 'READY_FOR_DELIVERY';
         }
@@ -1421,14 +1422,20 @@ export class OrderService implements OnModuleInit {
     return { order: await this.mapOrder(updated) };
   }
 
-  async saveDeliveryPreference(orderId: string, addressId: string, method: string) {
+  async saveDeliveryPreference(
+    orderId: string,
+    addressId: string,
+    method: string,
+  ) {
     const order = await this.prisma.orders.findUnique({
       where: { id: orderId },
     });
     if (!order) throw new NotFoundException('Order not found');
 
     if (order.status !== 'AWAITING_REMAINING') {
-      throw new BadRequestException('Delivery preference can only be set when order is AWAITING_REMAINING');
+      throw new BadRequestException(
+        'Delivery preference can only be set when order is AWAITING_REMAINING',
+      );
     }
 
     const existing = await this.prisma.shipments.findFirst({

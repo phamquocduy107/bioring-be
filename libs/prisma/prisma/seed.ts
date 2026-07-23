@@ -15,6 +15,7 @@ async function main() {
         color: 'Vàng',
         current_price_per_gram: 1200000,
         stock_gram: 5000,
+        render_config: { colorHex: '#F3C06B', roughness: 0.25, metalness: 0.9 },
       },
     }),
     prisma.materials.create({
@@ -25,6 +26,7 @@ async function main() {
         color: 'Vàng',
         current_price_per_gram: 1600000,
         stock_gram: 3000,
+        render_config: { colorHex: '#FFD700', roughness: 0.2, metalness: 0.95 },
       },
     }),
     prisma.materials.create({
@@ -35,6 +37,11 @@ async function main() {
         color: 'Trắng',
         current_price_per_gram: 1800000,
         stock_gram: 2000,
+        render_config: {
+          colorHex: '#E8E8E8',
+          roughness: 0.15,
+          metalness: 0.95,
+        },
       },
     }),
     prisma.materials.create({
@@ -45,6 +52,7 @@ async function main() {
         color: 'Bạc',
         current_price_per_gram: 300000,
         stock_gram: 10000,
+        render_config: { colorHex: '#C0C0C0', roughness: 0.3, metalness: 0.85 },
       },
     }),
     prisma.materials.create({
@@ -55,6 +63,7 @@ async function main() {
         color: 'Trắng bạch kim',
         current_price_per_gram: 2500000,
         stock_gram: 1000,
+        render_config: { colorHex: '#E5E4E2', roughness: 0.1, metalness: 0.98 },
       },
     }),
   ]);
@@ -75,6 +84,11 @@ async function main() {
         price: 15000000,
         stock_quantity: 50,
         is_available: true,
+        render_config: {
+          colorHex: '#FFFFFF',
+          refractiveIndex: 2.42,
+          dispersion: 0.044,
+        },
       },
     }),
     prisma.gemstones.create({
@@ -89,6 +103,11 @@ async function main() {
         price: 35000000,
         stock_quantity: 30,
         is_available: true,
+        render_config: {
+          colorHex: '#F0F8FF',
+          refractiveIndex: 2.42,
+          dispersion: 0.044,
+        },
       },
     }),
     prisma.gemstones.create({
@@ -103,6 +122,11 @@ async function main() {
         price: 12000000,
         stock_quantity: 20,
         is_available: true,
+        render_config: {
+          colorHex: '#0F52BA',
+          refractiveIndex: 1.77,
+          dispersion: 0.018,
+        },
       },
     }),
     prisma.gemstones.create({
@@ -117,6 +141,11 @@ async function main() {
         price: 18000000,
         stock_quantity: 15,
         is_available: true,
+        render_config: {
+          colorHex: '#E0115F',
+          refractiveIndex: 1.77,
+          dispersion: 0.018,
+        },
       },
     }),
     prisma.gemstones.create({

@@ -29,45 +29,22 @@ export class ApproveBiometricAssetDto {
 
 export class AssignBiometricAssetDto {
   @ApiProperty({
-    description: 'Customer user ID to assign asset to',
-    format: 'uuid',
-    example: '550e8400-e29b-41d4-a716-446655440002',
-  })
-  @IsUUID()
-  userId!: string;
-
-  @ApiPropertyOptional({
-    description: 'Engraving to link checklist row',
+    description: 'Engraving ID to link asset to',
     format: 'uuid',
     example: '550e8400-e29b-41d4-a716-446655440003',
   })
-  @IsOptional()
   @IsUUID()
-  engravingId?: string;
+  engravingId!: string;
 
   @ApiPropertyOptional({
-    description: 'Order item ID (optional traceability)',
+    description:
+      'Customer user ID (optional — automatically derived from engraving if omitted)',
     format: 'uuid',
+    example: '550e8400-e29b-41d4-a716-446655440002',
   })
   @IsOptional()
   @IsUUID()
-  orderItemId?: string;
-
-  @ApiPropertyOptional({
-    description: 'Ring model code for 3D viewer context',
-    example: 'RING-CLASSIC-01',
-  })
-  @IsOptional()
-  @IsString()
-  modelCode?: string;
-
-  @ApiPropertyOptional({
-    description: 'Ring surface (outer | inner)',
-    example: 'outer',
-  })
-  @IsOptional()
-  @IsString()
-  surface?: string;
+  userId?: string;
 }
 
 export class ConfirmBiometricPlacementDto {

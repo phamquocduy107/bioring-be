@@ -200,7 +200,9 @@ export class OrderController {
     method: string;
   }) {
     return this.orderService.saveDeliveryPreference(
-      data.orderId, data.addressId, data.method,
+      data.orderId,
+      data.addressId,
+      data.method,
     );
   }
 

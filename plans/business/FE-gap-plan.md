@@ -98,8 +98,15 @@ async listGuestCustomers(params: { page: number; limit: number; search?: string 
             },
           },
         },
-        biometric_capture_sessions: {
-          include: { biometric_capture_items: { select: { capture_type: true } } },
+        orders: {
+          include: {
+            engraving: {
+              select: {
+                engraving_biometrics: { select: { biometric_type: true } },
+                qr_memories: { select: { status: true, failed_attempts: true } },
+              },
+            },
+          },
         },
         warranty_claims: {
           include: { service_tickets: { select: { id: true, ticket_code: true, service_type: true, status: true, created_at: true } } },
@@ -122,7 +129,7 @@ async listGuestCustomers(params: { page: number; limit: number; search?: string 
 - `totalOrders` = orders.length
 - `totalSpent` = sum orders.total_price
 - `lastOrderDate` = max orders.created_at
-- `digitalAssets` = distinct biometric_capture_items.capture_type → {hasVoice, hasFingerprint, hasHeartbeat}
+- `digitalAssets` = distinct engraving_biometrics.biometric_type → {hasVoice, hasFingerprint, hasHeartbeat}
 - `qrMemoryStatus` = orders[0]?.engravings?.qr_memories?.status ?? ""
 - `serviceTickets` = warranty_claims.flatMap(wc => wc.service_tickets)
 - `warranty` = first order with warranty → {isActive, expiryDate, usedFreeCount}

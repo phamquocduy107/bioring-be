@@ -261,55 +261,51 @@ export class BiometricAssetService {
   async assign(data: {
     assetId: string;
     staffId: string;
-    userId: string;
     engravingId?: string;
-    orderItemId?: string;
-    modelCode?: string;
-    surface?: string;
+    userId?: string;
   }): Promise<{ asset: BiometricAssetDto }> {
     const asset = await this.getAssetOrThrow(data.assetId);
     this.assertStatus(asset, [ASSET_APPROVED], 'assign');
 
     const engravingId = data.engravingId?.trim() || null;
-    if (engravingId) {
-      const engraving = await this.prisma.engravings.findUnique({
-        where: { id: engravingId },
-        select: { id: true },
-      });
-      if (!engraving) {
-        throw new NotFoundException(`Engraving not found: ${engravingId}`);
-      }
-
-      const conflict = await this.prisma.biometric_assets.findFirst({
-        where: {
-          engraving_id: engravingId,
-          asset_type: asset.asset_type,
-          NOT: { id: asset.id },
-        },
-        select: { id: true },
-      });
-      if (conflict) {
-        throw new BadRequestException(
-          `Engraving already has a ${asset.asset_type} biometric asset`,
-        );
-      }
+    if (!engravingId) {
+      throw new BadRequestException('engravingId is required to assign asset');
     }
+
+    const engraving = await this.prisma.engravings.findUnique({
+      where: { id: engravingId },
+      select: { id: true, user_id: true },
+    });
+    if (!engraving) {
+      throw new NotFoundException(`Engraving not found: ${engravingId}`);
+    }
+
+    const conflict = await this.prisma.biometric_assets.findFirst({
+      where: {
+        engraving_id: engravingId,
+        asset_type: asset.asset_type,
+        NOT: { id: asset.id },
+      },
+      select: { id: true },
+    });
+    if (conflict) {
+      throw new BadRequestException(
+        `Engraving already has a ${asset.asset_type} biometric asset`,
+      );
+    }
+
+    const assignedUserId = data.userId?.trim() || engraving.user_id || null;
 
     const updated = await this.prisma.biometric_assets.update({
       where: { id: asset.id },
       data: {
-        assigned_user_id: data.userId,
+        assigned_user_id: assignedUserId,
         engraving_id: engravingId,
-        order_item_id: data.orderItemId || null,
-        model_code: data.modelCode,
-        surface: data.surface,
         updated_at: new Date(),
       },
     });
 
-    if (engravingId) {
-      await this.linkEngravingChecklist(updated);
-    }
+    await this.linkEngravingChecklist(updated);
 
     return { asset: this.toResponse(updated) };
   }

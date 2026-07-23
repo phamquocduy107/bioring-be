@@ -6,7 +6,11 @@ export class DeliveryPreferenceDto {
   @IsUUID('4')
   addressId!: string;
 
-  @ApiProperty({ description: 'Delivery method', example: 'DELIVERY', enum: ['DELIVERY', 'PICKUP'] })
+  @ApiProperty({
+    description: 'Delivery method',
+    example: 'DELIVERY',
+    enum: ['DELIVERY', 'PICKUP'],
+  })
   @IsIn(['DELIVERY', 'PICKUP'])
   method!: string;
 }

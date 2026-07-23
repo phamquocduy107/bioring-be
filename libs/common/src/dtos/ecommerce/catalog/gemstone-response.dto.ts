@@ -27,4 +27,10 @@ export class GemstoneResponse {
 
   @ApiProperty({ example: true })
   isAvailable!: boolean;
+
+  @ApiProperty({
+    example: '{"colorHex":"#E0F7FA","refractiveIndex":2.42}',
+    required: false,
+  })
+  renderConfig?: string;
 }

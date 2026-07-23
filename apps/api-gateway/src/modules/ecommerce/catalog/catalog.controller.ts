@@ -38,6 +38,7 @@ interface MaterialResponse {
   purity: string;
   color: string;
   currentPricePerGram: number;
+  renderConfig?: string;
 }
 
 interface GemstoneResponse {
@@ -50,6 +51,7 @@ interface GemstoneResponse {
   certificationCode: string;
   price: number;
   isAvailable: boolean;
+  renderConfig?: string;
 }
 
 interface ProductResponse {

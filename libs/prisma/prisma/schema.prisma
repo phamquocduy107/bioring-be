@@ -243,6 +243,7 @@ model gemstones {
   price              Decimal?             @db.Decimal(18, 2)
   stock_quantity     Int?
   is_available       Boolean?             @default(true)
+  render_config      Json?
   design_drafts      design_drafts[]
   engraving_versions engraving_versions[]
   product_gemstones  product_gemstones[]
@@ -302,6 +303,7 @@ model materials {
   current_price_per_gram Decimal?             @db.Decimal(18, 2)
   stock_gram             Decimal?             @db.Decimal(18, 2)
   last_updated           DateTime?            @db.Timestamptz(6)
+  render_config          Json?
   design_drafts          design_drafts[]
   engraving_versions     engraving_versions[]
   product_materials      product_materials[]

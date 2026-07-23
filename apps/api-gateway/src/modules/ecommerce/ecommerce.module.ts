@@ -18,6 +18,10 @@ import { TransactionController } from './transaction/transaction.controller';
 import { DeviceController } from './device/device.controller';
 import { JewelerController } from './jeweler/jeweler.controller';
 import { AddressController } from './address/address.controller';
+import {
+  RingSizeController,
+  MeRingSizeController,
+} from './ring-size/ring-size.controller';
 
 @Module({
   imports: [
@@ -51,6 +55,8 @@ import { AddressController } from './address/address.controller';
     DeviceController,
     JewelerController,
     AddressController,
+    RingSizeController,
+    MeRingSizeController,
   ],
 })
 export class EcommerceModule {}

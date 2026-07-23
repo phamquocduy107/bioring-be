@@ -70,11 +70,8 @@ type BiometricGrpcService = {
   assignBiometricAsset(data: {
     assetId: string;
     staffId: string;
-    userId: string;
-    engravingId?: string;
-    orderItemId?: string;
-    modelCode?: string;
-    surface?: string;
+    engravingId: string;
+    userId?: string;
   }): Observable<BiometricAssetGrpcResponse>;
   getUserBiometricViewerAssets(data: {
     assetId: string;
@@ -272,11 +269,8 @@ export class BiometricService implements OnModuleInit {
     assetId: string,
     staffId: string,
     body: {
-      userId: string;
-      engravingId?: string;
-      orderItemId?: string;
-      modelCode?: string;
-      surface?: string;
+      engravingId: string;
+      userId?: string;
     },
   ) {
     this.ensureGrpc();
@@ -284,11 +278,8 @@ export class BiometricService implements OnModuleInit {
       this.biometricGrpcService!.assignBiometricAsset({
         assetId,
         staffId,
-        userId: body.userId,
         engravingId: body.engravingId,
-        orderItemId: body.orderItemId,
-        modelCode: body.modelCode,
-        surface: body.surface,
+        userId: body.userId || '',
       }),
     );
     return { asset: this.parseAsset(response.assetJson) };
@@ -397,11 +388,8 @@ export class BiometricService implements OnModuleInit {
     assetId: string,
     staffId: string,
     body: {
-      userId: string;
-      engravingId?: string;
-      orderItemId?: string;
-      modelCode?: string;
-      surface?: string;
+      engravingId: string;
+      userId?: string;
     },
   ) {
     return this.assignBiometricAsset(assetId, staffId, body);

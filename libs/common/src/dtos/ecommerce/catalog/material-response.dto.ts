@@ -15,4 +15,10 @@ export class MaterialResponse {
 
   @ApiProperty({ example: 1600000 })
   currentPricePerGram!: number;
+
+  @ApiProperty({
+    example: '{"colorHex":"#FFD700","roughness":0.2,"metalness":0.9}',
+    required: false,
+  })
+  renderConfig?: string;
 }

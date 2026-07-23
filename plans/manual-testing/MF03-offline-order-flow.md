@@ -248,88 +248,125 @@ GET /api/v1/orders/ORDER_CODE/payments/events
 
 ---
 
-## 7. Staff upload biometrics (tại store)
+## 7. Staff xử lý & Upload biometrics tại store (Admin Biometric Assets Flow)
 
 > Yêu cầu **staff token** (permission `order.write`).
-> Order phải ở `AWAITING_SUBMIT`. Gửi từng biometric type một. Dùng chung endpoint `POST /engravings/:id/biometrics`.
+> Luồng tại Store: Staff dùng bộ API `/api/v1/admin/biometric-assets` để Upload $\rightarrow$ Kiểm tra/Reprocess với Presets $\rightarrow$ Approve $\rightarrow$ Assign vào Engraving của khách.
 
-### 7a. Upload SW (audio → waveform)
+### 7a. Upload & Xử lý thô (Stage `REVIEW`)
 
+**Fingerprint:**
 ```http
-POST /api/v1/engravings/ENGRAVING_ID/biometrics
+POST /api/v1/admin/biometric-assets/fingerprint
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="fingerprint.png"
+Content-Type: image/png
+
+<binary image content>
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+```
+
+**Soundwave:**
+```http
+POST /api/v1/admin/biometric-assets/soundwave
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="voice.mp3"
+Content-Type: audio/mp3
+
+<binary audio content>
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="segmentStartMs"
+
+0
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="segmentDurationMs"
+
+3000
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+```
+
+**Response mẫu (trả về `assetJson`):**
+```json
+{
+  "assetJson": "{\"id\":\"ASSET_FP_001\",\"artifactId\":\"fp_12345\",\"assetType\":\"fingerprint\",\"status\":\"READY_FOR_REVIEW\",\"reviewFiles\":{\"viewerFiles\":{...},\"productionFiles\":{\"svg\":\"http://localhost:9000/bioring-personalization/personalization/review/fingerprint/fp_12345/fingerprint.svg\"}}}"
+}
+```
+
+---
+
+### 7b. Tinh chỉnh & Reprocess với Preset (Nếu xem review thấy chưa tối ưu)
+
+**Lấy danh sách Presets gợi ý:**
+```http
+GET /api/v1/admin/biometric-assets/fingerprint/presets
+# Hoặc GET /api/v1/admin/biometric-assets/soundwave/presets
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+```
+
+**Reprocess lại với preset đã chọn:**
+```http
+POST /api/v1/admin/biometric-assets/ASSET_FP_001/reprocess
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 Content-Type: application/json
 
 {
-  "biometricType": "SW",
-  "rawFileUrl": "https://res.cloudinary.com/dpm0zc06s/video/upload/v1782360241/audio.mp3",
-  "extraData": "{\"startMs\":2000,\"endMs\":5000}"
+  "preset": "keep_ridges",
+  "minArea": 8
+}
+```
+
+---
+
+### 7c. Phê duyệt Asset (Approve)
+
+> Chuyển toàn bộ asset đã xử lý ưng ý từ MinIO stage `REVIEW` sang `APPROVED`.
+
+```http
+POST /api/v1/admin/biometric-assets/ASSET_FP_001/approve
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+Content-Type: application/json
+
+{
+  "note": "Đã duyệt ảnh vân tay nét đẹp",
+  "copyDebugFiles": false
 }
 ```
 
 **Response mẫu:**
 ```json
 {
-  "biometric": {
-    "id": "BIO_SW_ID",
-    "engravingId": "ENGRAVING_ID",
-    "biometricType": "SW",
-    "requiredChannel": "ENGRAVING",
-    "rawFileUrl": "https://res.cloudinary.com/.../audio.mp3",
-    "processedSvgUrl": "https://res.cloudinary.com/.../waveform.svg",
-    "extraData": "{\"startMs\":2000,\"endMs\":5000}",
-    "status": "CAPTURED"
-  }
+  "assetJson": "{\"id\":\"ASSET_FP_001\",\"status\":\"ASSET_APPROVED\",\"approvedFiles\":{...}}"
 }
 ```
 
-> Server nhận `rawFileUrl`, gọi Python service xử lý waveform → trả về `processedSvgUrl` (SVG đã xử lý). Cả raw (dùng cho mem card) và processed (dùng cho engraving) đều được lưu.
+---
 
-### 7b. Upload FP (fingerprint → skeleton SVG)
+### 7d. Gán Asset đã duyệt vào Engraving của Khách (Assign)
+
+> Gán `ASSET_FP_001` vào `ENGRAVING_ID`, tự động cập nhật `engraving_biometrics` checklist sang status `CAPTURED`.
 
 ```http
-POST /api/v1/engravings/ENGRAVING_ID/biometrics
+POST /api/v1/admin/biometric-assets/ASSET_FP_001/assign
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 Content-Type: application/json
 
 {
-  "biometricType": "FP",
-  "rawFileUrl": "https://res.cloudinary.com/dpm0zc06s/image/upload/v1782360242/fingerprint.png"
+  "engravingId": "ENGRAVING_ID"
 }
 ```
 
 **Response mẫu:**
 ```json
 {
-  "biometric": {
-    "id": "BIO_FP_ID",
-    "engravingId": "ENGRAVING_ID",
-    "biometricType": "FP",
-    "requiredChannel": "ENGRAVING",
-    "rawFileUrl": "https://res.cloudinary.com/.../fingerprint.png",
-    "processedSvgUrl": "https://res.cloudinary.com/.../fingerprint.svg",
-    "extraData": "",
-    "status": "CAPTURED"
-  }
+  "assetJson": "{\"id\":\"ASSET_FP_001\",\"engraving_id\":\"ENGRAVING_ID\",\"assigned_user_id\":\"USER_ID\",\"status\":\"ASSET_APPROVED\"}"
 }
 ```
-
-> Server gọi Python service xử lý fingerprint → trả về `processedSvgUrl` (SVG skeleton đã xử lý). `rawFileUrl` giữ nguyên ảnh gốc.
-
-### 7c. Upload HB (heartbeat) — nếu có trong package
-
-```http
-POST /api/v1/engravings/ENGRAVING_ID/biometrics
-Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
-Content-Type: application/json
-
-{
-  "biometricType": "HB",
-  "rawFileUrl": "https://res.cloudinary.com/dpm0zc06s/image/upload/v1782360243/heartbeat.png"
-}
-```
-
-**Response:** tương tự, `requiredChannel: "MEMORY_CARD"`.
 
 ---
 
@@ -472,8 +509,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 ## 12. Chọn phương thức nhận hàng (Delivery Preference)
 
-> Sau DEPOSIT_2, customer chọn địa chỉ + phương thức nhận hàng.
-> Lưu vào `shipments` với `status = 'PENDING'`. Order **giữ nguyên** `AWAITING_REMAINING`.
+> Khi nhẫn chế tác xong và chuyển sang bước tất toán phần còn lại (`AWAITING_REMAINING` hoặc `READY_FOR_DELIVERY`), customer chọn phương thức nhận hàng (DELIVERY từ danh bạ địa chỉ hoặc PICKUP tại cửa hàng).
+> Lưu vào `shipments` với `status = 'PENDING'`. Order chuyển sang `READY_FOR_DELIVERY` (hoặc `READY_FOR_PICKUP`) sau khi tất toán REMAINING.
 
 ```http
 POST /api/v1/orders/ORDER_ID/delivery-preference
@@ -652,35 +689,31 @@ Content-Type: application/json
      │    │                   ▼
      │    │             PayOS webhook → DEPOSIT_PAID
      │    │                   │
+     │    │                   ▼
+     │    │             POST assign-jeweler → IN_PRODUCTION
+     │    │                   │
+     │    │                   ▼
+     │    │             PUT production status → COMPLETED → PENDING_QC
+     │    │                   │
+     │    │                   ▼
+     │    │             PUT /orders/:id/qc-accept (PASS) → AWAITING_REMAINING
+     │    │                   │
      │    │                   ├── [NEW] GET/POST/PUT/DELETE /api/v1/addresses
-     │    │                   │         (quản lý địa chỉ giao hàng)
+     │    │                   │         (quản lý danh bạ địa chỉ giao hàng)
      │    │                   │
      │    │                   ├── [NEW] POST /orders/:id/delivery-preference
      │    │                   │         { addressId, method: DELIVERY|PICKUP }
      │    │                   │         → shipments PENDING
      │    │                   │
      │    │                   ▼
-     │    │             POST assign-jeweler → IN_PRODUCTION
+     │    │             POST initiatePayment (REMAINING)
      │    │                   │
      │    │                   ▼
-      │    │             PUT production status → COMPLETED → PENDING_QC
-      │    │                   │
-      │    │                   ▼
-      │    │             PUT /orders/:id/qc-accept (PASS)
-      │    │                   │
-      │    │                   ├── còn nợ → AWAITING_REMAINING
-      │    │                   │         │
-      │    │                   │         ▼
-      │    │                   │    POST initiatePayment (REMAINING)
-      │    │                   │         │
-      │    │                   │         ▼
-      │    │                   │    PayOS webhook
-      │    │                   │         │
-      │    │                   │         ├── có shipment PENDING → ACTIVE
-      │    │                   │         │
-      │    │                   │         ├── method DELIVERY → READY_FOR_DELIVERY
-      │    │                   │         │
-      │    │                   │         └── method PICKUP → READY_FOR_PICKUP
-      │    │                   │
-      │    │                   └── hết nợ → READY_FOR_DELIVERY / READY_FOR_PICKUP
+     │    │             PayOS webhook
+     │    │                   │
+     │    │                   ├── có shipment PENDING → ACTIVE
+     │    │                   │
+     │    │                   ├── method DELIVERY → READY_FOR_DELIVERY
+     │    │                   │
+     │    │                   └── method PICKUP → READY_FOR_PICKUP
 ```

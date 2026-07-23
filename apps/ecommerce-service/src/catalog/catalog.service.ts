@@ -93,6 +93,7 @@ export class CatalogService {
         currentPricePerGram: m.current_price_per_gram
           ? Number(m.current_price_per_gram)
           : 0,
+        renderConfig: m.render_config ? JSON.stringify(m.render_config) : '',
       })),
     };
   }
@@ -114,6 +115,7 @@ export class CatalogService {
         certificationCode: g.certification_code ?? '',
         price: g.price ? Number(g.price) : 0,
         isAvailable: g.is_available ?? true,
+        renderConfig: g.render_config ? JSON.stringify(g.render_config) : '',
       })),
     };
   }
@@ -211,6 +213,9 @@ export class CatalogService {
           currentPricePerGram: pm.materials.current_price_per_gram
             ? Number(pm.materials.current_price_per_gram)
             : 0,
+          renderConfig: pm.materials.render_config
+            ? JSON.stringify(pm.materials.render_config)
+            : '',
         }),
       ),
       availableGemstones: (product.product_gemstones ?? []).map(
@@ -224,6 +229,9 @@ export class CatalogService {
           certificationCode: pg.gemstones.certification_code ?? '',
           price: pg.gemstones.price ? Number(pg.gemstones.price) : 0,
           isAvailable: pg.gemstones.is_available ?? true,
+          renderConfig: pg.gemstones.render_config
+            ? JSON.stringify(pg.gemstones.render_config)
+            : '',
         }),
       ),
     };

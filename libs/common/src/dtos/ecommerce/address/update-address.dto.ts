@@ -2,7 +2,10 @@ import { IsBoolean, IsOptional, IsString } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateAddressDto {
-  @ApiPropertyOptional({ description: 'Recipient name', example: 'Nguyen Van A' })
+  @ApiPropertyOptional({
+    description: 'Recipient name',
+    example: 'Nguyen Van A',
+  })
   @IsOptional()
   @IsString()
   recipientName?: string;
@@ -12,7 +15,10 @@ export class UpdateAddressDto {
   @IsString()
   phone?: string;
 
-  @ApiPropertyOptional({ description: 'Full address', example: '123 Nguyen Hue, Bến Nghé' })
+  @ApiPropertyOptional({
+    description: 'Full address',
+    example: '123 Nguyen Hue, Bến Nghé',
+  })
   @IsOptional()
   @IsString()
   fullAddress?: string;
@@ -32,7 +38,10 @@ export class UpdateAddressDto {
   @IsString()
   province?: string;
 
-  @ApiPropertyOptional({ description: 'Set as default address', example: false })
+  @ApiPropertyOptional({
+    description: 'Set as default address',
+    example: false,
+  })
   @IsOptional()
   @IsBoolean()
   isDefault?: boolean;

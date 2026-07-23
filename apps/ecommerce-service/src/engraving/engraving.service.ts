@@ -81,6 +81,7 @@ interface MaterialRecord {
   purity: string | null;
   color: string | null;
   current_price_per_gram: unknown;
+  render_config?: unknown;
 }
 
 interface GemstoneRecord {
@@ -93,6 +94,7 @@ interface GemstoneRecord {
   certification_code: string | null;
   price: unknown;
   is_available: boolean | null;
+  render_config?: unknown;
 }
 
 @Injectable()
@@ -406,6 +408,9 @@ export class EngravingService {
                   currentPricePerGram: Number(
                     v.materials.current_price_per_gram ?? 0,
                   ),
+                  renderConfig: v.materials.render_config
+                    ? JSON.stringify(v.materials.render_config)
+                    : '',
                 }
               : null,
             selectedGemstone: v.gemstones
@@ -419,6 +424,9 @@ export class EngravingService {
                   certificationCode: v.gemstones.certification_code ?? '',
                   price: Number(v.gemstones.price ?? 0),
                   isAvailable: v.gemstones.is_available ?? false,
+                  renderConfig: v.gemstones.render_config
+                    ? JSON.stringify(v.gemstones.render_config)
+                    : '',
                 }
               : null,
           }),
@@ -484,6 +492,9 @@ export class EngravingService {
                   currentPricePerGram: Number(
                     latest.materials.current_price_per_gram ?? 0,
                   ),
+                  renderConfig: latest.materials.render_config
+                    ? JSON.stringify(latest.materials.render_config)
+                    : '',
                 }
               : null,
             selectedGemstone: latest.gemstones
@@ -497,6 +508,9 @@ export class EngravingService {
                   certificationCode: latest.gemstones.certification_code ?? '',
                   price: Number(latest.gemstones.price ?? 0),
                   isAvailable: latest.gemstones.is_available ?? false,
+                  renderConfig: latest.gemstones.render_config
+                    ? JSON.stringify(latest.gemstones.render_config)
+                    : '',
                 }
               : null,
           }

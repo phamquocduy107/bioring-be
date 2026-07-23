@@ -140,7 +140,9 @@ export class GuestController implements OnModuleInit {
         guestCode: dto.guestCode,
         productId: dto.productId,
         staffId: user.sub,
-        selectedBiometrics: dto.selectedBiometrics ? JSON.stringify(dto.selectedBiometrics) : undefined,
+        selectedBiometrics: dto.selectedBiometrics
+          ? JSON.stringify(dto.selectedBiometrics)
+          : undefined,
       }),
     );
   }

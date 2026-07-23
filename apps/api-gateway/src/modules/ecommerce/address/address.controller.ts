@@ -16,7 +16,12 @@ import { lastValueFrom } from 'rxjs';
 import type { Observable } from 'rxjs';
 import { CurrentUser, CreateAddressDto, UpdateAddressDto } from '@app/common';
 import type { JwtPayload } from '@app/common';
-import { ApiCreateAddressDocs, ApiUpdateAddressDocs, ApiDeleteAddressDocs, ApiListAddressesDocs } from './address.swagger';
+import {
+  ApiCreateAddressDocs,
+  ApiUpdateAddressDocs,
+  ApiDeleteAddressDocs,
+  ApiListAddressesDocs,
+} from './address.swagger';
 
 interface EcommerceGrpcService {
   listAddresses(data: { userId: string }): Observable<{ addresses: any[] }>;
@@ -41,7 +46,10 @@ interface EcommerceGrpcService {
     province?: string;
     isDefault?: boolean;
   }): Observable<{ address: any }>;
-  deleteAddress(data: { id: string; userId: string }): Observable<{ success: boolean }>;
+  deleteAddress(data: {
+    id: string;
+    userId: string;
+  }): Observable<{ success: boolean }>;
 }
 
 @Controller('api/v1/addresses')
@@ -55,11 +63,13 @@ export class AddressController implements OnModuleInit {
   ) {}
 
   onModuleInit() {
-    this.grpc = this.client?.getService<EcommerceGrpcService>('EcommerceService');
+    this.grpc =
+      this.client?.getService<EcommerceGrpcService>('EcommerceService');
   }
 
   private async call<T>(fn: () => Observable<T>): Promise<T> {
-    if (!this.grpc) throw new Error('ECOMMERCE_SERVICE gRPC client not initialized');
+    if (!this.grpc)
+      throw new Error('ECOMMERCE_SERVICE gRPC client not initialized');
     return lastValueFrom(fn());
   }
 

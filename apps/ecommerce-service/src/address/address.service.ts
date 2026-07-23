@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '@app/prisma';
 import { randomUUID } from 'node:crypto';
 
@@ -65,7 +69,8 @@ export class AddressService {
       where: { id },
     });
     if (!address) throw new NotFoundException('Address not found');
-    if (address.user_id !== userId) throw new ForbiddenException('Not your address');
+    if (address.user_id !== userId)
+      throw new ForbiddenException('Not your address');
 
     return this.prisma.$transaction(async (tx) => {
       if (data.isDefault) {
@@ -77,9 +82,13 @@ export class AddressService {
       return tx.user_addresses.update({
         where: { id },
         data: {
-          ...(data.recipientName !== undefined && { recipient_name: data.recipientName }),
+          ...(data.recipientName !== undefined && {
+            recipient_name: data.recipientName,
+          }),
           ...(data.phone !== undefined && { phone_number: data.phone }),
-          ...(data.fullAddress !== undefined && { full_address: data.fullAddress }),
+          ...(data.fullAddress !== undefined && {
+            full_address: data.fullAddress,
+          }),
           ...(data.ward !== undefined && { ward: data.ward }),
           ...(data.district !== undefined && { district: data.district }),
           ...(data.province !== undefined && { province: data.province }),
@@ -94,7 +103,8 @@ export class AddressService {
       where: { id },
     });
     if (!address) throw new NotFoundException('Address not found');
-    if (address.user_id !== userId) throw new ForbiddenException('Not your address');
+    if (address.user_id !== userId)
+      throw new ForbiddenException('Not your address');
 
     await this.prisma.user_addresses.delete({ where: { id } });
     return { success: true };

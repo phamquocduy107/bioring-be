@@ -25,6 +25,7 @@ import { AuditModule } from './audit/audit.module';
 import { DeviceModule } from './device/device.module';
 import { JewelerModule } from './jeweler/jeweler.module';
 import { AddressModule } from './address/address.module';
+import { RingSizeModule } from './ring-size/ring-size.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { AddressModule } from './address/address.module';
     DeviceModule,
     JewelerModule,
     AddressModule,
+    RingSizeModule,
   ],
   providers: [
     {

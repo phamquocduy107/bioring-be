@@ -197,11 +197,8 @@ export class BiometricAssetController {
   async assignBiometricAsset(data: {
     assetId: string;
     staffId: string;
-    userId: string;
-    engravingId?: string;
-    orderItemId?: string;
-    modelCode?: string;
-    surface?: string;
+    engravingId: string;
+    userId?: string;
   }) {
     return assetJson(await this.assets.assign(data));
   }
@@ -210,11 +207,8 @@ export class BiometricAssetController {
   async assignFingerprintAsset(data: {
     assetId: string;
     staffId: string;
-    userId: string;
-    engravingId?: string;
-    orderItemId?: string;
-    modelCode?: string;
-    surface?: string;
+    engravingId: string;
+    userId?: string;
   }) {
     return assetJson(await this.assets.assign(data));
   }
@@ -223,11 +217,8 @@ export class BiometricAssetController {
   async assignSoundwaveAsset(data: {
     assetId: string;
     staffId: string;
-    userId: string;
-    engravingId?: string;
-    orderItemId?: string;
-    modelCode?: string;
-    surface?: string;
+    engravingId: string;
+    userId?: string;
   }) {
     return assetJson(await this.assets.assign(data));
   }
@@ -236,11 +227,8 @@ export class BiometricAssetController {
   async assignHeartbeatAsset(data: {
     assetId: string;
     staffId: string;
-    userId: string;
-    engravingId?: string;
-    orderItemId?: string;
-    modelCode?: string;
-    surface?: string;
+    engravingId: string;
+    userId?: string;
   }) {
     return assetJson(await this.assets.assign(data));
   }

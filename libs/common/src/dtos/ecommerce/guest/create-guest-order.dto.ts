@@ -16,7 +16,8 @@ export class CreateGuestOrderDto {
   productId?: string;
 
   @ApiPropertyOptional({
-    description: 'Danh sách biometrics đã chọn. Lưu thẳng vào version khi tạo order, bỏ qua bước PATCH config riêng cho walk-in flow.',
+    description:
+      'Danh sách biometrics đã chọn. Lưu thẳng vào version khi tạo order, bỏ qua bước PATCH config riêng cho walk-in flow.',
     example: ['SW', 'FP'],
   })
   @IsOptional()

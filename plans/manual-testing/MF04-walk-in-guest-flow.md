@@ -98,9 +98,9 @@ SELECT * FROM guest_customers WHERE email = 'guest@example.com';
 
 ---
 
-## 2. Staff: Tạo Order + Engraving cho Guest
+## 2. Staff: Tạo Order + Engraving cho Guest (kèm Package)
 
-> Gộp tạo engraving + version + qr_memories + order trong 1 call.
+> Gộp tạo engraving + version + qr_memories + order trong 1 call. Nếu truyền `selectedBiometrics` thì lưu thẳng vào version v1, bỏ qua bước PATCH config riêng.
 
 ```http
 POST /api/v1/guest/orders
@@ -109,7 +109,120 @@ Content-Type: application/json
 
 {
   "guestCode": "{{GUEST_CODE}}",
-  "productId": "{{PRODUCT_ID}}"
+  "productId": "{{PRODUCT_ID}}",
+# MF04 — Walk-in Guest In-store Order — Manual Test
+
+## Prerequisites
+
+| Item | Note |
+|------|------|
+| Staff JWT token | User có quyền `order.write` |
+| Manager JWT token | User có quyền `order.write` |
+| Cloudinary upload preset | Dùng cho upload biometric files |
+| Giả lập PayOS | Cần `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, `PAYOS_CHECKSUM_KEY` trong `.env` |
+| Tablet flow | Dùng `guestCode` thay JWT, tất cả endpoint `@Public()` |
+
+---
+
+## 0. Chuẩn bị biometric URLs (FP, SW)
+
+Upload fingerprint image + audio lên Cloudinary:
+
+```powershell
+# Upload fingerprint PNG
+curl.exe -X POST "https://api.cloudinary.com/v1_1/dpm0zc06s/image/upload" -F "file=@đường_dẫn_tới_fingerprint.png" -F "upload_preset=BioRing"
+
+# Upload audio MP3
+curl.exe -X POST "https://api.cloudinary.com/v1_1/dpm0zc06s/auto/upload" -F "file=@đường_dẫn_tới_audio.mp3" -F "upload_preset=BioRing"
+```
+
+Ghi nhớ `secure_url` từ response:
+```
+FP_URL = "https://res.cloudinary.com/dpm0zc06s/image/upload/v123/fp.png"
+SW_URL = "https://res.cloudinary.com/dpm0zc06s/video/upload/v123/audio.mp3"
+```
+
+Đảm bảo Python service (`biometric-service:5051`) đang chạy để process FP → fingerprint SVG và SW → waveform SVG.
+
+---
+
+## 1. Staff: Tạo Guest Session
+
+> Staff nhập thông tin khách → hệ thống check trùng email → sinh `guest_code`.
+
+```http
+POST /api/v1/guest/sessions
+Authorization: Bearer {{staffJwt}}
+Content-Type: application/json
+
+{
+  "fullName": "Nguyễn Văn A",
+  "phone": "0909123456",
+  "email": "guest@example.com",
+  "note": "Khách muốn nhẫn bạc"
+}
+```
+
+**Expected Response (201) — tạo mới:**
+```json
+{
+  "guest": {
+    "id": "{{GUEST_ID}}",
+    "guestCode": "GUE-XXXXXX",
+    "fullName": "Nguyễn Văn A",
+    "phone": "0909123456",
+    "email": "guest@example.com",
+    "note": "Khách muốn nhẫn bạc",
+    "createdAt": "2026-07-07T..."
+  },
+  "isMember": false,
+  "isExistingGuest": false,
+  "message": ""
+}
+```
+
+**Expected Response (200) — email đã là Member:**
+```json
+{
+  "guest": { "id": "", "guestCode": "", "fullName": "", "phone": "", "email": "member@gmail.com", "note": "", "createdAt": "" },
+  "isMember": true,
+  "isExistingGuest": false,
+  "message": "Email already registered as member"
+}
+```
+
+**Expected Response (200) — email đã có guest cũ:**
+```json
+{
+  "guest": { "id": "{{OLD_GUEST_ID}}", "guestCode": "GUE-XXXXXX", ... },
+  "isMember": false,
+  "isExistingGuest": true,
+  "message": "Guest already exists. Create new?"
+}
+```
+
+**Verify DB:**
+```sql
+SELECT * FROM guest_customers WHERE email = 'guest@example.com';
+```
+
+> 📌 **Ghi chú:** `guest_code` format `GUE-` + 6 ký tự (không có 0/O/1/I). Dùng `guest_code` này cho tất cả tablet endpoints bên dưới. Email bắt buộc — FE xử lý 3 case dựa trên `isMember` / `isExistingGuest`.
+
+---
+
+## 2. Staff: Tạo Order + Engraving cho Guest (kèm Package)
+
+> Gộp tạo engraving + version + qr_memories + order trong 1 call. Nếu truyền `selectedBiometrics` thì lưu thẳng vào version v1, bỏ qua bước PATCH config riêng.
+
+```http
+POST /api/v1/guest/orders
+Authorization: Bearer {{staffJwt}}
+Content-Type: application/json
+
+{
+  "guestCode": "{{GUEST_CODE}}",
+  "productId": "{{PRODUCT_ID}}",
+  "selectedBiometrics": ["SW", "FP"]
 }
 ```
 
@@ -138,16 +251,13 @@ Content-Type: application/json
     "id": "{{VERSION_ID}}",
     "engravingId": "{{ENGRAVING_ID}}",
     "versionNumber": 1,
+    "selectedBiometrics": "SW,FP",
     "status": "PENDING"
   }
 }
 ```
 
 **Verify DB:**
-> Tra `GUEST_ID` từ `guest_customers` bằng `guest_code`:
-> ```sql
-> SELECT id FROM guest_customers WHERE guest_code = '{{GUEST_CODE}}';
-> ```
 ```sql
 SELECT * FROM orders WHERE guest_customer_id = (SELECT id FROM guest_customers WHERE guest_code = '{{GUEST_CODE}}');
 -- status = AWAITING_SUBMIT, user_id IS NULL, design_source = WALK_IN
@@ -157,262 +267,130 @@ SELECT * FROM engravings WHERE id = '{{ENGRAVING_ID}}';
 
 SELECT * FROM engraving_versions WHERE engraving_id = '{{ENGRAVING_ID}}';
 -- version_number = 1, status = PENDING
-
-SELECT * FROM qr_memories WHERE engraving_id = '{{ENGRAVING_ID}}';
--- is_locked = true
 ```
 
 ---
 
-## 3. Staff: Chọn Package (selectedBiometrics)
+## 3. Staff: Xử lý & Upload Biometric(s) (Admin Biometric Assets Flow)
 
-> Chọn gói biometric cho đơn hàng.
+> Luồng tại Store: Staff dùng bộ API `/api/v1/admin/biometric-assets` để Upload $\rightarrow$ Kiểm tra/Reprocess với Presets $\rightarrow$ Approve $\rightarrow$ Assign vào Engraving.
 
+### 3a. Upload & Xử lý thô (Stage `REVIEW`)
+
+**Fingerprint:**
 ```http
-PATCH /api/v1/engravings/versions/{{VERSION_ID}}/config
+POST /api/v1/admin/biometric-assets/fingerprint
+Authorization: Bearer {{staffJwt}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="fingerprint.png"
+Content-Type: image/png
+
+<binary image content>
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+```
+
+**Soundwave:**
+```http
+POST /api/v1/admin/biometric-assets/soundwave
+Authorization: Bearer {{staffJwt}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="voice.mp3"
+Content-Type: audio/mp3
+
+<binary audio content>
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="segmentStartMs"
+
+0
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="segmentDurationMs"
+
+3000
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+```
+
+**Expected Response (201) — `assetJson`:**
+```json
+{
+  "assetJson": "{\"id\":\"ASSET_FP_001\",\"artifactId\":\"fp_12345\",\"assetType\":\"fingerprint\",\"status\":\"READY_FOR_REVIEW\",\"reviewFiles\":{...}}"
+}
+```
+
+---
+
+### 3b. Tinh chỉnh & Reprocess với Preset (Nếu chưa tối ưu)
+
+**Lấy danh sách Presets gợi ý:**
+```http
+GET /api/v1/admin/biometric-assets/fingerprint/presets
+# Hoặc GET /api/v1/admin/biometric-assets/soundwave/presets
+Authorization: Bearer {{staffJwt}}
+```
+
+**Reprocess lại:**
+```http
+POST /api/v1/admin/biometric-assets/ASSET_FP_001/reprocess
 Authorization: Bearer {{staffJwt}}
 Content-Type: application/json
 
 {
-  "selectedBiometrics": ["SW", "FP"]
+  "preset": "keep_ridges",
+  "minArea": 8
+}
+```
+
+---
+
+### 3c. Staff Approve Asset
+
+> Chuyển toàn bộ asset từ MinIO stage `REVIEW` sang `APPROVED`.
+
+```http
+POST /api/v1/admin/biometric-assets/ASSET_FP_001/approve
+Authorization: Bearer {{staffJwt}}
+Content-Type: application/json
+
+{
+  "note": "Hình ảnh vân tay rất rõ nét",
+  "copyDebugFiles": false
 }
 ```
 
 **Expected Response (200):**
 ```json
 {
-  "version": {
-    "id": "{{VERSION_ID}}",
-    "selectedBiometrics": ["SW", "FP"],
-    "status": "PENDING"
-  }
+  "assetJson": "{\"id\":\"ASSET_FP_001\",\"status\":\"ASSET_APPROVED\",\"approvedFiles\":{...}}"
 }
 ```
 
-> 📌 DTO `@IsEnum(PackageType, { each: true })` expects array. Controller `JSON.stringify`s array → gRPC receives `'["SW","FP"]'` → service parses and stores as `"SW,FP"` in DB.
-
 ---
 
-## 4. Staff: Upload Biometric(s)
+### 3d. Staff Assign Asset vào Engraving của Guest
 
-> Có 2 cách: upload từng cái (steps 4a–4b) hoặc bulk 1 lần (step 4c).
-
-### 4a. Upload Finger Print (FP)
-
-> Upload vân tay → Python process → tạo `engraving_biometrics` row.
+> Gán asset đã duyệt vào `ENGRAVING_ID`. Hệ thống tự động update `engraving_biometrics` sang `CAPTURED`.
 
 ```http
-POST /api/v1/engravings/{{ENGRAVING_ID}}/biometrics
+POST /api/v1/admin/biometric-assets/ASSET_FP_001/assign
 Authorization: Bearer {{staffJwt}}
 Content-Type: application/json
 
 {
-  "biometricType": "FP",
-  "rawFileUrl": "{{FP_URL}}"
-}
-```
-
-**Expected Response (201):**
-```json
-{
-  "biometric": {
-    "id": "{{FP_BIOMETRIC_ID}}",
-    "engravingId": "{{ENGRAVING_ID}}",
-    "biometricType": "FP",
-    "requiredChannel": "ENGRAVING",
-    "rawFileUrl": "{{FP_URL}}",
-    "processedSvgUrl": "https://res.cloudinary.com/.../fp.svg",
-    "extraData": "{}",
-    "status": "CAPTURED"
-  }
+  "engravingId": "{{ENGRAVING_ID}}"
 }
 ```
 
 **Verify DB:**
 ```sql
 SELECT * FROM engraving_biometrics WHERE engraving_id = '{{ENGRAVING_ID}}' AND biometric_type = 'FP';
--- required_channel = ENGRAVING, processed_svg_url NOT NULL, status = CAPTURED
+-- required_channel = ENGRAVING, biometric_asset_id = 'ASSET_FP_001', status = CAPTURED
+
+SELECT * FROM biometric_assets WHERE id = 'ASSET_FP_001';
+-- status = ASSET_APPROVED
 ```
-
----
-
-### 4b. Upload Sound Wave (SW)
-
-```http
-POST /api/v1/engravings/{{ENGRAVING_ID}}/biometrics
-Authorization: Bearer {{staffJwt}}
-Content-Type: application/json
-
-{
-  "biometricType": "SW",
-  "rawFileUrl": "{{SW_URL}}"
-}
-```
-
-**Expected Response (201):**
-```json
-{
-  "biometric": {
-    "id": "{{SW_BIOMETRIC_ID}}",
-    "engravingId": "{{ENGRAVING_ID}}",
-    "biometricType": "SW",
-    "requiredChannel": "ENGRAVING",
-    "rawFileUrl": "{{SW_URL}}",
-    "processedSvgUrl": "https://res.cloudinary.com/.../waveform.svg",
-    "extraData": "{}",
-    "status": "CAPTURED"
-  }
-}
-```
-
-> 📌 Nếu package có HB: upload tương tự, `requiredChannel` sẽ là `MEMORY_CARD` (HB không khắc lên nhẫn).
-
-### 4c. Bulk Upload (thay thế 4a+4b)
-
-> Upload tất cả biometrics trong 1 call.
-
-```http
-POST /api/v1/engravings/{{ENGRAVING_ID}}/biometrics/bulk
-Authorization: Bearer {{staffJwt}}
-Content-Type: application/json
-
-{
-  "biometrics": [
-    {
-      "biometricType": "FP",
-      "rawFileUrl": "{{FP_URL}}"
-    },
-    {
-      "biometricType": "SW",
-      "rawFileUrl": "{{SW_URL}}"
-    }
-  ]
-}
-```
-
-**Expected Response (201):**
-```json
-{
-  "count": 2,
-  "biometrics": [
-    {
-      "id": "{{FP_BIOMETRIC_ID}}",
-      "engravingId": "{{ENGRAVING_ID}}",
-      "biometricType": "FP",
-      "status": "CAPTURED",
-      "processedSvgUrl": "https://res.cloudinary.com/.../fp.svg"
-    },
-    {
-      "id": "{{SW_BIOMETRIC_ID}}",
-      "engravingId": "{{ENGRAVING_ID}}",
-      "biometricType": "SW",
-      "status": "CAPTURED",
-      "processedSvgUrl": "https://res.cloudinary.com/.../waveform.svg"
-    }
-  ]
-}
-```
-
-**Verify DB:**
-```sql
-SELECT engraving_id, biometric_type, status, processed_svg_url
-FROM engraving_biometrics
-WHERE engraving_id = '{{ENGRAVING_ID}}';
--- Ít nhất 2 rows, status = CAPTURED, processed_svg_url NOT NULL
-```
-
----
-
-## 6. Guest Tablet: Xem Session
-
-> Guest quét QR → nhập `guest_code` → lấy thông tin session + order + engraving.
-
-```http
-GET /api/v1/guest-tablet/sessions/{{GUEST_CODE}}
-```
-
-**Expected Response (200):**
-```json
-{
-  "guest": {
-    "id": "{{GUEST_ID}}",
-    "guestCode": "{{GUEST_CODE}}",
-    "fullName": "Nguyễn Văn A",
-    "phone": "0909123456"
-  },
-  "order": {
-    "id": "{{ORDER_ID}}",
-    "orderCode": "172000000042",
-    "status": "AWAITING_SUBMIT",
-    "packageType": null,
-    "totalPrice": 13200000,
-    "paidAmount": 0,
-    "engraving": {
-      "id": "{{ENGRAVING_ID}}",
-      "status": "PENDING",
-      "versions": [
-        {
-          "id": "{{VERSION_ID}}",
-          "versionNumber": 1,
-          "selectedBiometrics": "SW,FP",
-          "status": "PENDING"
-        }
-      ],
-      "biometrics": [
-        {
-          "biometricType": "FP",
-          "processedSvgUrl": "https://res.cloudinary.com/.../fp.svg",
-          "status": "CAPTURED"
-        },
-        {
-          "biometricType": "SW",
-          "processedSvgUrl": "https://res.cloudinary.com/.../waveform.svg",
-          "status": "CAPTURED"
-        }
-      ]
-    }
-  }
-}
-```
-
-> 🧪 **Test edge case:** Gọi với `guestCode` sai → 404 "Guest not found"
-
----
-
-## 27. Guest Tablet: Simple Design
-
-> Guest chọn vật liệu, đá, size, style, shape. Có thể PATCH từng field hoặc nhiều field cùng lúc.
-
-```http
-PATCH /api/v1/guest-tablet/engravings/{{VERSION_ID}}/config?guestCode={{GUEST_CODE}}
-Content-Type: application/json
-
-{
-  "selectedMaterialId": "{{MATERIAL_ID}}",
-  "selectedGemstoneId": "{{GEMSTONE_ID}}",
-  "ringSize": "7",
-  "ringStyle": "CLASSIC",
-  "ringShape": "ROUND"
-}
-```
-
-**Expected Response (200):**
-```json
-{
-  "version": {
-    "id": "{{VERSION_ID}}",
-    "selectedMaterialId": "{{MATERIAL_ID}}",
-    "selectedGemstoneId": "{{GEMSTONE_ID}}",
-    "ringSize": "7",
-    "ringStyle": "CLASSIC",
-    "ringShape": "ROUND",
-    "status": "PENDING"
-  }
-}
-```
-
-> 🧪 **Test edge case:** Gọi PATCH config với `guestCode` sai → 403.
-> 🧪 **Test edge case:** Gọi PATCH config khi order đã submit (không phải AWAITING_SUBMIT/REVISION_REQUIRED) → 400.
 
 ---
 

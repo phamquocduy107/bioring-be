@@ -220,6 +220,7 @@ message Material {
   string purity = 3;
   string color = 4;
   double currentPricePerGram = 5;
+  string renderConfig = 6;
 }
 
 message GetMaterialsResponse {
@@ -236,6 +237,7 @@ message Gemstone {
   string certificationCode = 7;
   double price = 8;
   bool isAvailable = 9;
+  string renderConfig = 10;
 }
 
 message GetGemstonesResponse {

@@ -342,6 +342,9 @@ export class DesignService {
           currentPricePerGram: pm.materials.current_price_per_gram
             ? Number(pm.materials.current_price_per_gram)
             : 0,
+          renderConfig: pm.materials.render_config
+            ? JSON.stringify(pm.materials.render_config)
+            : '',
         }),
       ),
       availableGemstones: (product.product_gemstones ?? []).map(
@@ -355,6 +358,9 @@ export class DesignService {
           certificationCode: pg.gemstones.certification_code ?? '',
           price: pg.gemstones.price ? Number(pg.gemstones.price) : 0,
           isAvailable: pg.gemstones.is_available ?? true,
+          renderConfig: pg.gemstones.render_config
+            ? JSON.stringify(pg.gemstones.render_config)
+            : '',
         }),
       ),
     };
@@ -414,6 +420,9 @@ export class DesignService {
             currentPricePerGram: selectedMaterial.current_price_per_gram
               ? Number(selectedMaterial.current_price_per_gram)
               : 0,
+            renderConfig: selectedMaterial.render_config
+              ? JSON.stringify(selectedMaterial.render_config)
+              : '',
           }
         : null,
       selectedGemstone: selectedGemstone
@@ -427,6 +436,9 @@ export class DesignService {
             certificationCode: selectedGemstone.certification_code ?? '',
             price: selectedGemstone.price ? Number(selectedGemstone.price) : 0,
             isAvailable: selectedGemstone.is_available ?? true,
+            renderConfig: selectedGemstone.render_config
+              ? JSON.stringify(selectedGemstone.render_config)
+              : '',
           }
         : null,
     };

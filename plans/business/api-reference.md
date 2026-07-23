@@ -415,6 +415,342 @@ Route prefix: `biometric`
 
 ---
 
+## 2.1 Admin - Biometric Assets
+
+Controller: `apps/api-gateway/src/modules/biometric/biometric.controller.ts`
+Route prefix: `api/v1/admin/biometric-assets`
+
+### 21a. POST `/api/v1/admin/biometric-assets/fingerprint`
+**Auth:** `order.write`
+**Description:** Upload & process fingerprint image (stage `REVIEW`)
+
+**Request:** `multipart/form-data`
+- `file`: Image binary (`png`/`jpeg`)
+
+**Response:**
+```json
+{
+  "assetJson": "{\"id\":\"...\",\"artifactId\":\"fp_...\",\"assetType\":\"fingerprint\",\"status\":\"READY_FOR_REVIEW\",\"reviewFiles\":{...}}"
+}
+```
+
+---
+
+### 21b. GET `/api/v1/admin/biometric-assets/fingerprint/presets`
+**Auth:** `order.write`
+**Description:** Get processing presets for fingerprint
+
+**Response:**
+```json
+{
+  "presetsJson": "{\"standard\":{...},\"keep_ridges\":{...}}"
+}
+```
+
+---
+
+### 21c. POST `/api/v1/admin/biometric-assets/soundwave`
+**Auth:** `order.write`
+**Description:** Upload & process soundwave audio (stage `REVIEW`)
+
+**Request:** `multipart/form-data`
+- `file`: Audio binary (`mp3`/`wav`/`m4a`)
+- `segmentStartMs` (optional): number (default 0)
+- `segmentDurationMs` (optional): number (default 3000)
+
+**Response:**
+```json
+{
+  "assetJson": "{\"id\":\"...\",\"artifactId\":\"sw_...\",\"assetType\":\"soundwave\",\"status\":\"READY_FOR_REVIEW\",\"reviewFiles\":{...}}"
+}
+```
+
+---
+
+### 21d. GET `/api/v1/admin/biometric-assets/soundwave/presets`
+**Auth:** `order.write`
+**Description:** Get processing presets for soundwave
+
+**Response:**
+```json
+{
+  "presetsJson": "{\"standard\":{...},\"ridge\":{...}}"
+}
+```
+
+---
+
+### 21e. POST `/api/v1/admin/biometric-assets/heartbeat`
+**Auth:** `order.write`
+**Description:** Store heartbeat image (Directly `ASSET_APPROVED`)
+
+**Request:** `multipart/form-data`
+- `file`: Image binary
+
+**Response:**
+```json
+{
+  "assetJson": "{\"id\":\"...\",\"assetType\":\"heartbeat\",\"status\":\"ASSET_APPROVED\"}"
+}
+```
+
+---
+
+### 21f. GET `/api/v1/admin/biometric-assets/:assetId`
+**Auth:** `order.write`
+**Description:** Get biometric asset by ID
+
+**Response:**
+```json
+{
+  "assetJson": "{\"id\":\"...\",\"status\":\"READY_FOR_REVIEW\",...}"
+}
+```
+
+---
+
+### 21g. POST `/api/v1/admin/biometric-assets/:assetId/reprocess`
+**Auth:** `order.write`
+**Description:** Reprocess biometric asset with custom preset / parameters
+
+**Request:**
+```json
+{
+  "preset": "keep_ridges",
+  "minArea": 8
+}
+```
+
+**Response:**
+```json
+{
+  "assetJson": "{\"id\":\"...\",\"status\":\"READY_FOR_REVIEW\",...}"
+}
+```
+
+---
+
+### 21h. POST `/api/v1/admin/biometric-assets/:assetId/textures`
+**Auth:** `order.write`
+**Description:** Regenerate 3D texture maps for asset
+
+**Request:**
+```json
+{
+  "preset": "realistic_default"
+}
+```
+
+**Response:**
+```json
+{
+  "assetJson": "{\"id\":\"...\",\"status\":\"READY_FOR_REVIEW\",...}"
+}
+```
+
+---
+
+### 21i. POST `/api/v1/admin/biometric-assets/:assetId/approve`
+**Auth:** `order.write`
+**Description:** Approve biometric asset (copies MinIO REVIEW $\rightarrow$ APPROVED stage)
+
+**Request:**
+```json
+{
+  "note": "Image quality verified",
+  "copyDebugFiles": false
+}
+```
+
+**Response:**
+```json
+{
+  "assetJson": "{\"id\":\"...\",\"status\":\"ASSET_APPROVED\",...}"
+}
+```
+
+---
+
+### 21j. POST `/api/v1/admin/biometric-assets/:assetId/assign`
+**Auth:** `order.write`
+**Description:** Assign biometric asset to engraving (tự động suy ra `userId` của chủ sở hữu bản khắc nếu không truyền).
+
+**Request:**
+```json
+{
+  "engravingId": "550e8400-e29b-41d4-a716-446655440003",
+  "userId": "550e8400-e29b-41d4-a716-446655440002"
+}
+```
+
+**Response:**
+```json
+{
+  "assetJson": "{\"id\":\"...\",\"assigned_user_id\":\"...\",...}"
+}
+```
+
+---
+
+## 2.2 Me - Biometric Assets & Engravings
+
+Route prefix: `api/v1/me`
+
+### 21k. GET `/api/v1/me/biometric-assets/:assetId/viewer-assets`
+**Auth:** Bearer token (Customer)
+**Description:** Get 3D viewer assets (reads exclusively from MinIO `APPROVED` stage)
+
+**Response:**
+```json
+{
+  "assetJson": "{\"artifactId\":\"...\",\"viewerFiles\":{\"overlayPng\":\"...\",\"normalMap\":\"...\"}}"
+}
+```
+
+---
+
+### 21l. POST `/api/v1/me/biometric-assets/:assetId/confirm-placement`
+**Auth:** Bearer token (Customer)
+**Description:** Confirm 3D placement of biometric on ring model
+
+**Request:**
+```json
+{
+  "placement": { "x": 0.5, "y": 0.3, "rotation": 45, "scale": 1.0 }
+}
+```
+
+**Response:**
+```json
+{
+  "assetJson": "{\"id\":\"...\",\"status\":\"PLACEMENT_CONFIRMED\",...}"
+}
+```
+
+---
+
+## 2.3 User Ring Sizes API (Quản lý hồ sơ Kích thước nhẫn)
+
+Route prefix: `/api/v1/ring-sizes` hoặc `/api/v1/me/ring-sizes`
+
+### 21m. GET `/api/v1/ring-sizes`
+**Auth:** Bearer token (Customer)
+**Description:** Lấy danh sách kết quả đo/hồ sơ size nhẫn đã lưu của người dùng.
+
+**Response:**
+```json
+{
+  "ringSizes": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "label": "Ngón áp út tay trái",
+      "handSide": "LEFT",
+      "fingerType": "RING",
+      "sizeSystem": "VN",
+      "ringSize": "7",
+      "diameterMm": 17.3,
+      "circumferenceMm": 54.4,
+      "measurementMethod": "PAPER_STRIP",
+      "measurementSource": "SELF",
+      "isDefault": true,
+      "createdAt": "2026-07-23T10:00:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+### 21n. POST `/api/v1/ring-sizes`
+**Auth:** Bearer token (Customer)
+**Description:** Lưu thông tin/kết quả đo size nhẫn mới cho người dùng.
+
+**Request Body:**
+```json
+{
+  "label": "Ngón áp út tay trái",
+  "handSide": "LEFT",
+  "fingerType": "RING",
+  "sizeSystem": "VN",
+  "ringSize": "7",
+  "diameterMm": 17.3,
+  "circumferenceMm": 54.4,
+  "measurementMethod": "PAPER_STRIP",
+  "measurementSource": "SELF",
+  "isDefault": true,
+  "note": "Đo bằng thước giấy hướng dẫn trên App"
+}
+```
+
+**Response:**
+```json
+{
+  "ringSize": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "ringSize": "7",
+    "isDefault": true
+  }
+}
+```
+
+---
+
+### 21o. PUT `/api/v1/ring-sizes/:id`
+**Auth:** Bearer token (Customer)
+**Description:** Cập nhật thông tin bản ghi size nhẫn đã lưu.
+
+---
+
+### 21p. DELETE `/api/v1/ring-sizes/:id`
+**Auth:** Bearer token (Customer)
+**Description:** Xóa bản ghi size nhẫn.
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+---
+
+### 21q. PATCH `/api/v1/ring-sizes/:id/default`
+**Auth:** Bearer token (Customer)
+**Description:** Đặt bản ghi size nhẫn làm mặc định cho người dùng.
+
+### 21r. GET `/api/v1/me/engravings/:engravingId/biometrics`
+**Auth:** Bearer token (Customer)
+**Description:** List biometrics attached to an engraving
+
+**Response:**
+```json
+{
+  "biometrics": [
+    { "id": "...", "biometricType": "FP", "status": "CAPTURED", "processedSvgUrl": "..." }
+  ]
+}
+```
+
+---
+
+### 21n. POST `/api/v1/me/engravings/:engravingId/biometrics`
+**Auth:** Bearer token (Customer)
+**Description:** Upload biometric file for customer's engraving
+
+**Request:** `multipart/form-data`
+- `file`: Binary file
+- `biometricType`: `FP` / `SW` / `HB`
+- `extraData`: JSON string
+
+**Response:**
+```json
+{
+  "biometric": { "id": "...", "biometricType": "FP", "status": "CAPTURED" }
+}
+```
+
+---
+
 # 3. Ecommerce Module
 
 ## 3.1 Catalog
@@ -488,13 +824,13 @@ Route prefix: `api/v1` (class-level @Public())
 
 ### 24. GET `/api/v1/materials`
 **Auth:** @Public()
-**Description:** Get all available materials
+**Description:** Get all available materials (kèm cấu hình 3D `renderConfig`)
 
 **Response:**
 ```json
 {
   "materials": [
-    { "id": "mat-gold-18k", "name": "Vàng 18K", "purity": "75%", "color": "Vàng", "currentPricePerGram": 1200 }
+    { "id": "mat-gold-18k", "name": "Vàng 18K", "purity": "75%", "color": "Vàng", "currentPricePerGram": 1600000, "renderConfig": "{\"colorHex\":\"#FFD700\",\"roughness\":0.2,\"metalness\":0.95}" }
   ]
 }
 ```
@@ -503,13 +839,13 @@ Route prefix: `api/v1` (class-level @Public())
 
 ### 25. GET `/api/v1/gemstones`
 **Auth:** @Public()
-**Description:** Get all available gemstones
+**Description:** Get all available gemstones (kèm cấu hình 3D `renderConfig`)
 
 **Response:**
 ```json
 {
   "gemstones": [
-    { "id": "gmt-diamond-05", "type": "Kim cương", "carat": 0.5, "cut": "Brilliant", "color": "D", "clarity": "VS1", "certificationCode": "GIA-123456", "price": 3000, "isAvailable": true }
+    { "id": "gmt-diamond-05", "type": "Kim cương", "carat": 0.5, "cut": "Brilliant", "color": "D", "clarity": "VS1", "certificationCode": "GIA-123456", "price": 15000000, "isAvailable": true, "renderConfig": "{\"colorHex\":\"#FFFFFF\",\"refractiveIndex\":2.42,\"dispersion\":0.044}" }
   ]
 }
 ```
@@ -822,18 +1158,14 @@ Route prefix: `api/v1/engravings`
 
 ### 38. POST `/api/v1/engravings/:id/biometrics`
 **Auth:** `order.write`
-**Description:** Attach biometric data (unified). SW → audio, FP/HB → fingerprint/hand biometric.
+**Description:** Attach biometric file (multipart form-data $\rightarrow$ MinIO stage `REVIEW`). Trả về URL từ MinIO & `biometricAssetId`.
 
 **Param:** `id` (UUID v4)
 
-**Request:**
-```json
-{
-  "biometricType": "FP",
-  "rawFileUrl": "https://res.cloudinary.com/.../fingerprint.png",
-  "extraData": "{\"startMs\":0,\"endMs\":1000}"
-}
-```
+**Request:** `Content-Type: multipart/form-data`
+- `file`: File binary (ảnh vân tay / file ghi âm audio)
+- `biometricType`: `FP`, `SW`, hoặc `HB`
+- `extraData` (optional): JSON string (VD: `{"startMs":0,"endMs":3000}`)
 
 **Response:**
 ```json
@@ -843,9 +1175,10 @@ Route prefix: `api/v1/engravings`
     "engravingId": "550e8400-...",
     "biometricType": "FP",
     "requiredChannel": "ENGRAVING",
-    "rawFileUrl": "https://res.cloudinary.com/.../fingerprint.png",
-    "processedSvgUrl": "https://res.cloudinary.com/.../fingerprint.svg",
-    "extraData": "",
+    "rawFileUrl": "http://localhost:9000/bioring-personalization/personalization/review/fingerprint/fp_12345/fingerprint_overlay.png",
+    "processedSvgUrl": "http://localhost:9000/bioring-personalization/personalization/review/fingerprint/fp_12345/fingerprint.svg",
+    "biometricAssetId": "550e8400-...",
+    "extraData": "{}",
     "status": "CAPTURED"
   }
 }
@@ -1889,13 +2222,14 @@ Route prefix: `api/v1/guest`
 
 ### 84. POST `/api/v1/guest/orders`
 **Auth:** `order.write`
-**Description:** Tạo order cho guest (gộp createEngraving + createOrder). Tự động tạo engraving + version v1 + qr_memories + order.
+**Description:** Tạo order cho guest (gộp createEngraving + createOrder). Tự động tạo engraving + version v1 + qr_memories + order. Nếu có `selectedBiometrics`, lưu thẳng vào `engraving_versions.selected_biometrics` — bỏ qua bước PATCH config riêng cho walk-in flow.
 
 **Request:**
 ```json
 {
   "guestCode": "GUE-A7B9X2",
-  "productId": "550e8400-..."
+  "productId": "550e8400-...",
+  "selectedBiometrics": ["SW", "FP"]
 }
 ```
 
@@ -1903,6 +2237,7 @@ Route prefix: `api/v1/guest`
 |------|------|----------|-------------|
 | guestCode | string | Yes | Guest code (GUE-XXXXXX), lấy từ create session response |
 | productId | string | No | Product UUID |
+| selectedBiometrics | string[] | No | Danh sách biometrics đã chọn (VD: ["SW","FP"]). Lưu thẳng vào version v1, bỏ qua PATCH config. |
 
 **Response:**
 ```json
@@ -2867,57 +3202,18 @@ Route prefix: `api/v1/track`
 
 ---
 
-### 114. POST `/api/v1/engravings/:id/biometrics/bulk`
+### 114. POST `/api/v1/engravings/:id/biometrics/bulk` [DEPRECATED]
 **Auth:** `order.write`
-**Description:** Bulk attach biometrics (tối đa 10 items). Dùng khi staff upload nhiều biometric cùng lúc.
+**Description:** ⚠️ **[DEPRECATED]** Endpoint này đã bị bãi bỏ. Yêu cầu upload từng file qua multipart `POST /api/v1/engravings/:id/biometrics`.
 
 **Param:** `id` (UUID v4) — engraving ID
 
-**Request:**
+**Response (400 Bad Request):**
 ```json
 {
-  "biometrics": [
-    {
-      "biometricType": "FP",
-      "rawFileUrl": "https://res.cloudinary.com/.../fingerprint.png"
-    },
-    {
-      "biometricType": "SW",
-      "rawFileUrl": "https://res.cloudinary.com/.../soundwave.mp3",
-      "extraData": "{\"startMs\":0,\"endMs\":1000}"
-    }
-  ]
-}
-```
-
-**Fields:**
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| biometrics[].biometricType | string (enum) | Yes | `FP`, `SW`, `HB` |
-| biometrics[].rawFileUrl | string | Yes | Cloudinary URL |
-| biometrics[].extraData | string | No | JSON string (`{"startMs":0,"endMs":1000}` for SW) |
-
-**Response (201):**
-```json
-{
-  "count": 2,
-  "biometrics": [
-    {
-      "id": "550e8400-...",
-      "engravingId": "550e8400-...",
-      "biometricType": "FP",
-      "status": "CAPTURED",
-      "processedSvgUrl": "https://res.cloudinary.com/.../fp.svg"
-    },
-    {
-      "id": "550e8400-...",
-      "engravingId": "550e8400-...",
-      "biometricType": "SW",
-      "status": "CAPTURED",
-      "processedSvgUrl": "https://res.cloudinary.com/.../sw.svg"
-    }
-  ]
+  "statusCode": 400,
+  "message": "Bulk attach is deprecated. Upload each biometric via multipart POST /api/v1/engravings/:id/biometrics (field \"file\").",
+  "error": "Bad Request"
 }
 ```
 

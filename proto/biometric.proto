@@ -297,21 +297,10 @@ message ApproveBiometricAssetRequest {
 
 
 message AssignBiometricAssetRequest {
-
   string assetId = 1;
-
   string staffId = 2;
-
-  string userId = 3;
-
-  string engravingId = 4;
-
-  string orderItemId = 5;
-
-  string modelCode = 6;
-
-  string surface = 7;
-
+  string engravingId = 3;
+  string userId = 4;
 }
 
 
