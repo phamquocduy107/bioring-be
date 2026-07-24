@@ -37,31 +37,33 @@ def check_rabbitmq_config() -> tuple[bool, str]:
 
 
 def check_minio() -> tuple[bool, str]:
-    scheme = "https" if settings.MINIO_SECURE else "http"
-    health_url = f"{scheme}://{settings.MINIO_ENDPOINT}/minio/health/live"
+    from shared.minio_client import MinioObjectStore, MinioSettings, normalize_minio_endpoint
+
+    endpoint, secure_from_url = normalize_minio_endpoint(settings.MINIO_ENDPOINT)
+    secure = settings.MINIO_SECURE if secure_from_url is None else secure_from_url
+    scheme = "https" if secure else "http"
+    health_url = f"{scheme}://{endpoint}/minio/health/live"
     try:
         status, _ = _http_get(health_url)
         if status != 200:
-            return False, f"{settings.MINIO_ENDPOINT} health status={status}"
-
-        from shared.minio_client import MinioObjectStore, MinioSettings
+            return False, f"{endpoint} health status={status}"
 
         store = MinioObjectStore(
             MinioSettings(
-                endpoint=settings.MINIO_ENDPOINT,
+                endpoint=endpoint,
                 access_key=settings.MINIO_ACCESS_KEY,
                 secret_key=settings.MINIO_SECRET_KEY,
-                secure=settings.MINIO_SECURE,
+                secure=secure,
             )
         )
         exists = store.bucket_exists(settings.MINIO_BUCKET)
         detail = (
-            f"{scheme}://{settings.MINIO_ENDPOINT} "
+            f"{scheme}://{endpoint} "
             f"bucket={settings.MINIO_BUCKET} exists={exists}"
         )
         return exists, detail
     except Exception as exc:
-        return False, f"{settings.MINIO_ENDPOINT} error={exc}"
+        return False, f"{endpoint} error={exc}"
 
 
 def check_qdrant() -> tuple[bool, str]:
@@ -91,32 +93,28 @@ def check_qdrant() -> tuple[bool, str]:
 
 
 def check_embedding_api() -> tuple[bool, str]:
+    from shared.embeddings import build_openai_embeddings
+
     base = settings.active_embedding_base_url.rstrip("/")
-    models_url = f"{base}/models"
     key = settings.active_embedding_api_key
     model = settings.active_embedding_model
     if settings.embedding_provider == "openrouter" and not key:
         return False, "OPENROUTER_API_KEY missing"
     try:
-        _, body = _http_get(
-            models_url,
-            headers={"Authorization": f"Bearer {key}"},
+        embeddings = build_openai_embeddings(
+            model=model,
+            base_url=settings.active_embedding_base_url,
+            api_key=key,
         )
-        payload = json.loads(body.decode("utf-8"))
-        model_ids = {m.get("id") for m in payload.get("data", []) if isinstance(m, dict)}
-        if settings.embedding_provider == "openrouter":
-            ok = True
-            status = "reachable"
-        else:
-            ok = model in model_ids
-            status = "ok" if ok else "missing"
+        vector = embeddings.embed_query("bioring embedding probe")
+        ok = bool(vector) and len(vector) > 0
         detail = (
-            f"provider={settings.embedding_provider} {settings.active_embedding_base_url} "
-            f"embed={model}={status}"
+            f"provider={settings.embedding_provider} {base} "
+            f"embed={model} dim={len(vector) if vector else 0}"
         )
         return ok, detail
     except Exception as exc:
-        return False, f"{models_url} error={exc}"
+        return False, f"{base}/embeddings error={exc}"
 
 
 def run_startup_checks() -> dict[str, bool]:

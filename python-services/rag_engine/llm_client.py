@@ -11,6 +11,11 @@ from .schemas import ChatMessage
 logger = logging.getLogger(__name__)
 
 
+def _short_error(exc: Exception, limit: int = 240) -> str:
+    text = str(exc).replace("\n", " ").strip()
+    return text if len(text) <= limit else text[: limit - 3] + "..."
+
+
 class LLMClient:
     def __init__(self) -> None:
         if settings.llm_provider == "openrouter" and not settings.OPENROUTER_API_KEY:
@@ -52,7 +57,7 @@ class LLMClient:
                 llm = self._build_llm(model) if index > 0 else self.llm
                 if index > 0:
                     logger.warning(
-                        "LLM fallback → model=%s (provider=%s)",
+                        "LLM fallback -> model=%s (provider=%s)",
                         model,
                         settings.llm_provider,
                     )
@@ -64,7 +69,7 @@ class LLMClient:
                     "LLM call failed model=%s provider=%s: %s",
                     model,
                     settings.llm_provider,
-                    exc,
+                    _short_error(exc),
                 )
         if last_error is not None:
             raise last_error

@@ -2,9 +2,10 @@ import uuid
 from typing import List, Optional
 
 from langchain_core.documents import Document
-from langchain_openai import OpenAIEmbeddings
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
+
+from shared.embeddings import build_openai_embeddings
 
 from .config import settings
 
@@ -19,11 +20,10 @@ class QdrantStore:
             check_compatibility=False,
         )
         self.collection_name = settings.QDRANT_COLLECTION
-        self.embeddings = OpenAIEmbeddings(
+        self.embeddings = build_openai_embeddings(
             model=settings.active_embedding_model,
             base_url=settings.active_embedding_base_url,
             api_key=settings.active_embedding_api_key,
-            check_embedding_ctx_length=False,
         )
 
     def collection_exists(self) -> bool:

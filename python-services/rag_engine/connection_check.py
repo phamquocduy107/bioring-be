@@ -94,26 +94,28 @@ def check_llm() -> tuple[bool, str]:
 
 
 def check_embedding() -> tuple[bool, str]:
+    from shared.embeddings import build_openai_embeddings
+
     base = settings.active_embedding_base_url
     key = settings.active_embedding_api_key
     model = settings.active_embedding_model
     if settings.embedding_provider == "openrouter" and not key:
         return False, "OPENROUTER_API_KEY missing"
     try:
-        model_ids, _ = _probe_models(base, key)
-        if settings.embedding_provider == "openrouter":
-            ok = True
-            status = "reachable"
-        else:
-            ok = model in model_ids
-            status = "ok" if ok else "missing"
+        embeddings = build_openai_embeddings(
+            model=model,
+            base_url=base,
+            api_key=key,
+        )
+        vector = embeddings.embed_query("bioring embedding probe")
+        ok = bool(vector) and len(vector) > 0
         detail = (
             f"provider={settings.embedding_provider} {base} "
-            f"embed={model}={status}"
+            f"embed={model} dim={len(vector) if vector else 0}"
         )
         return ok, detail
     except Exception as exc:
-        return False, f"{base}/models error={exc}"
+        return False, f"{base}/embeddings error={exc}"
 
 
 def run_startup_checks() -> dict[str, bool]:

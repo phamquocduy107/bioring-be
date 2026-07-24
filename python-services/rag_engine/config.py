@@ -101,12 +101,12 @@ class Settings:
     RING_TOP_K: int = get_int_env("RING_TOP_K", 4)
     CUSTOM_DESIGN_TOP_K: int = get_int_env("CUSTOM_DESIGN_TOP_K", 5)
 
-    DEFAULT_SCORE_THRESHOLD: float = get_float_env("DEFAULT_SCORE_THRESHOLD", 0.50)
-    POLICY_SCORE_THRESHOLD: float = get_float_env("POLICY_SCORE_THRESHOLD", 0.55)
-    RING_SCORE_THRESHOLD: float = get_float_env("RING_SCORE_THRESHOLD", 0.45)
-    PACKAGE_SCORE_THRESHOLD: float = get_float_env("PACKAGE_SCORE_THRESHOLD", 0.50)
+    DEFAULT_SCORE_THRESHOLD: float = get_float_env("DEFAULT_SCORE_THRESHOLD", 0.12)
+    POLICY_SCORE_THRESHOLD: float = get_float_env("POLICY_SCORE_THRESHOLD", 0.12)
+    RING_SCORE_THRESHOLD: float = get_float_env("RING_SCORE_THRESHOLD", 0.10)
+    PACKAGE_SCORE_THRESHOLD: float = get_float_env("PACKAGE_SCORE_THRESHOLD", 0.12)
     CUSTOM_DESIGN_SCORE_THRESHOLD: float = get_float_env(
-        "CUSTOM_DESIGN_SCORE_THRESHOLD", 0.45
+        "CUSTOM_DESIGN_SCORE_THRESHOLD", 0.10
     )
 
     # Cache
