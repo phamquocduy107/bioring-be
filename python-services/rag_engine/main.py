@@ -53,6 +53,27 @@ TEMPLATE_NO_PRODUCTS = (
     "Hiện mình chưa tìm thấy mẫu nhẫn khớp hoàn toàn với yêu cầu này. "
     "Bạn có muốn mình mở rộng ngân sách, đổi màu đá hoặc gợi ý phong cách gần tương tự không?"
 )
+TEMPLATE_NO_KNOWLEDGE = (
+    "Hiện cửa hàng chưa có tài liệu kiến thức phù hợp để trả lời câu hỏi này. "
+    "Bạn thử hỏi theo hướng khác, hoặc liên hệ nhân viên tư vấn để được hỗ trợ trực tiếp nhé."
+)
+TEMPLATE_RING_PRODUCTS_NO_DOCS = (
+    "Hiện mình chưa có tài liệu hướng dẫn chọn nhẫn trong hệ thống, "
+    "nhưng đây là một số mẫu trong catalog có thể phù hợp yêu cầu của bạn. "
+    "Bạn xem thử hoặc cho mình biết muốn điều chỉnh ngân sách / phong cách nhé."
+)
+TEMPLATE_CUSTOM_NO_DOCS = (
+    "Hiện mình chưa có tài liệu quy trình thiết kế / biometric trong hệ thống. "
+    "Bạn vui lòng liên hệ cửa hàng để được hướng dẫn chi tiết về nhẫn vân tay, giọng nói hoặc thiết kế riêng."
+)
+TEMPLATE_GEMSTONE_NO_DOCS = (
+    "Hiện mình chưa có tài liệu tư vấn đá trong hệ thống. "
+    "Bạn có thể hỏi về mẫu nhẫn theo ngân sách, hoặc liên hệ nhân viên để được tư vấn đá phù hợp."
+)
+TEMPLATE_PACKAGE_NO_DOCS = (
+    "Hiện mình chưa tìm thấy tài liệu mô tả gói dịch vụ phù hợp. "
+    "Bạn liên hệ cửa hàng để được tư vấn quyền lợi và quy trình từng gói nhé."
+)
 
 INTENT_DETECT_EXAMPLES = {
     "clarification_no_llm": {
@@ -290,8 +311,8 @@ def health() -> HealthResponse:
         status="ok",
         service="rag-engine",
         qdrantCollection=settings.QDRANT_COLLECTION,
-        llmModel=settings.LLM_MODEL,
-        embeddingModel=settings.EMBEDDING_MODEL,
+        llmModel=f"{settings.llm_provider}:{settings.active_llm_model}",
+        embeddingModel=f"{settings.embedding_provider}:{settings.active_embedding_model}",
     )
 
 
@@ -471,36 +492,95 @@ def _run_query(request: QueryRequest) -> QueryResponse:
         documentIdsCount=len(request.documentIds or []),
     )
 
-    # Zero-LLM templates when required knowledge is missing
-    if intent == RagIntent.POLICY_QA and not used_chunks:
-        return _template_response(
-            request_id=request_id,
-            intent=intent,
-            answer=TEMPLATE_NO_POLICY,
-            intent_result=intent_result,
-            products=[],
-            packages=[],
-            sources=[],
-            debug=debug_base,
-        )
+    # Zero-LLM: không có chunk knowledge → trả template ngay, tránh timeout LLM local.
+    if not used_chunks:
+        if intent == RagIntent.POLICY_QA:
+            return _template_response(
+                request_id=request_id,
+                intent=intent,
+                answer=TEMPLATE_NO_POLICY,
+                intent_result=intent_result,
+                products=[],
+                packages=[],
+                sources=[],
+                debug=debug_base,
+            )
 
-    if intent == RagIntent.PACKAGE_QA and not packages and not used_chunks:
-        return _template_response(
-            request_id=request_id,
-            intent=intent,
-            answer=TEMPLATE_NO_PACKAGE,
-            intent_result=intent_result,
-            products=[],
-            packages=[],
-            sources=[],
-            debug=debug_base,
-        )
+        if intent == RagIntent.PACKAGE_QA:
+            if packages:
+                return _template_response(
+                    request_id=request_id,
+                    intent=intent,
+                    answer=TEMPLATE_PACKAGE_NO_DOCS,
+                    intent_result=intent_result,
+                    products=[],
+                    packages=packages,
+                    sources=[],
+                    debug=debug_base,
+                )
+            return _template_response(
+                request_id=request_id,
+                intent=intent,
+                answer=TEMPLATE_NO_PACKAGE,
+                intent_result=intent_result,
+                products=[],
+                packages=[],
+                sources=[],
+                debug=debug_base,
+            )
 
-    if intent == RagIntent.RING_RECOMMENDATION and not products and not used_chunks:
+        if intent == RagIntent.RING_RECOMMENDATION:
+            if products:
+                return _template_response(
+                    request_id=request_id,
+                    intent=intent,
+                    answer=TEMPLATE_RING_PRODUCTS_NO_DOCS,
+                    intent_result=intent_result,
+                    products=products,
+                    packages=[],
+                    sources=[],
+                    debug=debug_base,
+                )
+            return _template_response(
+                request_id=request_id,
+                intent=intent,
+                answer=TEMPLATE_NO_PRODUCTS,
+                intent_result=intent_result,
+                products=[],
+                packages=[],
+                sources=[],
+                debug=debug_base,
+            )
+
+        if intent == RagIntent.GEMSTONE_ADVICE:
+            return _template_response(
+                request_id=request_id,
+                intent=intent,
+                answer=TEMPLATE_GEMSTONE_NO_DOCS,
+                intent_result=intent_result,
+                products=products,
+                packages=[],
+                sources=[],
+                debug=debug_base,
+            )
+
+        if intent == RagIntent.CUSTOM_DESIGN_CONSULTING:
+            return _template_response(
+                request_id=request_id,
+                intent=intent,
+                answer=TEMPLATE_CUSTOM_NO_DOCS,
+                intent_result=intent_result,
+                products=[],
+                packages=packages,
+                sources=[],
+                debug=debug_base,
+            )
+
+        # GENERAL_RAG_QA và intent khác
         return _template_response(
             request_id=request_id,
             intent=intent,
-            answer=TEMPLATE_NO_PRODUCTS,
+            answer=TEMPLATE_NO_KNOWLEDGE,
             intent_result=intent_result,
             products=[],
             packages=[],
@@ -664,11 +744,11 @@ def _retrieve_context(
                 score_threshold=score_threshold,
             )
         except Exception as exc:
-            logger.error("retrieval failed: %s", exc, exc_info=True)
-            if request.intentOverride in [RagIntent.POLICY_QA, RagIntent.PACKAGE_QA]:
-                raise HTTPException(
-                    status_code=500, detail=f"retrieval failed: {exc}"
-                ) from exc
+            # Collection chưa tạo / Qdrant lỗi → coi như 0 chunk để trả template thân thiện (không 500).
+            logger.warning(
+                "retrieval failed (treat as empty knowledge): %s",
+                exc,
+            )
             return []
 
         if cache_key and settings.CACHE_RETRIEVAL_RESULTS:

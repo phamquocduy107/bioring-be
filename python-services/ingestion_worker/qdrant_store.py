@@ -20,9 +20,9 @@ class QdrantStore:
         )
         self.collection_name = settings.QDRANT_COLLECTION
         self.embeddings = OpenAIEmbeddings(
-            model=settings.EMBEDDING_MODEL,
-            base_url=settings.OPENAI_BASE_URL,
-            api_key=settings.OPENAI_API_KEY,
+            model=settings.active_embedding_model,
+            base_url=settings.active_embedding_base_url,
+            api_key=settings.active_embedding_api_key,
             check_embedding_ctx_length=False,
         )
 

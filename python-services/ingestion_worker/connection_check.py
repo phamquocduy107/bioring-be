@@ -91,21 +91,30 @@ def check_qdrant() -> tuple[bool, str]:
 
 
 def check_embedding_api() -> tuple[bool, str]:
-    base = settings.OPENAI_BASE_URL.rstrip("/")
+    base = settings.active_embedding_base_url.rstrip("/")
     models_url = f"{base}/models"
+    key = settings.active_embedding_api_key
+    model = settings.active_embedding_model
+    if settings.embedding_provider == "openrouter" and not key:
+        return False, "OPENROUTER_API_KEY missing"
     try:
         _, body = _http_get(
             models_url,
-            headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}"},
+            headers={"Authorization": f"Bearer {key}"},
         )
         payload = json.loads(body.decode("utf-8"))
         model_ids = {m.get("id") for m in payload.get("data", []) if isinstance(m, dict)}
-        has = settings.EMBEDDING_MODEL in model_ids
+        if settings.embedding_provider == "openrouter":
+            ok = True
+            status = "reachable"
+        else:
+            ok = model in model_ids
+            status = "ok" if ok else "missing"
         detail = (
-            f"{settings.OPENAI_BASE_URL} "
-            f"embed={settings.EMBEDDING_MODEL}={'ok' if has else 'missing'}"
+            f"provider={settings.embedding_provider} {settings.active_embedding_base_url} "
+            f"embed={model}={status}"
         )
-        return has, detail
+        return ok, detail
     except Exception as exc:
         return False, f"{models_url} error={exc}"
 
