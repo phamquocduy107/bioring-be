@@ -116,6 +116,7 @@ export class ChatContextService {
     oldPreferences: UserPreferences,
     extracted: ExtractedRequirements,
     currentIntent: RagIntent,
+    question?: string,
   ): UserPreferences {
     const merged: UserPreferences = { ...oldPreferences };
 
@@ -133,6 +134,19 @@ export class ChatContextService {
         continue;
       }
       merged[key] = value;
+    }
+
+    // Follow-up nới filter: xóa slot đá/ngân sách cũ khỏi session để không kẹt vòng lặp.
+    const q = (question || '').toLowerCase();
+    if (
+      /bỏ (yêu cầu )?đá|không cần (đá|kim cương)|gần giống|bỏ lọc đá|nới hết lọc/.test(
+        q,
+      )
+    ) {
+      delete merged.stoneName;
+      delete merged.stoneColor;
+    } else if (/đổi màu đá|bỏ màu đá|bỏ lọc màu/.test(q)) {
+      delete merged.stoneColor;
     }
 
     return merged;
