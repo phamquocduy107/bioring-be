@@ -19,9 +19,9 @@ class Retriever:
         )
         self.collection_name = settings.QDRANT_COLLECTION
         self.embeddings = OpenAIEmbeddings(
-            model=settings.EMBEDDING_MODEL,
-            base_url=settings.OPENAI_BASE_URL,
-            api_key=settings.OPENAI_API_KEY,
+            model=settings.active_embedding_model,
+            base_url=settings.active_embedding_base_url,
+            api_key=settings.active_embedding_api_key,
             check_embedding_ctx_length=False,
         )
 
@@ -44,14 +44,27 @@ class Retriever:
         )
 
         # qdrant-client >=1.12: search() removed; use query_points()
-        response = self.client.query_points(
-            collection_name=self.collection_name,
-            query=query_vector,
-            query_filter=query_filter,
-            limit=top_k,
-            score_threshold=score_threshold,
-            with_payload=True,
-        )
+        try:
+            response = self.client.query_points(
+                collection_name=self.collection_name,
+                query=query_vector,
+                query_filter=query_filter,
+                limit=top_k,
+                score_threshold=score_threshold,
+                with_payload=True,
+            )
+        except Exception as exc:
+            msg = str(exc).lower()
+            # Chưa ingest / collection chưa tạo → không crash query, để layer trên trả template.
+            if (
+                "doesn't exist" in msg
+                or "does not exist" in msg
+                or "not found" in msg
+                or "404" in msg
+            ):
+                return []
+            raise
+
         results = response.points
 
         chunks: List[RetrievedChunk] = []
