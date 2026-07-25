@@ -19,14 +19,36 @@ class MinioSettings:
     secure: bool = False
 
 
+def normalize_minio_endpoint(endpoint: str) -> tuple[str, bool | None]:
+    """
+    MinIO SDK expects host:port (no scheme).
+    Accepts Nest/URL style values like http://host:9000 and strips the scheme.
+    Returns (host_port, secure_override_or_None).
+    """
+    value = (endpoint or "").strip()
+    secure_override: bool | None = None
+    lower = value.lower()
+    if lower.startswith("https://"):
+        value = value[8:]
+        secure_override = True
+    elif lower.startswith("http://"):
+        value = value[7:]
+        secure_override = False
+    value = value.split("/", 1)[0].rstrip("/")
+    return value, secure_override
+
+
 def create_minio_client(cfg: MinioSettings) -> Any:
     from minio import Minio
 
+    endpoint, secure_from_url = normalize_minio_endpoint(cfg.endpoint)
+    secure = cfg.secure if secure_from_url is None else secure_from_url
+
     return Minio(
-        endpoint=cfg.endpoint,
+        endpoint=endpoint,
         access_key=cfg.access_key,
         secret_key=cfg.secret_key,
-        secure=cfg.secure,
+        secure=secure,
     )
 
 

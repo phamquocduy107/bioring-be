@@ -50,13 +50,55 @@ class Settings:
     QDRANT_API_KEY: str | None = os.getenv("QDRANT_API_KEY") or None
     QDRANT_COLLECTION: str = os.getenv("QDRANT_COLLECTION", "rag_chunks")
 
-    # LM Studio / OpenAI-compatible embedding API
+    # Provider: local (LM Studio) | openrouter
+    EMBEDDING_PROVIDER: str = (
+        os.getenv("EMBEDDING_PROVIDER", "local") or "local"
+    ).strip().lower()
+
+    # LM Studio / OpenAI-compatible embedding API (local)
     OPENAI_BASE_URL: str = os.getenv("OPENAI_BASE_URL", "http://localhost:1234/v1")
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "lm-studio")
     EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "text-embedding-bge-m3")
 
+    # OpenRouter embedding (chỉ dùng khi EMBEDDING_PROVIDER=openrouter)
+    OPENROUTER_BASE_URL: str = os.getenv(
+        "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"
+    )
+    OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
+    OPENROUTER_EMBEDDING_MODEL: str = os.getenv(
+        "OPENROUTER_EMBEDDING_MODEL", "openai/text-embedding-3-small"
+    )
+
     # Local temp
     TEMP_DIR: str = os.getenv("TEMP_DIR", "/tmp/knowledge-documents")
+
+    def _normalize_provider(self, value: str) -> str:
+        normalized = (value or "local").strip().lower()
+        if normalized in {"openrouter", "or"}:
+            return "openrouter"
+        return "local"
+
+    @property
+    def embedding_provider(self) -> str:
+        return self._normalize_provider(self.EMBEDDING_PROVIDER)
+
+    @property
+    def active_embedding_base_url(self) -> str:
+        if self.embedding_provider == "openrouter":
+            return self.OPENROUTER_BASE_URL
+        return self.OPENAI_BASE_URL
+
+    @property
+    def active_embedding_api_key(self) -> str:
+        if self.embedding_provider == "openrouter":
+            return self.OPENROUTER_API_KEY
+        return self.OPENAI_API_KEY
+
+    @property
+    def active_embedding_model(self) -> str:
+        if self.embedding_provider == "openrouter":
+            return self.OPENROUTER_EMBEDDING_MODEL
+        return self.EMBEDDING_MODEL
 
 
 settings = Settings()

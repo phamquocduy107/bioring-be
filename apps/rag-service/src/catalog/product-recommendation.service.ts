@@ -52,16 +52,26 @@ export class ProductRecommendationService {
       const stoneName = this.toString(productFilters.stoneName);
       const stoneColor = this.toString(productFilters.stoneColor);
       if (stoneName || stoneColor) {
+        const stoneNameKeys = this.expandSearchKeywords(stoneName);
+        const stoneColorKeys = this.expandSearchKeywords(stoneColor);
         and.push({
           product_gemstones: {
             some: {
               gemstones: {
                 AND: [
-                  stoneName
-                    ? { type: { contains: stoneName, mode: 'insensitive' } }
+                  stoneNameKeys.length
+                    ? {
+                        OR: stoneNameKeys.map((k) => ({
+                          type: { contains: k, mode: 'insensitive' as const },
+                        })),
+                      }
                     : {},
-                  stoneColor
-                    ? { color: { contains: stoneColor, mode: 'insensitive' } }
+                  stoneColorKeys.length
+                    ? {
+                        OR: stoneColorKeys.map((k) => ({
+                          color: { contains: k, mode: 'insensitive' as const },
+                        })),
+                      }
                     : {},
                 ],
               },
@@ -73,7 +83,10 @@ export class ProductRecommendationService {
       const style = this.toString(productFilters.style);
       const purpose = this.toString(productFilters.purpose);
       if (style || purpose) {
-        const keywords = [style, purpose].filter(Boolean) as string[];
+        const keywords = [
+          ...this.expandSearchKeywords(style),
+          ...this.expandSearchKeywords(purpose),
+        ];
         and.push({
           OR: keywords.flatMap((keyword) => [
             { name: { contains: keyword, mode: 'insensitive' } },
@@ -152,6 +165,24 @@ export class ProductRecommendationService {
     return bits.length
       ? `${productName}: ${bits.join(', ')}.`
       : `${productName} từ catalog BIORING.`;
+  }
+
+  private expandSearchKeywords(value: string | null): string[] {
+    if (!value) return [];
+    const v = value.trim().toLowerCase();
+    const aliases: Record<string, string[]> = {
+      engagement: ['engagement', 'cầu hôn', 'đính hôn'],
+      wedding: ['wedding', 'cưới', 'nhẫn cưới'],
+      anniversary: ['anniversary', 'kỷ niệm'],
+      daily: ['daily', 'hằng ngày', 'hàng ngày'],
+      minimal: ['minimal', 'tối giản', 'đơn giản'],
+      luxury: ['luxury', 'sang trọng'],
+      vintage: ['vintage', 'cổ điển'],
+      statement: ['statement', 'nổi bật'],
+      elegant: ['elegant', 'thanh lịch'],
+      diamond: ['diamond', 'kim cương'],
+    };
+    return aliases[v] ?? [value];
   }
 
   private toNumber(value: unknown): number | null {

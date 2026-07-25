@@ -41,13 +41,34 @@ class Settings:
     # Nếu filter theo retrieval_types không ra chunk, thử lại 1 lần bỏ filter type.
     ENABLE_RETRIEVAL_FALLBACK: bool = get_bool_env("ENABLE_RETRIEVAL_FALLBACK", True)
 
-    # LM Studio / OpenAI-compatible API
+    # Provider switch: local (LM Studio) | openrouter
+    LLM_PROVIDER: str = (os.getenv("LLM_PROVIDER", "local") or "local").strip().lower()
+    EMBEDDING_PROVIDER: str = (
+        os.getenv("EMBEDDING_PROVIDER", "local") or "local"
+    ).strip().lower()
+
+    # LM Studio / OpenAI-compatible API (local)
     OPENAI_BASE_URL: str = os.getenv("OPENAI_BASE_URL", "http://localhost:1234/v1")
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "lm-studio")
     EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "text-embedding-bge-m3")
     LLM_MODEL: str = os.getenv("LLM_MODEL", "qwen2.5-7b-instruct")
     LLM_TEMPERATURE: float = get_float_env("LLM_TEMPERATURE", 0.0)
     LLM_REQUEST_TIMEOUT_S: float = get_float_env("LLM_REQUEST_TIMEOUT_S", 45.0)
+
+    # OpenRouter (OpenAI-compatible)
+    OPENROUTER_BASE_URL: str = os.getenv(
+        "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"
+    )
+    OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
+    OPENROUTER_PRIMARY_MODEL: str = os.getenv(
+        "OPENROUTER_PRIMARY_MODEL", "openrouter/free"
+    )
+    OPENROUTER_FALLBACK_MODELS: str = os.getenv("OPENROUTER_FALLBACK_MODELS", "")
+    OPENROUTER_EMBEDDING_MODEL: str = os.getenv(
+        "OPENROUTER_EMBEDDING_MODEL", "openai/text-embedding-3-small"
+    )
+    OPENROUTER_HTTP_REFERER: str = os.getenv("OPENROUTER_HTTP_REFERER", "")
+    OPENROUTER_APP_TITLE: str = os.getenv("OPENROUTER_APP_TITLE", "bioring-rag")
 
     # Intent: rules-first by default (no LLM for intent)
     INTENT_RULES_FIRST: bool = get_bool_env("INTENT_RULES_FIRST", True)
@@ -80,12 +101,12 @@ class Settings:
     RING_TOP_K: int = get_int_env("RING_TOP_K", 4)
     CUSTOM_DESIGN_TOP_K: int = get_int_env("CUSTOM_DESIGN_TOP_K", 5)
 
-    DEFAULT_SCORE_THRESHOLD: float = get_float_env("DEFAULT_SCORE_THRESHOLD", 0.50)
-    POLICY_SCORE_THRESHOLD: float = get_float_env("POLICY_SCORE_THRESHOLD", 0.55)
-    RING_SCORE_THRESHOLD: float = get_float_env("RING_SCORE_THRESHOLD", 0.45)
-    PACKAGE_SCORE_THRESHOLD: float = get_float_env("PACKAGE_SCORE_THRESHOLD", 0.50)
+    DEFAULT_SCORE_THRESHOLD: float = get_float_env("DEFAULT_SCORE_THRESHOLD", 0.12)
+    POLICY_SCORE_THRESHOLD: float = get_float_env("POLICY_SCORE_THRESHOLD", 0.12)
+    RING_SCORE_THRESHOLD: float = get_float_env("RING_SCORE_THRESHOLD", 0.10)
+    PACKAGE_SCORE_THRESHOLD: float = get_float_env("PACKAGE_SCORE_THRESHOLD", 0.12)
     CUSTOM_DESIGN_SCORE_THRESHOLD: float = get_float_env(
-        "CUSTOM_DESIGN_SCORE_THRESHOLD", 0.45
+        "CUSTOM_DESIGN_SCORE_THRESHOLD", 0.10
     )
 
     # Cache
@@ -97,6 +118,76 @@ class Settings:
     # Debug payload in /query response
     DEBUG_RAG: bool = get_bool_env("DEBUG_RAG", False)
     APP_ENV: str = os.getenv("APP_ENV", os.getenv("NODE_ENV", "development"))
+
+    def _normalize_provider(self, value: str) -> str:
+        normalized = (value or "local").strip().lower()
+        if normalized in {"openrouter", "or"}:
+            return "openrouter"
+        return "local"
+
+    @property
+    def llm_provider(self) -> str:
+        return self._normalize_provider(self.LLM_PROVIDER)
+
+    @property
+    def embedding_provider(self) -> str:
+        return self._normalize_provider(self.EMBEDDING_PROVIDER)
+
+    @property
+    def active_llm_base_url(self) -> str:
+        if self.llm_provider == "openrouter":
+            return self.OPENROUTER_BASE_URL
+        return self.OPENAI_BASE_URL
+
+    @property
+    def active_llm_api_key(self) -> str:
+        if self.llm_provider == "openrouter":
+            return self.OPENROUTER_API_KEY
+        return self.OPENAI_API_KEY
+
+    @property
+    def active_llm_model(self) -> str:
+        return self.resolved_llm_models()[0]
+
+    def resolved_llm_models(self) -> list[str]:
+        if self.llm_provider == "openrouter":
+            models: list[str] = []
+            primary = (self.OPENROUTER_PRIMARY_MODEL or "").strip()
+            if primary:
+                models.append(primary)
+            for raw in (self.OPENROUTER_FALLBACK_MODELS or "").split(","):
+                model = raw.strip()
+                if model and model not in models:
+                    models.append(model)
+            return models or ["openrouter/free"]
+        return [self.LLM_MODEL]
+
+    @property
+    def openrouter_default_headers(self) -> dict[str, str]:
+        headers: dict[str, str] = {}
+        if self.OPENROUTER_HTTP_REFERER:
+            headers["HTTP-Referer"] = self.OPENROUTER_HTTP_REFERER
+        if self.OPENROUTER_APP_TITLE:
+            headers["X-Title"] = self.OPENROUTER_APP_TITLE
+        return headers
+
+    @property
+    def active_embedding_base_url(self) -> str:
+        if self.embedding_provider == "openrouter":
+            return self.OPENROUTER_BASE_URL
+        return self.OPENAI_BASE_URL
+
+    @property
+    def active_embedding_api_key(self) -> str:
+        if self.embedding_provider == "openrouter":
+            return self.OPENROUTER_API_KEY
+        return self.OPENAI_API_KEY
+
+    @property
+    def active_embedding_model(self) -> str:
+        if self.embedding_provider == "openrouter":
+            return self.OPENROUTER_EMBEDDING_MODEL
+        return self.EMBEDDING_MODEL
 
     @property
     def debug_enabled(self) -> bool:

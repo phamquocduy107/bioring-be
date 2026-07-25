@@ -3,7 +3,8 @@ from typing import List, Optional
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_core.documents import Document
 from langchain_experimental.text_splitter import SemanticChunker
-from langchain_openai import OpenAIEmbeddings
+
+from shared.embeddings import build_openai_embeddings
 
 from .config import settings
 
@@ -12,11 +13,10 @@ class PdfProcessor:
     """Load PDF pages and split them into semantic chunks."""
 
     def __init__(self) -> None:
-        self.embeddings = OpenAIEmbeddings(
-            model=settings.EMBEDDING_MODEL,
-            base_url=settings.OPENAI_BASE_URL,
-            api_key=settings.OPENAI_API_KEY,
-            check_embedding_ctx_length=False,
+        self.embeddings = build_openai_embeddings(
+            model=settings.active_embedding_model,
+            base_url=settings.active_embedding_base_url,
+            api_key=settings.active_embedding_api_key,
         )
 
         self.text_splitter = SemanticChunker(

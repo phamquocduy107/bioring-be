@@ -58,32 +58,71 @@ def check_qdrant() -> tuple[bool, str]:
         return False, f"{settings.QDRANT_URL} error={exc}"
 
 
-def check_openai_compatible() -> tuple[bool, str]:
-    base = settings.OPENAI_BASE_URL.rstrip("/")
-    models_url = f"{base}/models"
+def _probe_models(base_url: str, api_key: str) -> tuple[set[str], str]:
+    models_url = f"{base_url.rstrip('/')}/models"
+    _, body = _http_get(
+        models_url,
+        headers={"Authorization": f"Bearer {api_key}"},
+    )
+    payload = json.loads(body.decode("utf-8"))
+    model_ids = {m.get("id") for m in payload.get("data", []) if isinstance(m, dict)}
+    return model_ids, models_url
+
+
+def check_llm() -> tuple[bool, str]:
+    base = settings.active_llm_base_url
+    key = settings.active_llm_api_key
+    model = settings.active_llm_model
+    if settings.llm_provider == "openrouter" and not key:
+        return False, "OPENROUTER_API_KEY missing"
     try:
-        _, body = _http_get(
-            models_url,
-            headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}"},
-        )
-        payload = json.loads(body.decode("utf-8"))
-        model_ids = {m.get("id") for m in payload.get("data", []) if isinstance(m, dict)}
-        has_llm = settings.LLM_MODEL in model_ids
-        has_embed = settings.EMBEDDING_MODEL in model_ids
+        model_ids, models_url = _probe_models(base, key)
+        # OpenRouter catalog lớn / free route có thể không khớp id tuyệt đối — chỉ cần API sống.
+        if settings.llm_provider == "openrouter":
+            ok = True
+            status = "reachable"
+        else:
+            ok = model in model_ids
+            status = "ok" if ok else "missing"
         detail = (
-            f"{settings.OPENAI_BASE_URL} "
-            f"llm={settings.LLM_MODEL}={'ok' if has_llm else 'missing'} "
-            f"embed={settings.EMBEDDING_MODEL}={'ok' if has_embed else 'missing'}"
+            f"provider={settings.llm_provider} {base} "
+            f"llm={model}={status}"
         )
-        return has_llm and has_embed, detail
+        return ok, detail
     except Exception as exc:
-        return False, f"{models_url} error={exc}"
+        return False, f"{base}/models error={exc}"
+
+
+def check_embedding() -> tuple[bool, str]:
+    from shared.embeddings import build_openai_embeddings
+
+    base = settings.active_embedding_base_url
+    key = settings.active_embedding_api_key
+    model = settings.active_embedding_model
+    if settings.embedding_provider == "openrouter" and not key:
+        return False, "OPENROUTER_API_KEY missing"
+    try:
+        embeddings = build_openai_embeddings(
+            model=model,
+            base_url=base,
+            api_key=key,
+        )
+        vector = embeddings.embed_query("bioring embedding probe")
+        ok = bool(vector) and len(vector) > 0
+        detail = (
+            f"provider={settings.embedding_provider} {base} "
+            f"embed={model} dim={len(vector) if vector else 0}"
+        )
+        return ok, detail
+    except Exception as exc:
+        return False, f"{base}/embeddings error={exc}"
 
 
 def run_startup_checks() -> dict[str, bool]:
     checks: list[tuple[str, Callable[[], tuple[bool, str]]]] = [
         ("Qdrant", check_qdrant),
-        ("LLM/Embed", check_openai_compatible),
+        ("LLM", check_llm),
+        ("Embed", check_embedding),
     ]
     results: dict[str, bool] = {}
     for name, fn in checks:

@@ -189,10 +189,30 @@ export class MinioService implements OnModuleInit {
     expirySeconds = 3600,
     bucket?: string,
   ): Promise<string> {
-    return this.client.presignedGetObject(
+    const url = await this.client.presignedGetObject(
       this.resolveBucket(bucket),
       key,
       expirySeconds,
     );
+    return this.rewritePresignedUrlHost(url);
+  }
+
+  /**
+   * When MinIO is reached via an internal host but browsers need a public host,
+   * rewrite only the origin (path + signature query stay intact).
+   */
+  private rewritePresignedUrlHost(url: string): string {
+    if (!this.publicEndpoint) {
+      return url;
+    }
+    try {
+      const signed = new URL(url);
+      const publicBase = new URL(this.publicEndpoint);
+      signed.protocol = publicBase.protocol;
+      signed.host = publicBase.host;
+      return signed.toString();
+    } catch {
+      return url;
+    }
   }
 }

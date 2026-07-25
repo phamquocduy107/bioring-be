@@ -97,17 +97,18 @@ export function retrievalOptionsForIntent(intent: RagIntent): {
   topK: number;
   scoreThreshold: number;
 } {
+  // OpenRouter nvidia/nemotron-3-embed cosine scores thường ~0.1–0.3 (không ~0.5+ như BGE local).
   switch (intent) {
     case 'POLICY_QA':
-      return { topK: 3, scoreThreshold: 0.55 };
+      return { topK: 3, scoreThreshold: 0.12 };
     case 'PACKAGE_QA':
-      return { topK: 3, scoreThreshold: 0.5 };
+      return { topK: 3, scoreThreshold: 0.12 };
     case 'RING_RECOMMENDATION':
     case 'GEMSTONE_ADVICE':
-      return { topK: 4, scoreThreshold: 0.45 };
+      return { topK: 4, scoreThreshold: 0.1 };
     case 'CUSTOM_DESIGN_CONSULTING':
-      return { topK: 5, scoreThreshold: 0.45 };
+      return { topK: 5, scoreThreshold: 0.1 };
     default:
-      return { topK: 4, scoreThreshold: 0.5 };
+      return { topK: 4, scoreThreshold: 0.12 };
   }
 }

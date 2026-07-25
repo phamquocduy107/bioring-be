@@ -1,4 +1,4 @@
-import { KNOWLEDGE_GRPC_CHANNEL_OPTIONS } from '@app/common';
+import { KNOWLEDGE_GRPC_CHANNEL_OPTIONS, KNOWLEDGE_GRPC_LOADER_OPTIONS } from '@app/common';
 import { Module } from '@nestjs/common';
 import { join } from 'node:path';
 import { ClientsModule, Transport } from '@nestjs/microservices';
@@ -17,6 +17,7 @@ import { KnowledgeService } from './knowledge.service';
           protoPath: join(process.cwd(), 'proto/knowledge.proto'),
           url: process.env.KNOWLEDGE_GRPC_URL ?? 'localhost:50054',
           channelOptions: KNOWLEDGE_GRPC_CHANNEL_OPTIONS,
+          loader: KNOWLEDGE_GRPC_LOADER_OPTIONS,
         },
       },
     ]),

@@ -180,6 +180,7 @@ Trả về JSON:
         extracted = ExtractedRequirements(**extracted_raw)
         extracted = self._merge_rule_extractions(question, extracted)
         extracted = self._merge_preferences(extracted, request.userPreferences)
+        extracted = self._apply_follow_up_overrides(question, extracted)
 
         missing_fields = list(raw.get("missingFields") or [])
         missing_fields = self._normalize_missing_fields(intent, extracted, missing_fields)
@@ -215,6 +216,7 @@ Trả về JSON:
 
         extracted = self._merge_rule_extractions(question, ExtractedRequirements())
         extracted = self._merge_preferences(extracted, request.userPreferences)
+        extracted = self._apply_follow_up_overrides(question, extracted)
         missing_fields = self._normalize_missing_fields(intent, extracted, [])
         should_ask = self._should_ask_clarifying(intent, missing_fields, extracted)
 
@@ -309,11 +311,12 @@ Trả về JSON:
         data = extracted.model_dump()
 
         budget_min, budget_max, budget_approx = self._extract_budget(q)
-        if budget_max and not data.get("budgetMax"):
+        # Ngân sách nêu rõ trong câu hiện tại luôn ghi đè (follow-up "dưới 20 triệu").
+        if budget_max:
             data["budgetMax"] = budget_max
-        if budget_min and not data.get("budgetMin"):
+        if budget_min:
             data["budgetMin"] = budget_min
-        if budget_approx and not data.get("budgetApprox") and not data.get("budgetMax"):
+        if budget_approx and not data.get("budgetMax"):
             data["budgetApprox"] = budget_approx
             data["budgetMax"] = budget_approx
 
@@ -397,6 +400,48 @@ Trả về JSON:
                 data["customSignal"] = "fingerprint"
             elif "sinh trắc" in q or "biometric" in q:
                 data["customSignal"] = "biometric"
+
+        return ExtractedRequirements(**data)
+
+    @staticmethod
+    def _apply_follow_up_overrides(
+        question: str, extracted: ExtractedRequirements
+    ) -> ExtractedRequirements:
+        """Nới filter khi user bấm chip / nói mở rộng — tránh kẹt cùng productFilters."""
+        q = question.lower().strip()
+        data = extracted.model_dump()
+
+        if re.search(
+            r"mở rộng ngân sách|nới ngân sách|tăng ngân sách|ngân sách lên",
+            q,
+        ):
+            explicit_min, explicit_max, explicit_approx = IntentClassifier._extract_budget(q)
+            if explicit_max:
+                data["budgetMax"] = explicit_max
+            else:
+                current = data.get("budgetMax") or data.get("budgetApprox") or 5_000_000
+                try:
+                    current_n = int(float(current))
+                except (TypeError, ValueError):
+                    current_n = 5_000_000
+                data["budgetMax"] = min(max(current_n * 2, 10_000_000), 50_000_000)
+            data["budgetApprox"] = data.get("budgetMax")
+
+        if re.search(
+            r"đổi màu đá|bỏ màu đá|không (cần )?màu đá|bỏ lọc màu",
+            q,
+        ):
+            data["stoneColor"] = None
+
+        if re.search(
+            r"bỏ (yêu cầu )?đá|không cần (đá|kim cương)|gần giống|bỏ lọc đá|nới hết lọc",
+            q,
+        ):
+            data["stoneName"] = None
+            data["stoneColor"] = None
+
+        if re.search(r"gần giống|nới hết lọc", q) and not data.get("budgetMax"):
+            data["budgetMax"] = 20_000_000
 
         return ExtractedRequirements(**data)
 

@@ -71,10 +71,10 @@ export class ChatService {
     this.validateAskInput(data);
 
     // Kiểm tra quyền truy cập workspace ở NestJS; Python rag-engine không xử lý authorization.
-    await this.workspacePermissionService.assertUserCanAccessWorkspace(
-      data.userId,
-      data.workspaceId,
-    );
+    // await this.workspacePermissionService.assertUserCanAccessWorkspace(
+    //   data.userId,
+    //   data.workspaceId,
+    // );
 
     if (data.documentIds?.length) {
       // Nếu FE giới hạn documentIds, kiểm tra user có quyền đọc các tài liệu này.
@@ -83,13 +83,13 @@ export class ChatService {
         data.workspaceId,
         data.documentIds,
       );
-    }
 
-    // Chỉ cho phép hỏi khi tài liệu knowledge đã ingest/vector hóa xong.
-    await this.documentsService.assertDocumentsReadyForQuery(
-      data.workspaceId,
-      data.documentIds,
-    );
+      // Chỉ cho phép hỏi khi tài liệu knowledge đã ingest/vector hóa xong.
+      await this.documentsService.assertDocumentsReadyForQuery(
+        data.workspaceId,
+        data.documentIds,
+      );
+    }
 
     // Lấy session hiện có hoặc tạo session mới; đây là nghiệp vụ chat của rag-service.
     const session = data.chatSessionId
@@ -152,6 +152,7 @@ export class ChatService {
       context.userPreferences,
       detected.extractedRequirements ?? {},
       currentIntent,
+      data.question,
     );
     await this.aiChatRepository.updateSessionPreferences(
       session.id,

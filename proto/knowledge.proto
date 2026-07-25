@@ -8,6 +8,7 @@ service KnowledgeService {
   rpc FindAllDocuments (FindAllDocumentsRequest) returns (DocumentListResponse);
   rpc FindOneDocument (FindOneDocumentRequest) returns (DocumentResponse);
   rpc GetDocumentStatus (GetDocumentStatusRequest) returns (DocumentStatusResponse);
+  rpc GetDocumentDownloadUrl (GetDocumentDownloadUrlRequest) returns (DocumentDownloadUrlResponse);
   rpc DeleteDocument (DeleteDocumentRequest) returns (DeleteDocumentResponse);
 
   // Ingestion
@@ -24,7 +25,7 @@ service KnowledgeService {
 message UploadFile {
   string originalname = 1;
   string mimetype = 2;
-  int64 size = 3;
+  int32 size = 3;
   bytes buffer = 4;
 }
 
@@ -49,6 +50,13 @@ message FindOneDocumentRequest {
 message GetDocumentStatusRequest {
   string userId = 1;
   string documentId = 2;
+}
+
+message GetDocumentDownloadUrlRequest {
+  string userId = 1;
+  string documentId = 2;
+  // Optional override; server clamps to a safe max if omitted/too large.
+  int32 expiresInSeconds = 3;
 }
 
 message DeleteDocumentRequest {
@@ -82,6 +90,14 @@ message DocumentStatusResponse {
   string updatedAt = 5;
 }
 
+message DocumentDownloadUrlResponse {
+  string url = 1;
+  int32 expiresIn = 2;
+  string originalName = 3;
+  string mimetype = 4;
+  string expiresAt = 5;
+}
+
 message DeleteDocumentResponse {
   bool success = 1;
 }
@@ -92,12 +108,17 @@ message Document {
   string userId = 3;
   string originalName = 4;
   string mimetype = 5;
-  int64 size = 6;
+  // int32 (not int64): Nest/gRPC Long objects drop size in HTTP JSON.
+  // Max upload is 50 MiB — safely within int32.
+  int32 size = 6;
   string status = 7;
   string createdAt = 8;
   string updatedAt = 9;
   string documentType = 10;
   repeated string retrievalTypes = 11;
+  // Ingestion progress fields (mirror knowledge_documents.chunk_count / error_message).
+  int32 chunkCount = 12;
+  string errorMessage = 13;
 }
 
 message CreateChatSessionRequest {

@@ -37,6 +37,15 @@ export class DocumentsController {
     return this.documentsService.getStatus(data);
   }
 
+  @GrpcMethod('KnowledgeService', 'GetDocumentDownloadUrl')
+  getDocumentDownloadUrl(data: {
+    userId: string;
+    documentId: string;
+    expiresInSeconds?: number;
+  }) {
+    return this.documentsService.getDownloadUrl(data);
+  }
+
   @GrpcMethod('KnowledgeService', 'DeleteDocument')
   deleteDocument(data: { userId: string; documentId: string }) {
     return this.documentsService.delete(data);

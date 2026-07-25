@@ -27,7 +27,9 @@ const documentExample = {
   originalName: 'company-policy.pdf',
   mimetype: 'application/pdf',
   size: 1048576,
-  status: 'PENDING',
+  status: 'COMPLETED',
+  chunkCount: 12,
+  errorMessage: '',
   documentType: 'policy',
   retrievalTypes: ['policy'],
   createdAt: '2026-07-10T02:00:00.000Z',
@@ -155,6 +157,38 @@ export function ApiGetDocumentStatusDocs() {
       status: 200,
       description: 'Document ingestion status.',
       schema: { example: documentStatusExample },
+    }),
+    ApiResponse({ status: 404, description: 'Document not found' }),
+    ApiAuthFailures(),
+  );
+}
+
+export function ApiGetDocumentDownloadUrlDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'Get temporary MinIO download/preview URL',
+      description:
+        'Trả presigned GET URL (TTL mặc định 15 phút, clamp 1–60 phút) để FE preview hoặc mở PDF trực tiếp từ MinIO. Không trả storage_key.',
+    }),
+    ApiParam({
+      name: 'id',
+      type: String,
+      format: 'uuid',
+      example: '550e8400-e29b-41d4-a716-446655440001',
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Presigned download URL.',
+      schema: {
+        example: {
+          url: 'http://localhost:9000/knowledge-documents/bioring-catalog/.../file.pdf?X-Amz-Algorithm=...',
+          expiresIn: 900,
+          originalName: 'company-policy.pdf',
+          mimetype: 'application/pdf',
+          expiresAt: '2026-07-25T01:00:00.000Z',
+        },
+      },
     }),
     ApiResponse({ status: 404, description: 'Document not found' }),
     ApiAuthFailures(),

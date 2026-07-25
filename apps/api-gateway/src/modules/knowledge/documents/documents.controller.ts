@@ -1,5 +1,6 @@
 import {
   CurrentUser,
+  KNOWLEDGE_DOWNLOAD_URL_TTL_SECONDS,
   KNOWLEDGE_MAX_UPLOAD_BYTES,
   type JwtPayload,
 } from '@app/common';
@@ -13,6 +14,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -23,6 +25,7 @@ import {
   ApiDeleteDocumentDocs,
   ApiFindAllDocumentsDocs,
   ApiFindOneDocumentDocs,
+  ApiGetDocumentDownloadUrlDocs,
   ApiGetDocumentStatusDocs,
   ApiReindexDocumentDocs,
   ApiRetryIngestionDocs,
@@ -75,16 +78,6 @@ export class DocumentsController {
     return this.knowledgeService.findAllDocuments(user.sub);
   }
 
-  @Get(':id')
-  @ApiFindOneDocumentDocs()
-  findOne(
-    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
-    @CurrentUser() user: JwtPayload,
-  ) {
-    // Proxy chi tiết document; rag-service chịu trách nhiệm kiểm tra quyền.
-    return this.knowledgeService.findOneDocument(user.sub, id);
-  }
-
   @Get(':id/status')
   @ApiGetDocumentStatusDocs()
   getStatus(
@@ -93,6 +86,35 @@ export class DocumentsController {
   ) {
     // Status cho biết ingestion/vector hóa đã READY hay chưa để chat có thể query.
     return this.knowledgeService.getDocumentStatus(user.sub, id);
+  }
+
+  @Get(':id/download-url')
+  @ApiGetDocumentDownloadUrlDocs()
+  getDownloadUrl(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Query('expiresIn') expiresInRaw: string | undefined,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    // Trả presigned MinIO URL (TTL mặc định 15 phút) để FE preview/download PDF.
+    const expiresInSeconds = parseExpiresInQuery(
+      expiresInRaw,
+      KNOWLEDGE_DOWNLOAD_URL_TTL_SECONDS,
+    );
+    return this.knowledgeService.getDocumentDownloadUrl(
+      user.sub,
+      id,
+      expiresInSeconds,
+    );
+  }
+
+  @Get(':id')
+  @ApiFindOneDocumentDocs()
+  findOne(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    // Proxy chi tiết document; rag-service chịu trách nhiệm kiểm tra quyền.
+    return this.knowledgeService.findOneDocument(user.sub, id);
   }
 
   @Delete(':id')
@@ -124,4 +146,18 @@ export class DocumentsController {
     // Reindex yêu cầu worker tạo lại chunks/embeddings/Qdrant vectors.
     return this.knowledgeService.reindexDocument(user.sub, id);
   }
+}
+
+function parseExpiresInQuery(
+  raw: string | undefined,
+  fallback: number,
+): number {
+  if (raw === undefined || raw === '') {
+    return fallback;
+  }
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) {
+    throw new BadRequestException('expiresIn must be a number (seconds)');
+  }
+  return Math.floor(parsed);
 }

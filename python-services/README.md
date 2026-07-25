@@ -132,15 +132,15 @@ FastAPI phục vụ chat knowledge: phân loại intent, retrieve Qdrant, gọi 
 ### Phụ thuộc
 
 - **Qdrant** — vector store (`QDRANT_URL`, `QDRANT_COLLECTION`)
-- **LLM / Embedding** — LM Studio hoặc API tương thích (`OPENAI_BASE_URL`, `LLM_MODEL`, `EMBEDDING_MODEL`)
+- **LLM / Embedding** — `LLM_PROVIDER` / `EMBEDDING_PROVIDER` = `local` (LM Studio) hoặc `openrouter`
 
 ### Env quan trọng
 
 | Nhóm | Biến | Ghi chú |
 |------|------|---------|
 | Qdrant | `QDRANT_URL`, `QDRANT_COLLECTION` | Collection chunks |
-| LLM | `OPENAI_BASE_URL`, `LLM_MODEL` | Chat completion |
-| Embedding | `EMBEDDING_MODEL` | Vector hóa query |
+| LLM | `LLM_PROVIDER`, `OPENAI_*` / `OPENROUTER_*`, `LLM_MODEL` | Chat completion |
+| Embedding | `EMBEDDING_PROVIDER`, `EMBEDDING_MODEL` / `OPENROUTER_EMBEDDING_MODEL` | Ingest + retrieve |
 | Intent | `INTENT_RULES_FIRST`, `ENABLE_LLM_INTENT_FALLBACK` | Ưu tiên rule, hạn chế gọi LLM |
 | Retrieval | `DEFAULT_TOP_K`, `*_SCORE_THRESHOLD` | Top-K theo intent |
 | Cache | `CACHE_*`, `CACHE_TTL_SECONDS` | In-memory (Redis sau) |
@@ -337,7 +337,7 @@ Hiện prototype có thể gọi Python trực tiếp để test, chưa bắt bu
 | Vấn đề | Cách xử lý |
 |--------|------------|
 | `[py] Không tìm thấy venv` | `cd python-services && python -m venv .venv && pip install -r requirements.txt` |
-| RAG 502 / LLM timeout | Kiểm tra LM Studio / `OPENAI_BASE_URL`, tăng `LLM_REQUEST_TIMEOUT_S` |
+| RAG 502 / LLM timeout | Kiểm tra `LLM_PROVIDER`, LM Studio / OpenRouter key, tăng `LLM_REQUEST_TIMEOUT_S` |
 | Ingestion không chạy | RabbitMQ + MinIO + worker (`py:rag-worker`) |
 | Không retrieve được | Qdrant collection, reindex document, `ENABLE_RETRIEVAL_FALLBACK` |
 | Không có SVG vân tay | Cài potrace, xem `tools/potrace/` |
