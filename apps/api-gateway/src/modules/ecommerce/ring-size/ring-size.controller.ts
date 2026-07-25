@@ -28,10 +28,10 @@ import {
 interface EcommerceGrpcService {
   listRingSizes(data: { userId: string }): Observable<{ ringSizes: any[] }>;
   createRingSize(
-    data: { userId: string } & CreateRingSizeDto,
+    data: { userId: string } & Omit<CreateRingSizeDto, 'guideStepResult'> & { guideStepResult?: string },
   ): Observable<{ ringSize: any }>;
   updateRingSize(
-    data: { id: string; userId: string } & UpdateRingSizeDto,
+    data: { id: string; userId: string } & Omit<UpdateRingSizeDto, 'guideStepResult'> & { guideStepResult?: string },
   ): Observable<{ ringSize: any }>;
   deleteRingSize(data: {
     id: string;
@@ -75,8 +75,11 @@ export class RingSizeController implements OnModuleInit {
   create(@Body() body: CreateRingSizeDto, @CurrentUser() user: JwtPayload) {
     return this.call(() =>
       this.grpc!.createRingSize({
-        userId: user.sub,
         ...body,
+        userId: user.sub,
+        guideStepResult: body.guideStepResult
+          ? JSON.stringify(body.guideStepResult)
+          : undefined,
       }),
     );
   }
@@ -90,9 +93,12 @@ export class RingSizeController implements OnModuleInit {
   ) {
     return this.call(() =>
       this.grpc!.updateRingSize({
+        ...body,
         id,
         userId: user.sub,
-        ...body,
+        guideStepResult: body.guideStepResult
+          ? JSON.stringify(body.guideStepResult)
+          : undefined,
       }),
     );
   }

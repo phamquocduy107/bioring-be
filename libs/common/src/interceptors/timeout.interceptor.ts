@@ -15,33 +15,6 @@ export class TimeoutInterceptor implements NestInterceptor {
   constructor(private reflector: Reflector) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
-    const bypass = this.reflector.get<boolean>(
-      BYPASS_INTERCEPTORS,
-      context.getHandler(),
-    );
-    if (bypass) {
-      return next.handle();
-    }
-
-    const skipTimeout = this.reflector.get<boolean>(
-      SKIP_TIMEOUT,
-      context.getHandler(),
-    );
-
-    if (skipTimeout) {
-      return next.handle();
-    }
-
-    return next.handle().pipe(
-      timeout(5000),
-      catchError((err: unknown) => {
-        if (err instanceof TimeoutError) {
-          return throwError(
-            () => new RequestTimeoutException('Request xử lý quá lâu!'),
-          );
-        }
-        return throwError(() => err as Error);
-      }),
-    );
+    return next.handle();
   }
 }

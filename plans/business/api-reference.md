@@ -670,14 +670,6 @@ Route prefix: `api/v1/admin/biometric-assets`
       "artifactId": "...",
       "status": "READY_FOR_REVIEW",
       "reviewFiles": {
-        "viewerFiles": {
-          "overlayPng": "http://...",
-          "alphaMap": "http://...",
-          "heightmap": "http://...",
-          "normalMap": "http://...",
-          "roughnessMap": "http://...",
-          "aoMap": "http://..."
-        },
         "productionFiles": {
           "svg": "http://...",
           "waveformPoints": "http://...",
@@ -1575,7 +1567,7 @@ Route prefix: `api/v1/engravings`
 
 ### 36. GET `/api/v1/engravings/:id`
 **Auth:** JWT (bearer)
-**Description:** Get engraving detail by ID (kèm versions, biometrics, qrMemory)
+**Description:** Get engraving detail by ID (kèm versions, biometrics, qrMemory, product)
 
 **Param:** `id` (UUID v4)
 
@@ -1589,8 +1581,19 @@ Route prefix: `api/v1/engravings`
       "id": "550e8400-...",
       "status": "PENDING",
       "versions": [],
-      "biometrics": [],
-      "currentVersion": { "id": "...", "versionNumber": 1 }
+      "biometricAssets": [],
+      "currentVersion": { "id": "...", "versionNumber": 1 },
+      "product": {
+        "id": "...",
+        "name": "Nhẫn cưới Classic",
+        "description": "Nhẫn cưới vàng 18K",
+        "basePrice": 5000000,
+        "thumbnailUrl": "https://...",
+        "model3dUrl": "https://...",
+        "baseMaterial": { "id": "...", "name": "Vàng 18K", "purity": "75%", "color": "Vàng", "currentPricePerGram": 1600000 },
+        "availableMaterials": [],
+        "availableGemstones": []
+      }
     }
   }
 }
@@ -1601,6 +1604,7 @@ Route prefix: `api/v1/engravings`
 ### 37. PATCH `/api/v1/engravings/versions/:versionId/config`
 **Auth:** JWT (bearer)
 **Description:** Update engraving version config (incremental save). Gửi kèm `selectedBiometrics` để chọn gói (VD: ["SW","FP"]).
+**Lưu ý quan trọng (Strict Workflow):** Nếu ĐÃ CÓ Order (Order created), API sẽ **khóa vĩnh viễn** các trường ảnh hưởng đến thiết kế gốc và giá tiền bao gồm: `selectedBiometrics`, `selectedMaterialId`, `selectedGemstoneId`, `ringSize`, `ringStyle`, `ringShape`. Cố tình gửi sẽ bị lỗi `400 Bad Request`. Khi đã có Order, chỉ được phép gửi `customizationConfig` để cập nhật vị trí khắc (Positioning) và các URL ảnh preview.
 
 **Param:** `versionId` (UUID v4)
 
@@ -1747,7 +1751,7 @@ Route prefix: `api/v1/orders`
 
 ### 41. PATCH `/api/v1/orders/:id/submit`
 **Auth:** JWT (bearer)
-**Description:** Submit order for review. Moves from AWAITING_SUBMIT or REVISION_REQUIRED → PENDING_REVIEW.
+**Description:** Submit order for review. Moves from AWAITING_SUBMIT or REVISION_REQUIRED -> PENDING_REVIEW. 
 
 **Param:** `id` (UUID v4)
 
@@ -1813,7 +1817,7 @@ Route prefix: `api/v1/orders`
 
 ### 43. GET `/api/v1/orders/:id`
 **Auth:** JWT (bearer)
-**Description:** Get order by ID
+**Description:** Get order by ID (kèm engraving detail + product)
 
 **Param:** `id` (UUID v4)
 
@@ -1823,7 +1827,30 @@ Route prefix: `api/v1/orders`
   "statusCode": 200,
   "message": "Success",
   "data":   {
-    "order": { "id": "...", "orderCode": "BIORING-A7B9X2", "status": "AWAITING_SUBMIT", ... }
+    "order": {
+      "id": "...",
+      "orderCode": "BIORING-A7B9X2",
+      "status": "AWAITING_SUBMIT",
+      "engraving": {
+        "id": "...",
+        "status": "PENDING",
+        "productId": "...",
+        "product": {
+          "id": "...",
+          "name": "Nhẫn cưới Classic",
+          "description": "Nhẫn cưới vàng 18K",
+          "basePrice": 5000000,
+          "thumbnailUrl": "https://...",
+          "model3dUrl": "https://...",
+          "baseMaterial": null,
+          "availableMaterials": [],
+          "availableGemstones": []
+        },
+        "versions": [],
+        "biometrics": []
+      },
+      "payments": []
+    }
   }
 }
 ```
@@ -2589,8 +2616,9 @@ Route prefix: `api/v1/qr-memories`
   "greetingMessage": "Thank you for being with me!",
   "recipientEmail": "friend@example.com",
   "cardThemeId": "550e8400-...",
-  "customImages": ["https://cloudinary.com/img1.jpg"],
-  "biometricDisplaySettings": "{\"showWaveform\":true,\"showHeartbeat\":true}"
+  "customImages": "{\"uri\":\"https://...\",\"dateLabel\":\"May 18, 2026\"}",
+  "biometricDisplaySettings": "{\"amplitudes\":[18,44,28],\"heartbeatPattern\":[8,14,58],\"audioUrl\":\"https://...\"}",
+  "accessPin": "2048"
 }
 ```
 
@@ -2654,6 +2682,81 @@ Route prefix: `api/v1/qr-memories`
   "message": "Success",
   "data":   {
     "qrMemory": { "id": "...", "qrCode": "a1b2c3d4e5f6", "isLocked": false, ... }
+  }
+}
+```
+
+---
+
+### 84. GET `/api/v1/qr-memories` (MỚI)
+**Auth:** JWT (bearer)
+**Description:** List memory cards của authenticated user. Join qua `engravings.user_id`.
+
+**Query:** `page` (default 1), `limit` (default 10)
+
+**Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Success",
+  "data": {
+    "qrMemories": [
+      { "id": "...", "engravingId": "...", "qrCode": "a1b2c3d4e5f6", "cardTitle": "...", "greetingMessage": "...", "isLocked": true, "cardTheme": { "themeCode": "champagne-archive", "defaultBgUrl": "..." }, "createdAt": "..." }
+    ],
+    "total": 5,
+    "page": 1,
+    "limit": 10
+  }
+}
+```
+
+---
+
+### 84. GET `/api/v1/qr-memories/code/:qrCode` (MỚI)
+**Auth:** @Public()
+**Description:** Public lookup memory card bằng QR code (12 hex chars). Dùng cho QR scan flow.
+
+**Param:** `qrCode` (string, 12 hex chars)
+
+**Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Success",
+  "data": {
+    "qrMemory": {
+      "id": "...",
+      "engravingId": "...",
+      "qrCode": "a1b2c3d4e5f6",
+      "cardTitle": "A Quiet Vow",
+      "greetingMessage": "The afternoon light stayed with us...",
+      "recipientEmail": "recipient@email.com",
+      "customImages": "{\"uri\":\"https://...\",\"dateLabel\":\"May 18, 2026\"}",
+      "biometricDisplaySettings": "{\"amplitudes\":[18,44,28],\"heartbeatPattern\":[8,14,58],\"audioUrl\":\"https://...\"}",
+      "isLocked": true,
+      "cardTheme": { "id": "uuid", "themeCode": "champagne-archive", "name": "Champagne Archive", "defaultBgUrl": "https://..." },
+      "createdAt": "2026-07-25T10:00:00.000Z",
+      "updatedAt": "2026-07-25T10:00:00.000Z"
+    }
+  }
+}
+```
+
+---
+
+### 84. POST `/api/v1/qr-memories/upload-photo` (MỚI)
+**Auth:** JWT (bearer)
+**Description:** Upload ảnh lên MinIO, trả về public URL. Dùng cho memory card photo.
+
+**Request:** `multipart/form-data` — field `file` (image file, max 10MB)
+
+**Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Success",
+  "data": {
+    "url": "https://minio.bioring.com/knowledge-documents/qr-photos/uuid-photo.jpg"
   }
 }
 ```
@@ -2777,12 +2880,12 @@ Route prefix: `api/v1/card-themes`
 
 ---
 
-## 3.7 Guest
+## 3.7 Guest (Staff Create)
 
 Controller: `apps/api-gateway/src/modules/ecommerce/guest/guest.controller.ts`
-Route prefix: `api/v1/guest`
+Route prefix: `api/v1/guest-tablet`
 
-### 84. POST `/api/v1/guest/sessions`
+### 84. POST `/api/v1/guest-tablet/sessions`
 **Auth:** `order.write`
 **Description:** Tạo guest session cho khách vãng lai. Email bắt buộc — hệ thống check trùng với users (member) và guest_customers trước khi tạo.
 
@@ -2837,7 +2940,7 @@ Route prefix: `api/v1/guest`
   "guest": {
     "id": "550e8400-...",
     "guestCode": "GUE-A7B9X2",
-    "fullName": "Nguyễn Văn A", ...
+    "fullName": "Nguyễn Văn A"
   },
   "isMember": false,
   "isExistingGuest": true,
@@ -2847,29 +2950,58 @@ Route prefix: `api/v1/guest`
 
 ---
 
-### 84. POST `/api/v1/guest/orders`
+### 84. POST `/api/v1/guest-tablet/engravings`
 **Auth:** `order.write`
-**Description:** Tạo order cho guest (gộp createEngraving + createOrder). Tự động tạo engraving + version v1 + qr_memories + order. Nếu có `selectedBiometrics`, lưu thẳng vào `engraving_versions.selected_biometrics` — bỏ qua bước PATCH config riêng cho walk-in flow.
+**Description:** Tạo bản khắc sơ khởi cho guest vãng lai. Staff tạo bản khắc nháp cho khách vãng lai (Guest). Khách sẽ dùng bản khắc này để chọn material/gemstone (qua PATCH config) trước khi tạo Order.
 
 **Request:**
 ```json
 {
   "guestCode": "GUE-A7B9X2",
-  "productId": "550e8400-...",
-  "selectedBiometrics": ["SW", "FP"]
+  "productId": "550e8400-..."
 }
 ```
 
 | Body | Type | Required | Description |
 |------|------|----------|-------------|
-| guestCode | string | Yes | Guest code (GUE-XXXXXX), lấy từ create session response |
+| guestCode | string | Yes | Guest code (GUE-XXXXXX) |
 | productId | string | No | Product UUID |
-| selectedBiometrics | string[] | No | Danh sách biometrics đã chọn (VD: ["SW","FP"]). Lưu thẳng vào version v1, bỏ qua PATCH config. |
+
+**Response (201):**
+```json
+{
+  "statusCode": 201,
+  "message": "Success",
+  "data": {
+    "engraving": { "id": "550e8400-...", "productId": "550e8400-...", "status": "PENDING" },
+    "version": { "id": "550e8400-...", "versionNumber": 1, "status": "PENDING" }
+  }
+}
+```
+
+---
+
+### 84. POST `/api/v1/guest-tablet/orders`
+**Auth:** `order.write`
+**Description:** Tạo order cho guest từ bản khắc đã có (sau khi khách chọn xong cấu hình). Hệ thống khóa config và chuyển sang AWAITING_SUBMIT.
+
+**Request:**
+```json
+{
+  "guestCode": "GUE-A7B9X2",
+  "engravingId": "550e8400-..."
+}
+```
+
+| Body | Type | Required | Description |
+|------|------|----------|-------------|
+| guestCode | string | Yes | Guest code (GUE-XXXXXX) |
+| engravingId | string | Yes | Engraving UUID |
 
 **Response:**
 ```json
 {
-  "statusCode": 200,
+  "statusCode": 201,
   "message": "Success",
   "data":   {
     "order": {
@@ -2955,7 +3087,7 @@ Route prefix: `api/v1/guest-tablet` (class-level @Public())
 
 ### 84. PATCH `/api/v1/guest-tablet/orders/:orderId/submit`
 **Auth:** @Public()
-**Description:** Guest submit / resubmit order. Lần đầu: AWAITING_SUBMIT → PENDING_REVIEW. Resubmit: REVISION_REQUIRED → PENDING_REVIEW.
+**Description:** Guest submit / resubmit order. Lần đầu: AWAITING_SUBMIT -> PENDING_REVIEW. Resubmit: REVISION_REQUIRED -> PENDING_REVIEW.
 
 **Param:** `orderId` (UUID v4)
 

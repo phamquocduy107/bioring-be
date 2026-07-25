@@ -17,12 +17,20 @@ export class GuestController {
     return this.guestService.createGuestSession(data);
   }
 
-  @GrpcMethod('EcommerceService', 'CreateGuestOrder')
-  async createGuestOrder(data: {
+  @GrpcMethod('EcommerceService', 'CreateGuestEngraving')
+  async createGuestEngraving(data: {
     guestCode: string;
     productId?: string;
     staffId: string;
-    selectedBiometrics?: string;
+  }) {
+    return this.guestService.createGuestEngraving(data);
+  }
+
+  @GrpcMethod('EcommerceService', 'CreateGuestOrder')
+  async createGuestOrder(data: {
+    guestCode: string;
+    engravingId: string;
+    staffId: string;
   }) {
     return this.guestService.createGuestOrder(data);
   }

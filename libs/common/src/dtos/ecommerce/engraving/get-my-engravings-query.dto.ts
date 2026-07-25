@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsOptional, IsString, IsUUID, IsBoolean } from 'class-validator';
+import { Type } from 'class-transformer';
 import { PaginationDto } from '../../pagination.dto';
 
 export class GetMyEngravingsQueryDto extends PaginationDto {
@@ -12,4 +13,10 @@ export class GetMyEngravingsQueryDto extends PaginationDto {
   @IsOptional()
   @IsUUID('4')
   orderId?: string;
+
+  @ApiPropertyOptional({ description: 'Filter engravings without an order' })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  withoutOrder?: boolean;
 }

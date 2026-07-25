@@ -15,6 +15,7 @@ export class MemoryCardController {
     cardThemeId?: string;
     customImages?: string;
     biometricDisplaySettings?: string;
+    accessPin?: string;
   }) {
     const qrMemory = await this.memoryCardService.updateQrMemory(
       data.engravingId,
@@ -25,6 +26,7 @@ export class MemoryCardController {
         cardThemeId: data.cardThemeId,
         customImages: data.customImages,
         biometricDisplaySettings: data.biometricDisplaySettings,
+        accessPin: data.accessPin,
       },
     );
     return { qrMemory };
@@ -41,6 +43,23 @@ export class MemoryCardController {
     const qrMemory = await this.memoryCardService.activateQrMemory(
       data.qrCode,
       data.accessPin,
+    );
+    return { qrMemory };
+  }
+
+  @GrpcMethod('EcommerceService', 'ListQrMemories')
+  async listQrMemories(data: { userId: string; page: number; limit: number }) {
+    return this.memoryCardService.listQrMemories(
+      data.userId,
+      data.page,
+      data.limit,
+    );
+  }
+
+  @GrpcMethod('EcommerceService', 'GetQrMemoryByCode')
+  async getQrMemoryByCode(data: { qrCode: string }) {
+    const qrMemory = await this.memoryCardService.getQrMemoryByCode(
+      data.qrCode,
     );
     return { qrMemory };
   }

@@ -135,7 +135,7 @@ Content-Type: application/json
 
 > Gói đã chọn, design + mem card đã hoàn tất. Tạo order để chốt.
 > Server tự derive `packageType` từ `selected_biometrics`.
-> **Sau bước này: CHỈ block đổi package (selectedBiometrics). Vẫn cho PATCH config design, PUT qr-memories, POST biometrics.**
+> **Sau bước này: KHÓA VĨNH VIỄN Base Design (Size, Material, Gemstone) & Package (selectedBiometrics). Chỉ cho PATCH config để lưu vị trí (engravingPositions), PUT qr-memories, POST biometrics.**
 
 ```http
 POST /api/v1/orders
@@ -366,7 +366,36 @@ Content-Type: application/json
 {
   "assetJson": "{\"id\":\"ASSET_FP_001\",\"engraving_id\":\"ENGRAVING_ID\",\"assigned_user_id\":\"USER_ID\",\"status\":\"ASSET_APPROVED\"}"
 }
+}
 ```
+
+### 7e. Lấy PBR Textures (viewer-assets) để hiển thị 3D trên iPad
+
+> iPad lấy `assetId` để gọi API lấy các map (normal, alpha...) render 3D. Dựa vào đó để KHÁCH HÀNG (cùng Staff) KÉO THẢ VỊ TRÍ trên iPad.
+
+```http
+GET /api/v1/admin/biometric-assets/ASSET_FP_001
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+```
+
+**Response mẫu:**
+```json
+{
+  "statusCode": 200,
+  "message": "Success",
+  "data": {
+    "asset": {
+      "assetId": "ASSET_FP_001",
+      "viewerFiles": {
+        "overlayPng": "http://...",
+        "alphaMap": "http://...",
+        "normalMap": "http://..."
+      }
+    }
+  }
+}
+```
+> FE iPad lấy `viewerFiles` ốp vào 3D model. Sau đó chỉnh vị trí và `PATCH /api/v1/engravings/versions/VERSION_ID/config` để lưu tọa độ.
 
 ---
 

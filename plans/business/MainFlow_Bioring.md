@@ -91,62 +91,38 @@
 
 **B. Flow 2: Online Custom Ring Order (Mobile - Chỉ SW - ONLINE)**
 
-Flow 2 cho phép **lưu dần (incremental save)** — mọi dữ liệu thiết kế đều được save ngay vào `engraving_versions.customization_config` qua `PATCH /api/v1/engravings/:versionId/config`. User có thể out ra bất cứ lúc nào, quay lại sau tiếp tục từ bước còn dang dở.
+Flow 2 áp dụng **Strict Workflow & Dynamic Pricing**. Các trường cấu hình Base Design (chất liệu, kích cỡ) và Package sẽ bị KHÓA ngay khi tạo Order để đảm bảo tính minh bạch của Giá Tiền (Giá = Giá Vật Liệu x Trọng Lượng Ước Tính Theo Size + Phí).
 
 1. Customer Login vào App (Ring Studio).
 2. **Nhập Design Code hoặc tạo mới:**
-   - Nếu có Design Code (từ MF-01 web): gọi `ClaimDesignDraft` → System tạo **Engraving + EngravingVersion v1** copy customization_config từ draft, draft chuyển `CONVERTED`. **Đồng thời tạo record `qr_memories` mặc định** với `qr_code` (nanoid), `access_pin_hash` (SHA256), `is_locked = true`. Trả về `engravingVersionId` để mobile dùng cho mọi lần save tiếp theo.
-   - Nếu thiết kế mới: gọi `CreateEngraving` → System tạo Engraving + EngravingVersion v1 rỗng + `qr_memories` mặc định. Trả về `engravingVersionId`.
-   - *Data đã lưu:* EngravingVersion v1 + qr_memories trong DB, order_id = null, draft.status = CONVERTED.
-3. **Màn hình 1 - Simple Design + Position** (incremental save):
-   - Load `customization_config` từ EngravingVersion mới nhất.
-   - Nếu đã có vị trí (từ MF-01): hiển thị lên model 3D.
-   - Bấm **Continue** → `PATCH /api/v1/engravings/:versionId/config { customizationConfig: { ..., engravingPositions } }`.
-   - *Data đã lưu:* Vị trí khắc (tọa độ, góc, scale) trong customization_config.engravingPositions.
-   - *Nếu user out ra:* Quay lại sau → load EngravingVersion → thấy engravingPositions đã có → hiển thị lại đúng vị trí.
-4. **Màn hình 2 - Package Selection** (incremental save):
-   - Chọn **SW (Sound Wave)** → capture route = **ONLINE**.
-   - Bấm **Next** → `PATCH /api/v1/engravings/:versionId/config { customizationConfig: { ..., selectedBiometrics: ['SW'] } }`.
-   - *Data đã lưu:* customization_config có thêm `selectedBiometrics: ['SW']`.
-   - *Nếu user out ra:* Quay lại sau → thấy selectedBiometrics đã có → bỏ qua màn hình này.
-   - *captureRoute tự suy:* `['SW']` → ONLINE, có FP/HB → OFFLINE.
-5. **Màn hình 3 - Advanced Design (SW only)** (incremental save từng bước nhỏ):
-   - Hiển thị **model 3D tương tác** của nhẫn (có thể xoay, zoom).
-   - **Bước 5a - Ghi âm:** User thu âm 5-15 giây. Mobile gọi API `POST /api/v1/me/engravings/:engravingId/biometrics` (Multipart upload) để gửi file audio trực tiếp.
-     - Server lưu trữ và tạo biometric asset, trả về `biometricAssetId`. (Biometric asset chạy ngầm qua Python REVIEW pipeline để tạo PBR Textures).
-   - **Bước 5b - Chọn 3s + vị trí:**
-     - Mobile polling API `GET /api/v1/me/biometric-assets/:assetId/viewer-assets` để lấy bộ `viewerFiles` (normalMap, alphaMap, roughnessMap...).
-     - Mobile render model 3D bằng Decal Mesh với bộ texture PBR. User chọn đoạn 3s, kéo slider vị trí. Gọi `PATCH /api/v1/engravings/:versionId/config { customizationConfig: { ..., engravingPositions: { sw: { selectedSegment, position } } } }`. Đồng thời gọi `POST /api/v1/me/biometric-assets/:assetId/confirm-placement` để chốt vị trí.
-   - *Data đã lưu:* Hệ thống tạo `BiometricAsset`, lưu vết ở `engraving_biometrics`. Customization config lưu vị trí khắc.
-   - *Nếu user out ra sau bước 5a:* Quay lại sau → gọi `GET /api/v1/me/engravings/:engravingId/biometrics` lấy được `biometricAssetId` → gọi `viewer-assets` → hiển thị lại model 3D → tiếp tục bước 5b.
-6. **Thiết kế memory card** (QR memory):
-   - Nhập cardTitle, greetingMessage, recipientEmail (optional).
-   - Bấm **Save** → gọi `PUT /api/v1/qr-memories/:engravingId { cardTitle, greetingMessage, recipientEmail }`.
-   - *Data đã lưu:* trực tiếp trong `qr_memories` table (card_title, greeting_message, recipient_email). **Không lưu trong customization_config.**
-   - *Nếu user out ra:* Quay lại sau → load `qr_memories` record → thấy dữ liệu → tiếp tục chỉnh sửa hoặc bỏ qua.
-7. **Tạo đơn hàng — sau Package Selection:**
-   - Gọi `POST /api/v1/orders { engravingId, packageType }`.
-   - **Lưu ý:** Lúc này `selectedBiometrics` đã lưu qua PATCH config. Server dùng `packageType` client gửi để xác định captureRoute và initial status.
-   - System tạo Order với `engraving_id = engravingId` (1:1), `status = AWAITING_SUBMIT`.
-   - *Data:* Order mới trong DB, engraving gắn vào order qua `orders.engraving_id`.
-   - **Sau đó tiếp tục Advanced Design + Memory Card** (order đang AWAITING_SUBMIT).
-8. **Manager thực hiện Final Design Review** (1 order = 1 engraving, không còn granular review).
-   - Manager gửi `PATCH /api/v1/orders/:id/review { action, note }`.
-9. Nếu Manager Reject:
-   - **EngravingVersion hiện tại** → `REJECTED` (giữ lại lịch sử).
-   - **engravings.status** → `REJECTED`.
-   - System **tự động tạo EngravingVersion mới** (version_number + 1, status = `PENDING`) copy toàn bộ `customization_config` từ version vừa bị reject.
-   - Order status → `REVISION_REQUIRED`.
-   - **Customer chỉnh sửa → gọi `POST /api/v1/engravings/versions/:id/resubmit`** → version → `PENDING`, order → `PENDING_REVIEW`.
-   - *Lưu ý:* `PATCH config` chỉ lưu tạm, KHÔNG đẩy đi duyệt. Phải gọi resubmit riêng.
-10. Nếu Manager Approve:
-    - **EngravingVersion hiện tại** → `APPROVED`, set `approved_version_id` trên engraving.
-    - **engravings.status** → `APPROVED`.
-    - Hệ thống cập nhật `qr_memories.biometric_display_settings` từ `engraving_biometrics` data (waveform SVG URL, fingerprint SVG URL, v.v.).
-    - Order → `AWAITING_DEPOSIT`. Yêu cầu khách hàng thanh toán Deposit 2.
-11. Customer thanh toán **Deposit 2** (30% min 3000) để xác nhận bắt đầu sản xuất.
-12. **Customer chọn địa chỉ giao hàng:**
-    - Màn hình Delivery Options hiển thị sau khi deposit callback thành công.
+   - Nếu có Design Code: gọi `ClaimDesignDraft` $\rightarrow$ System tạo **Engraving + EngravingVersion v1**.
+   - Nếu thiết kế mới: gọi `CreateEngraving` $\rightarrow$ System tạo Engraving + EngravingVersion v1.
+3. **Màn hình 1 - Simple Design & Sizing** (incremental save):
+   - Chọn Ring Style, Ring Shape, Material, Gemstone, Ring Size.
+   - Bấm **Continue** $\rightarrow$ `PATCH /api/v1/engravings/:versionId/config`. *(Giá sẽ tự động thay đổi theo Size và Material)*.
+4. **Màn hình 2 - Package Selection**:
+   - Chọn **SW (Sound Wave)** $\rightarrow$ capture route = **ONLINE**.
+   - Bấm **Next** $\rightarrow$ `PATCH /api/v1/engravings/:versionId/config { customizationConfig: { ..., selectedBiometrics: ['SW'] } }`.
+5. **Tạo Đơn Hàng (Order Creation) - CHỐT GIÁ & LOCK CONFIG:**
+   - App gọi `POST /api/v1/orders { engravingId, packageType }`.
+   - Hệ thống tạo Order. (Vì là luồng ONLINE, hệ thống sẽ BỎ QUA Deposit 1 và chuyển thẳng trạng thái sang `AWAITING_SUBMIT`).
+   - **TỪ LÚC NÀY:** Các trường Base Design (Size, Material, Package...) **BỊ KHÓA VĨNH VIỄN** qua API config.
+7. **Màn hình 3 - Advanced Design (SW only):**
+   - **Bước 7a - Ghi âm:** User thu âm 5-15 giây $\rightarrow$ Gửi lên server xử lý. Hệ thống tự động Approve và Assign Biometric Asset cho đơn hàng.
+   - **Bước 7b - Chọn 3s + Vị trí (Chỉ được phép khi ĐÃ CÓ Asset Thật):**
+     - Mobile gọi `GET /api/v1/me/biometric-assets/:assetId/viewer-assets` để lấy PBR Textures.
+     - Hiển thị model 3D với texture sóng âm thực tế. User chọn đoạn 3s và kéo slider vị trí.
+     - Gọi `PATCH /api/v1/engravings/:versionId/config` để lưu tọa độ.
+8. **Thiết kế memory card** (QR memory). Gọi `PUT /api/v1/qr-memories/:engravingId`.
+9. **PATCH /orders/:id/submit $\rightarrow$ `PENDING_REVIEW`**. *(API sẽ bắt lỗi 400 nếu user chưa kéo thả tọa độ Asset thật).*
+10. **Manager thực hiện Final Design Review**.
+11. Nếu Manager Reject:
+    - Order status $\rightarrow$ `REVISION_REQUIRED`.
+    - **LƯU Ý:** Customer vẫn **KHÔNG ĐƯỢC PHÉP** đổi Size/Material/Package. Chỉ được phép đổi Vị trí khắc hoặc Thu âm lại.
+    - Customer chỉnh sửa $\rightarrow$ submit lại.
+12. Nếu Manager Approve:
+    - Order $\rightarrow$ `AWAITING_DEPOSIT_2`. Customer thanh toán **Deposit 2**.
+13. **Customer chọn địa chỉ giao hàng** $\rightarrow$ Hệ thống tạo `shipments`.
     - Customer có thể **thêm mới** hoặc **chọn địa chỉ có sẵn** từ `user_addresses`.
     - Gọi `POST /api/v1/orders/:id/delivery-preference` với `{ addressId, method: 'DELIVERY' | 'PICKUP' }`.
     - Hệ thống tạo `shipments` record với `status = 'PENDING'`.
@@ -158,65 +134,52 @@ Flow 2 cho phép **lưu dần (incremental save)** — mọi dữ liệu thiết
     - Nếu `method = 'DELIVERY'` → order → `READY_FOR_DELIVERY`.
     - Nếu `method = 'PICKUP'` → order → `READY_FOR_PICKUP`.
 
-**C. Flow 3: Store Biometric Capture Order (Mobile - Có FP/SW - OFFLINE)**
+**C. Flow 3: Store Biometric Capture Order (Mobile - Có FP/HB - OFFLINE)**
 
-1. Customer Login vào App, nhập Design Code (nếu có) để đồng bộ thiết kế cơ bản và vị trí khắc.
-2. **Màn hình 1 - Simple Design + Position:** Kế thừa từ Design Code hoặc thiết kế mới. Load `customization_config` (vị trí FP/SW từ web) → bấm **Continue**.
-3. **Màn hình 2 - Package Selection:** Chọn tổ hợp biometric có FP và/hoặc SW (VD: FP, SW+FP, SW+HB, FP+HB, ALL) → capture route = **OFFLINE**. Bấm **Next**.
-4. **POST /orders { engravingId, packageType } → `AWAITING_DEPOSIT_1`** (tạo order ngay, để charge IoT fee).
-5. **Customer thanh toán Deposit 1** (IoT fee cố định) → `AWAITING_CAPTURE`.
+Flow 3 dành cho trường hợp khách hàng tự thao tác trên App ở nhà, chốt Base Design và tạo Order, sau đó thanh toán Deposit 1 và đến cửa hàng để Staff lấy mẫu FP/HB.
+
+1. Customer Login vào App, nhập Design Code (nếu có) để đồng bộ thiết kế cơ bản.
+2. **Màn hình 1 - Simple Design & Sizing:** Chọn Ring Style, Ring Shape, Material, Gemstone, Ring Size. Bấm **Continue** $\rightarrow$ `PATCH config`. *(Giá sẽ tự động thay đổi realtime).*
+3. **Màn hình 2 - Package Selection:** Chọn tổ hợp biometric có FP và/hoặc HB (VD: FP, FP+SW, HB...) $\rightarrow$ capture route = **OFFLINE**. Bấm **Next**.
+4. **Tạo Đơn Hàng (Order Creation) - CHỐT GIÁ & LOCK CONFIG:**
+   - App gọi `POST /orders { engravingId, packageType }`.
+   - Hệ thống tạo Order (`AWAITING_DEPOSIT_1`).
+   - Các trường Base Design (Size, Material, Package...) **BỊ KHÓA VĨNH VIỄN**.
+5. **Customer thanh toán Deposit 1** (IoT fee + Base price cố định) $\rightarrow$ Order chuyển sang `AWAITING_SUBMIT`.
 6. Customer đến cửa hàng. Store Staff xác minh đơn hàng, chuẩn bị thiết bị IoT.
 7. Store Staff hỗ trợ lấy dữ liệu (vân tay, giọng nói) thông qua IoT Device:
-   - Staff gọi `POST /api/v1/admin/biometric-assets/fingerprint` (hoặc `soundwave`) để upload raw data → **Python REVIEW pipeline**.
-   - Staff xem kết quả render PBR qua `GET /api/v1/admin/biometric-assets/:assetId`. (Nếu cần có thể `reprocess` hoặc `textures` lại).
-   - Khi hoàn thiện, Staff duyệt tài sản: `POST /api/v1/admin/biometric-assets/:assetId/approve`.
-   - Cuối cùng, Staff gán asset này vào đơn hàng của khách: `POST /api/v1/admin/biometric-assets/:assetId/assign`.
+   - Staff gọi API upload raw data $\rightarrow$ **Python REVIEW pipeline**.
+   - Staff duyệt tài sản (`POST /approve`) và gán asset này vào đơn hàng (`POST /assign`).
 8. **Màn hình 3 - Advanced Design (OFFLINE - với dữ liệu thật sau IoT):**
-   - App Customer gọi `GET /api/v1/me/engravings/:engravingId/biometrics` để lấy danh sách biometric (gồm `biometricAssetId` do Staff gán).
-   - Dùng `assetId`, App gọi `GET /api/v1/me/biometric-assets/:assetId/viewer-assets` lấy bộ PBR Textures (normalMap, alphaMap, overlayPng...) và render lên model 3D (Decal Mesh).
-   - Giao diện phụ thuộc vào tổ hợp đã chọn:
-     - **Có cả SW + FP (SW+FP / ALL):** Hiển thị UI **chọn engraving type**: "Bạn muốn khắc loại nào lên nhẫn? (FP hoặc SW). Loại còn lại sẽ vào memory card."
-       - *Sau khi chọn (VD FP):* Hiển thị PBR texture vân tay trên nhẫn 3D. Khách kéo slider vị trí. Gọi `PATCH /api/v1/engravings/:versionId/config` để lưu tọa độ. Đồng thời gọi `POST /api/v1/me/biometric-assets/:assetId/confirm-placement` để chốt Decal UV. Lưu `engravedType = "fp"|"sw"`.
-     - **HB only:** Không khắc lên nhẫn. `engravedType = null`. Chuyển thẳng sang bước 9.
-9. **Thiết kế memory card** (kèm recipient email optional - xem BR-A17). HB được cấu hình tại đây (hiển thị nhịp tim, không khắc lên nhẫn).
-10. **PATCH /orders/:id/submit → `PENDING_REVIEW`**.
-11. **Manager thực hiện Final Design Review** (1 order = 1 engraving).
-12. Nếu Reject → engraving version REJECTED + branch mới, order → `REVISION_REQUIRED`. Chỉnh sửa → resubmit.
-13. Nếu Approve → engraving APPROVED, order → `AWAITING_DEPOSIT`.
-14. Customer thanh toán **Deposit 2** (30% min 3000) để xác nhận bắt đầu chế tác.
-15. **Customer chọn địa chỉ giao hàng:**
-    - Màn hình Delivery Options hiển thị sau khi deposit callback thành công.
-    - Customer có thể **thêm mới** hoặc **chọn địa chỉ có sẵn** từ `user_addresses`.
-    - Gọi `POST /api/v1/orders/:id/delivery-preference` với `{ addressId, method: 'DELIVERY' | 'PICKUP' }`.
-    - Hệ thống tạo `shipments` record với `status = 'PENDING'`.
-    - Order vẫn giữ `AWAITING_REMAINING`.
-16. System assign task cho Jeweler (1 task). Jeweler sản xuất xong báo Complete.
-17. Customer thanh toán **Remaining Payment** trước khi nhận hàng.
-    - Nếu đã có shipment PENDING → server auto update `status = 'ACTIVE'`.
-    - Nếu `method = 'DELIVERY'` → order → `READY_FOR_DELIVERY`.
-    - Nếu `method = 'PICKUP'` → order → `READY_FOR_PICKUP`.
+   - App Customer (hoặc iPad) gọi `GET viewer-assets` lấy bộ PBR Textures của Asset thật và render lên model 3D (Decal Mesh).
+   - Nếu có cả SW + FP: Chọn 1 loại để khắc lên nhẫn.
+   - Hiển thị PBR texture vân tay trên nhẫn 3D. Khách kéo slider vị trí $\rightarrow$ `PATCH config` để lưu tọa độ.
+9. **Thiết kế memory card**.
+10. **PATCH /orders/:id/submit $\rightarrow$ `PENDING_REVIEW`**. *(API bắt lỗi 400 nếu chưa kéo thả tọa độ Asset thật).*
+11. **Manager thực hiện Final Design Review**.
+12. Nếu Reject $\rightarrow$ `REVISION_REQUIRED`. Khách HÀNG BỊ KHÓA Base Config, chỉ được đổi vị trí hoặc lấy mẫu lại.
+13. Nếu Approve $\rightarrow$ order $\rightarrow$ `AWAITING_DEPOSIT_2`.
+14. Customer thanh toán **Deposit 2**. Chọn địa chỉ giao hàng.
 
 **D. Flow 4: Walk-in Guest In-store Order (Luồng khách vãng lai - iPad Staff)**
 
-1. Khách vãng lai (Walk-in Guest) đến trực tiếp cửa hàng. Store Staff tiếp đón và mở Ring Catalog trên iPad.
-2. **Màn hình 1 - Simple Design + Position:** Staff hỗ trợ khách chọn mẫu, cấu hình thiết kế cơ bản, chọn vị trí khắc FP/SW (dùng placeholder image). Bấm **Continue**.
-3. **Màn hình 2 - Package Selection:** Khách chọn tổ hợp biometric bất kỳ (SW, FP, HB, SW+FP, SW+HB, FP+HB, ALL).
-   - Nếu chỉ chọn **SW** → capture route = **ONLINE** (xử lý online trên iPad).
-   - Nếu có **FP và/hoặc HB** → capture route = **OFFLINE** (dùng IoT tại chỗ).
-4. **Màn hình 3 - Advanced Design:**
-   - **Trường hợp ONLINE (chỉ SW):** Ghi âm trực tiếp trên iPad (5-15s) → chọn 3s waveform → slider chỉnh vị trí (kế thừa từ bước 2) → preview 3D real-time. `engravedType = "sw"`.
-   - **Trường hợp OFFLINE (có FP/SW):**
-     - Staff thực hiện upload IoT (`POST /fingerprint`), sau đó duyệt (`POST /approve`) và gán (`POST /assign`) thông qua bộ API Admin của Biometric Asset.
-     - App trên iPad tự động lấy `viewer-assets` của `assetId` vừa duyệt để hiển thị 3D PBR Model vô cùng chân thực ngay trước mặt khách. Khách chốt vị trí (`POST /confirm-placement`).
-     - Nếu có **cả FP + SW**: Chọn 1 loại để khắc lên nhẫn.
-     - Lưu `engravedType` tương ứng.
-   - **HB:** Không khắc lên nhẫn, chỉ cấu hình trong memory card.
-5. Thiết kế memory card (kèm recipient email optional). HB được cấu hình tại đây.
-6. Gửi thiết kế lên System. **Manager thực hiện Review**.
-7. Sau khi Manager Approve, System tạo **Guest Order** (Không yêu cầu đăng ký tài khoản).
-8. Khách hàng **thanh toán toàn bộ (Full Payment - 100%)**.
-9. Hệ thống sinh **Order Lookup Code (VD: ORD-123)** cấp cho khách.
-10. System assign task cho Jeweler tiến hành sản xuất.
+1. Khách vãng lai đến trực tiếp cửa hàng. Store Staff mở Ring Catalog trên iPad.
+2. **Màn hình 1 - Simple Design & Sizing:** Staff hỗ trợ khách chọn mẫu, cấu hình thiết kế cơ bản, Size. Bấm **Continue**. *(Giá tự động update).*
+3. **Màn hình 2 - Package Selection:** Khách chọn tổ hợp biometric bất kỳ.
+   - Chỉ SW $\rightarrow$ **ONLINE** (xử lý trên iPad).
+   - FP/HB $\rightarrow$ **OFFLINE** (dùng IoT tại chỗ).
+4. **Tạo Guest Order - CHỐT GIÁ & LOCK CONFIG:**
+   - iPad gọi `POST /api/v1/guest-tablet/orders`.
+   - Các trường Base Design bị khóa vĩnh viễn. Order chuyển sang đợi thanh toán.
+5. **Khách hàng thanh toán toàn bộ (Full Payment - 100%)** ngay tại cửa hàng.
+   - Sau khi thanh toán, trạng thái Order chuyển thành `AWAITING_SUBMIT`.
+6. **Màn hình 3 - Advanced Design (Thu âm / Lấy mẫu & Chọn vị trí):**
+   - **ONLINE (chỉ SW):** Thu âm trực tiếp trên iPad $\rightarrow$ Hệ thống Approve/Assign tự động $\rightarrow$ Load PBR Texture thật $\rightarrow$ Kéo thả vị trí $\rightarrow$ `PATCH config`.
+   - **OFFLINE (FP/HB):** Dùng máy IoT lấy mẫu $\rightarrow$ Staff Approve & Assign qua Admin $\rightarrow$ iPad load PBR Texture thật $\rightarrow$ Khách chọn vị trí trực tiếp $\rightarrow$ `PATCH config`.
+7. Thiết kế memory card (HB được cấu hình tại đây).
+8. iPad gọi **Submit Order** $\rightarrow$ `PENDING_REVIEW`. *(API kiểm tra bắt buộc phải có tọa độ vị trí thật).*
+9. **Manager thực hiện Review**.
+10. Hệ thống sinh **Order Lookup Code (VD: ORD-123)** cấp cho khách. System assign task cho Jeweler tiến hành sản xuất.
 
 **E. Flow 5: Delivery, Pickup & QR Memory**
 

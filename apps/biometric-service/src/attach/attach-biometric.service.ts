@@ -182,7 +182,7 @@ export class AttachBiometricService {
             approved_files: asApprovedFilesJson(
               approvedFiles,
             ) as Prisma.InputJsonValue,
-            status: 'CAPTURED',
+            status: 'ASSET_APPROVED',
             updated_at: now,
           },
         });
@@ -202,7 +202,7 @@ export class AttachBiometricService {
               approved_files: asApprovedFilesJson(
                 approvedFiles,
               ) as Prisma.InputJsonValue,
-              status: 'CAPTURED',
+              status: 'ASSET_APPROVED',
               updated_at: now,
             },
           });
@@ -213,7 +213,7 @@ export class AttachBiometricService {
               id: assetId,
               artifact_id: artifactId,
               asset_type: assetType,
-              status: 'CAPTURED',
+              status: 'ASSET_APPROVED',
               engraving_id: data.engravingId,
               assigned_user_id: engraving.user_id,
               approved_files: asApprovedFilesJson(
@@ -240,14 +240,14 @@ export class AttachBiometricService {
           required_channel: requiredChannel,
           biometric_asset_id: assetId,
           extra_data: extraDataJson as Prisma.InputJsonValue,
-          status: 'CAPTURED',
+          status: 'ASSET_APPROVED',
           created_at: now,
           updated_at: now,
         },
         update: {
           biometric_asset_id: assetId,
           extra_data: extraDataJson as Prisma.InputJsonValue,
-          status: 'CAPTURED',
+          status: 'ASSET_APPROVED',
           updated_at: now,
         },
         include: { biometric_asset: true },
@@ -268,7 +268,7 @@ export class AttachBiometricService {
         rawFileUrl: urls.rawFileUrl,
         processedSvgUrl: urls.processedSvgUrl,
         extraData: biometric.extra_data ?? {},
-        status: biometric.status ?? 'CAPTURED',
+        status: biometric.status ?? 'ASSET_APPROVED',
         artifactId,
       },
     };

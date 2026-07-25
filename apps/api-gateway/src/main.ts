@@ -75,5 +75,14 @@ async function bootstrap() {
   logger.log(
     `Chat demo at http://localhost:${port}/demo/knowledge-chat-demo.html`,
   );
+
+  const url = new URL(process.env.DATABASE_URL!);
+
+  console.log({
+    dbHost: url.hostname,
+    dbPort: url.port,
+    dbUser: url.username,
+    dbName: url.pathname,
+  });
 }
 void bootstrap();

@@ -12,6 +12,14 @@ service EcommerceService {
   rpc GetMaterials (Empty) returns (GetMaterialsResponse);
   rpc GetGemstones (Empty) returns (GetGemstonesResponse);
 
+  // Ring Sizes
+  rpc ListRingSizes (ListRingSizesRequest) returns (ListRingSizesResponse);
+  rpc GetRingSize (GetRingSizeRequest) returns (GetRingSizeResponse);
+  rpc CreateRingSize (CreateRingSizeRequest) returns (CreateRingSizeResponse);
+  rpc UpdateRingSize (UpdateRingSizeRequest) returns (UpdateRingSizeResponse);
+  rpc DeleteRingSize (DeleteRingSizeRequest) returns (DeleteRingSizeResponse);
+  rpc SetDefaultRingSize (SetDefaultRingSizeRequest) returns (SetDefaultRingSizeResponse);
+
   // Design Drafts
   rpc CreateDesignDraft (CreateDesignDraftRequest) returns (CreateDesignDraftResponse);
   rpc GetDesignDraftByCode (GetDesignDraftByCodeRequest) returns (GetDesignDraftByCodeResponse);
@@ -57,6 +65,8 @@ rpc GetProductionTasks (GetProductionTasksRequest) returns (GetProductionTasksRe
   rpc UpdateQrMemory (UpdateQrMemoryRequest) returns (UpdateQrMemoryResponse);
   rpc GetQrMemory (GetQrMemoryRequest) returns (GetQrMemoryResponse);
   rpc ActivateQrMemory (ActivateQrMemoryRequest) returns (ActivateQrMemoryResponse);
+  rpc ListQrMemories (ListQrMemoriesRequest) returns (ListQrMemoriesResponse);
+  rpc GetQrMemoryByCode (GetQrMemoryByCodeRequest) returns (GetQrMemoryByCodeResponse);
 
   // Card Themes
   rpc GetCardThemes (GetCardThemesRequest) returns (GetCardThemesResponse);
@@ -76,6 +86,7 @@ rpc GetProductionTasks (GetProductionTasksRequest) returns (GetProductionTasksRe
 
   // Guest (MF-04: Walk-in)
   rpc CreateGuestSession (CreateGuestSessionRequest) returns (CreateGuestSessionResponse);
+  rpc CreateGuestEngraving (CreateGuestEngravingRequest) returns (CreateGuestEngravingResponse);
   rpc CreateGuestOrder (CreateGuestOrderRequest) returns (CreateGuestOrderResponse);
   rpc GetGuestSession (GetGuestSessionRequest) returns (GetGuestSessionResponse);
   rpc GuestSubmitOrder (GuestSubmitOrderRequest) returns (GuestSubmitOrderResponse);
@@ -367,6 +378,7 @@ message GetMyEngravingsRequest {
   int32 limit = 3;
   string status = 4;
   string orderId = 5;
+  bool withoutOrder = 6;
 }
 
 message GetMyEngravingsResponse {
@@ -499,9 +511,10 @@ message Engraving {
   string approvedVersionId = 6;
   string status = 7;
   repeated EngravingVersion versions = 8;
-  repeated EngravingBioMetric biometrics = 9;
+  repeated BiometricAsset biometricAssets = 9;
   QrMemory qrMemory = 10;
   EngravingVersion currentVersion = 11;
+  Product product = 12;
 }
 
 message EngravingVersion {
@@ -522,6 +535,16 @@ message EngravingVersion {
   string createdAt = 15;
   Material selectedMaterial = 16;
   Gemstone selectedGemstone = 17;
+}
+
+message BiometricAsset {
+  string id = 1;
+  string assetType = 2;
+  string status = 3;
+  string artifactId = 4;
+  string rawFileUrl = 5;
+  string processedSvgUrl = 6;
+  string createdAt = 7;
 }
 
 message EngravingBioMetric {
@@ -831,6 +854,7 @@ message QrMemory {
   string createdAt = 10;
   string updatedAt = 11;
   CardTheme cardTheme = 12;
+  string customImages = 13;
 }
 
 message UpdateQrMemoryRequest {
@@ -854,6 +878,25 @@ message ActivateQrMemoryRequest {
 }
 
 message ActivateQrMemoryResponse { QrMemory qrMemory = 1; }
+
+message ListQrMemoriesRequest {
+  string userId = 1;
+  int32 page = 2;
+  int32 limit = 3;
+}
+
+message ListQrMemoriesResponse {
+  repeated QrMemory qrMemories = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+}
+
+message GetQrMemoryByCodeRequest {
+  string qrCode = 1;
+}
+
+message GetQrMemoryByCodeResponse { QrMemory qrMemory = 1; }
 
 // === MF-05: Delivery, Pickup & QR Memory ===
 message QcAcceptOrderRequest {
@@ -1025,11 +1068,21 @@ message CreateGuestSessionResponse {
   string message = 4;
 }
 
-message CreateGuestOrderRequest {
+message CreateGuestEngravingRequest {
   string guestCode = 1;
   string productId = 2;
   string staffId = 3;
-  string selectedBiometrics = 4;
+}
+
+message CreateGuestEngravingResponse {
+  Engraving engraving = 1;
+  EngravingVersion version = 2;
+}
+
+message CreateGuestOrderRequest {
+  string guestCode = 1;
+  string engravingId = 2;
+  string staffId = 3;
 }
 
 message CreateGuestOrderResponse {
@@ -1653,4 +1706,107 @@ message PickupInfo {
 
 message ListPickupsResponse {
   repeated PickupInfo data = 1;
+}
+
+// === Ring Sizes ===
+message RingSize {
+  string id = 1;
+  string userId = 2;
+  string label = 3;
+  string handSide = 4;
+  string fingerType = 5;
+  string sizeSystem = 6;
+  string ringSize = 7;
+  double diameterMm = 8;
+  double circumferenceMm = 9;
+  string measurementMethod = 10;
+  string measurementSource = 11;
+  string guideStepResult = 12;
+  string imageUrl = 13;
+  double confidenceScore = 14;
+  bool isDefault = 15;
+  string note = 16;
+  string measuredAt = 17;
+  string createdAt = 18;
+  string updatedAt = 19;
+}
+
+message ListRingSizesRequest {
+  string userId = 1;
+}
+
+message ListRingSizesResponse {
+  repeated RingSize ringSizes = 1;
+}
+
+message GetRingSizeRequest {
+  string id = 1;
+  string userId = 2;
+}
+
+message GetRingSizeResponse {
+  RingSize ringSize = 1;
+}
+
+message CreateRingSizeRequest {
+  string userId = 1;
+  string label = 2;
+  string handSide = 3;
+  string fingerType = 4;
+  string sizeSystem = 5;
+  string ringSize = 6;
+  double diameterMm = 7;
+  double circumferenceMm = 8;
+  string measurementMethod = 9;
+  string measurementSource = 10;
+  string guideStepResult = 11;
+  string imageUrl = 12;
+  double confidenceScore = 13;
+  bool isDefault = 14;
+  string note = 15;
+}
+
+message CreateRingSizeResponse {
+  RingSize ringSize = 1;
+}
+
+message UpdateRingSizeRequest {
+  string id = 1;
+  string userId = 2;
+  string label = 3;
+  string handSide = 4;
+  string fingerType = 5;
+  string sizeSystem = 6;
+  string ringSize = 7;
+  double diameterMm = 8;
+  double circumferenceMm = 9;
+  string measurementMethod = 10;
+  string measurementSource = 11;
+  string guideStepResult = 12;
+  string imageUrl = 13;
+  double confidenceScore = 14;
+  bool isDefault = 15;
+  string note = 16;
+}
+
+message UpdateRingSizeResponse {
+  RingSize ringSize = 1;
+}
+
+message DeleteRingSizeRequest {
+  string id = 1;
+  string userId = 2;
+}
+
+message DeleteRingSizeResponse {
+  bool success = 1;
+}
+
+message SetDefaultRingSizeRequest {
+  string id = 1;
+  string userId = 2;
+}
+
+message SetDefaultRingSizeResponse {
+  RingSize ringSize = 1;
 }

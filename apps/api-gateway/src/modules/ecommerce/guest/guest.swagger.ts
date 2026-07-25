@@ -55,6 +55,31 @@ function guestOrderExample() {
   };
 }
 
+function guestEngravingExample() {
+  return {
+    engraving: {
+      id: '550e8400-e29b-41d4-a716-446655440011',
+      userId: '550e8400-e29b-41d4-a716-446655440000',
+      productId: '550e8400-e29b-41d4-a716-446655440020',
+      status: 'PENDING',
+    },
+    version: {
+      id: '550e8400-e29b-41d4-a716-446655440012',
+      engravingId: '550e8400-e29b-41d4-a716-446655440011',
+      versionNumber: 1,
+      selectedMaterialId: '',
+      selectedGemstoneId: '',
+      ringSize: '',
+      ringStyle: '',
+      ringShape: '',
+      customizationConfig: '{}',
+      selectedBiometrics: '',
+      status: 'PENDING',
+      createdAt: '2026-07-07T10:00:00.000Z',
+    },
+  };
+}
+
 export function ApiCreateGuestSessionDocs() {
   return applyDecorators(
     ApiBearerAuth('access-token'),
@@ -122,20 +147,46 @@ export function ApiCreateGuestSessionDocs() {
   );
 }
 
-export function ApiCreateGuestOrderDocs() {
+export function ApiCreateGuestEngravingDocs() {
   return applyDecorators(
     ApiBearerAuth('access-token'),
     ApiOperation({
-      summary: 'Tạo order cho guest (gộp createEngraving + createOrder)',
+      summary: 'Tạo bản khắc sơ khởi cho guest vãng lai',
       description:
-        'Staff tạo order cho khách vãng lai. Hệ thống tự động tạo engraving + version v1 + qr_memories + order (AWAITING_SUBMIT).',
+        'Staff tạo bản khắc nháp cho khách vãng lai (Guest). Khách sẽ dùng bản khắc này để chọn material/gemstone (qua PATCH config) trước khi tạo Order.',
     }),
     ApiBody({
       schema: {
         example: {
           guestCode: 'GUE-A7B9X2',
           productId: '550e8400-e29b-41d4-a716-446655440020',
-          selectedBiometrics: ['SW', 'FP'],
+        },
+      },
+    }),
+    ApiResponse({
+      status: 201,
+      description: 'Guest engraving created',
+      schema: { example: guestEngravingExample() },
+    }),
+    ApiResponse({ status: 400, description: 'Validation error' }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+    ApiResponse({ status: 404, description: 'Guest not found' }),
+  );
+}
+
+export function ApiCreateGuestOrderDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'Tạo order cho guest từ bản khắc đã có',
+      description:
+        'Staff tạo order cho khách vãng lai sau khi khách đã chọn xong cấu hình (Material, Gemstone, Size). Hệ thống khóa config và chuyển sang AWAITING_SUBMIT.',
+    }),
+    ApiBody({
+      schema: {
+        example: {
+          guestCode: 'GUE-A7B9X2',
+          engravingId: '550e8400-e29b-41d4-a716-446655440011',
         },
       },
     }),
@@ -144,8 +195,8 @@ export function ApiCreateGuestOrderDocs() {
       description: 'Guest order created',
       schema: { example: guestOrderExample() },
     }),
-    ApiResponse({ status: 400, description: 'Validation error' }),
+    ApiResponse({ status: 400, description: 'Validation error / Missing config' }),
     ApiResponse({ status: 401, description: 'Unauthorized' }),
-    ApiResponse({ status: 404, description: 'Guest not found' }),
+    ApiResponse({ status: 404, description: 'Guest / Engraving not found' }),
   );
 }

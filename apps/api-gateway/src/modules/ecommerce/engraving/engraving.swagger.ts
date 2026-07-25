@@ -38,9 +38,10 @@ const engravingResponseExample = {
   approvedVersionId: '',
   status: 'PENDING',
   versions: [],
-  biometrics: [],
+  biometricAssets: [],
   qrMemory: null,
   currentVersion: null,
+  product: null,
 };
 
 const customConfigExample =
@@ -153,6 +154,12 @@ export function ApiGetMyEngravingsDocs() {
       type: String,
       required: false,
       format: 'uuid',
+    }),
+    ApiQuery({
+      name: 'withoutOrder',
+      type: Boolean,
+      required: false,
+      description: 'Filter engravings without an order',
     }),
     ApiResponse({
       status: 200,

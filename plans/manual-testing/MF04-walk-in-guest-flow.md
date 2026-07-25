@@ -1,3 +1,4 @@
+
 # MF04 — Walk-in Guest In-store Order — Manual Test
 
 ## Prerequisites
@@ -98,131 +99,73 @@ SELECT * FROM guest_customers WHERE email = 'guest@example.com';
 
 ---
 
-## 2. Staff: Tạo Order + Engraving cho Guest (kèm Package)
+## 2. Staff: Tạo Engraving nháp cho Guest
 
-> Gộp tạo engraving + version + qr_memories + order trong 1 call. Nếu truyền `selectedBiometrics` thì lưu thẳng vào version v1, bỏ qua bước PATCH config riêng.
+> Khác với khách hàng Online, khách Walk-in sẽ được Staff tạo một bản khắc nháp trước.
 
 ```http
-POST /api/v1/guest/orders
+POST /api/v1/guest-tablet/engravings
 Authorization: Bearer {{staffJwt}}
 Content-Type: application/json
 
 {
   "guestCode": "{{GUEST_CODE}}",
-  "productId": "{{PRODUCT_ID}}",
-# MF04 — Walk-in Guest In-store Order — Manual Test
-
-## Prerequisites
-
-| Item | Note |
-|------|------|
-| Staff JWT token | User có quyền `order.write` |
-| Manager JWT token | User có quyền `order.write` |
-| Cloudinary upload preset | Dùng cho upload biometric files |
-| Giả lập PayOS | Cần `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, `PAYOS_CHECKSUM_KEY` trong `.env` |
-| Tablet flow | Dùng `guestCode` thay JWT, tất cả endpoint `@Public()` |
-
----
-
-## 0. Chuẩn bị biometric URLs (FP, SW)
-
-Upload fingerprint image + audio lên Cloudinary:
-
-```powershell
-# Upload fingerprint PNG
-curl.exe -X POST "https://api.cloudinary.com/v1_1/dpm0zc06s/image/upload" -F "file=@đường_dẫn_tới_fingerprint.png" -F "upload_preset=BioRing"
-
-# Upload audio MP3
-curl.exe -X POST "https://api.cloudinary.com/v1_1/dpm0zc06s/auto/upload" -F "file=@đường_dẫn_tới_audio.mp3" -F "upload_preset=BioRing"
-```
-
-Ghi nhớ `secure_url` từ response:
-```
-FP_URL = "https://res.cloudinary.com/dpm0zc06s/image/upload/v123/fp.png"
-SW_URL = "https://res.cloudinary.com/dpm0zc06s/video/upload/v123/audio.mp3"
-```
-
-Đảm bảo Python service (`biometric-service:5051`) đang chạy để process FP → fingerprint SVG và SW → waveform SVG.
-
----
-
-## 1. Staff: Tạo Guest Session
-
-> Staff nhập thông tin khách → hệ thống check trùng email → sinh `guest_code`.
-
-```http
-POST /api/v1/guest/sessions
-Authorization: Bearer {{staffJwt}}
-Content-Type: application/json
-
-{
-  "fullName": "Nguyễn Văn A",
-  "phone": "0909123456",
-  "email": "guest@example.com",
-  "note": "Khách muốn nhẫn bạc"
+  "productId": "{{PRODUCT_ID}}"
 }
 ```
 
-**Expected Response (201) — tạo mới:**
+**Expected Response (201):**
 ```json
 {
-  "guest": {
-    "id": "{{GUEST_ID}}",
-    "guestCode": "GUE-XXXXXX",
-    "fullName": "Nguyễn Văn A",
-    "phone": "0909123456",
-    "email": "guest@example.com",
-    "note": "Khách muốn nhẫn bạc",
-    "createdAt": "2026-07-07T..."
+  "engraving": {
+    "id": "{{ENGRAVING_ID}}",
+    "userId": "{{STAFF_ID}}",
+    "productId": "{{PRODUCT_ID}}",
+    "status": "PENDING"
   },
-  "isMember": false,
-  "isExistingGuest": false,
-  "message": ""
+  "version": {
+    "id": "{{VERSION_ID}}",
+    "engravingId": "{{ENGRAVING_ID}}",
+    "versionNumber": 1,
+    "status": "PENDING"
+  }
 }
 ```
-
-**Expected Response (200) — email đã là Member:**
-```json
-{
-  "guest": { "id": "", "guestCode": "", "fullName": "", "phone": "", "email": "member@gmail.com", "note": "", "createdAt": "" },
-  "isMember": true,
-  "isExistingGuest": false,
-  "message": "Email already registered as member"
-}
-```
-
-**Expected Response (200) — email đã có guest cũ:**
-```json
-{
-  "guest": { "id": "{{OLD_GUEST_ID}}", "guestCode": "GUE-XXXXXX", ... },
-  "isMember": false,
-  "isExistingGuest": true,
-  "message": "Guest already exists. Create new?"
-}
-```
-
-**Verify DB:**
-```sql
-SELECT * FROM guest_customers WHERE email = 'guest@example.com';
-```
-
-> 📌 **Ghi chú:** `guest_code` format `GUE-` + 6 ký tự (không có 0/O/1/I). Dùng `guest_code` này cho tất cả tablet endpoints bên dưới. Email bắt buộc — FE xử lý 3 case dựa trên `isMember` / `isExistingGuest`.
 
 ---
 
-## 2. Staff: Tạo Order + Engraving cho Guest (kèm Package)
+## 2.1 Staff: Simple Design (Chọn Material, Gemstone, Size)
 
-> Gộp tạo engraving + version + qr_memories + order trong 1 call. Nếu truyền `selectedBiometrics` thì lưu thẳng vào version v1, bỏ qua bước PATCH config riêng.
+> Dựa vào bản khắc nháp, Staff tư vấn và chọn size, chất liệu cho khách. Guest Flow vẫn có thể tuỳ biến giống như Offline Flow.
 
 ```http
-POST /api/v1/guest/orders
+PATCH /api/v1/guest-tablet/engravings/versions/{{VERSION_ID}}/config
 Authorization: Bearer {{staffJwt}}
 Content-Type: application/json
 
 {
   "guestCode": "{{GUEST_CODE}}",
-  "productId": "{{PRODUCT_ID}}",
-  "selectedBiometrics": ["SW", "FP"]
+  "selectedMaterialId": "MAT_1",
+  "selectedGemstoneId": "GEM_1",
+  "ringSize": "14",
+  "selectedBiometrics": "SW,FP"
+}
+```
+
+---
+
+## 2.2 Staff: Tạo Order cho Guest
+
+> Sau khi chọn xong, tiến hành chốt Order. **Từ bước này: KHÓA VĨNH VIỄN Base Design (Size, Material, Gemstone, Product) & Package (selectedBiometrics).**
+
+```http
+POST /api/v1/guest-tablet/orders
+Authorization: Bearer {{staffJwt}}
+Content-Type: application/json
+
+{
+  "guestCode": "{{GUEST_CODE}}",
+  "engravingId": "{{ENGRAVING_ID}}"
 }
 ```
 
@@ -251,6 +194,9 @@ Content-Type: application/json
     "id": "{{VERSION_ID}}",
     "engravingId": "{{ENGRAVING_ID}}",
     "versionNumber": 1,
+    "selectedMaterialId": "MAT_1",
+    "selectedGemstoneId": "GEM_1",
+    "ringSize": "14",
     "selectedBiometrics": "SW,FP",
     "status": "PENDING"
   }
@@ -266,7 +212,7 @@ SELECT * FROM engravings WHERE id = '{{ENGRAVING_ID}}';
 -- user_id = staffId, status = PENDING
 
 SELECT * FROM engraving_versions WHERE engraving_id = '{{ENGRAVING_ID}}';
--- version_number = 1, status = PENDING
+-- version_number = 1, status = PENDING, ring_size = '14'
 ```
 
 ---
@@ -390,6 +336,33 @@ SELECT * FROM engraving_biometrics WHERE engraving_id = '{{ENGRAVING_ID}}' AND b
 
 SELECT * FROM biometric_assets WHERE id = 'ASSET_FP_001';
 -- status = ASSET_APPROVED
+```
+
+### 26b. Lấy PBR Textures (viewer-assets) để hiển thị 3D trên iPad
+
+> iPad lấy `assetId` để gọi API lấy các map (normal, alpha...) render 3D. Dựa vào đó để KHÁCH HÀNG (cùng Staff) KÉO THẢ VỊ TRÍ trên iPad.
+
+```http
+GET /api/v1/admin/biometric-assets/ASSET_FP_001
+Authorization: Bearer {{staffJwt}}
+```
+
+**Response mẫu:**
+```json
+{
+  "statusCode": 200,
+  "message": "Success",
+  "data": {
+    "asset": {
+      "assetId": "ASSET_FP_001",
+      "viewerFiles": {
+        "overlayPng": "http://...",
+        "alphaMap": "http://...",
+        "normalMap": "http://..."
+      }
+    }
+  }
+}
 ```
 
 ---

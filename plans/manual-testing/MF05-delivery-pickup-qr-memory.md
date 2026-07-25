@@ -603,7 +603,97 @@ Content-Type: application/json
 
 ---
 
-## 15. Full Flow: Từ IN_PRODUCTION → COMPLETED (DELIVERY)
+## 15. QR Memory: List (MỚI)
+
+> Danh sách memory cards của authenticated user.
+
+```http
+GET /api/v1/qr-memories?page=1&limit=10
+Authorization: Bearer {{customerJwt}}
+```
+
+**Expected Response (200):**
+```json
+{
+  "qrMemories": [
+    {
+      "id": "{{QR_MEMORY_ID}}",
+      "engravingId": "{{ENGRAVING_ID}}",
+      "qrCode": "a1b2c3d4e5f6",
+      "cardTitle": "Nhẫn của chúng ta",
+      "greetingMessage": "Cảm ơn em đã đến bên anh",
+      "isLocked": false,
+      "cardTheme": { "themeCode": "champagne-archive", "defaultBgUrl": "https://..." },
+      "createdAt": "2026-07-07T..."
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "limit": 10
+}
+```
+
+> 🧪 **Test:** Gọi với JWT sai / không JWT → 401
+> 🧪 **Test:** User không có memory card nào → `qrMemencies: []`, `total: 0`
+
+---
+
+## 16. QR Memory: Public Lookup by QR Code (MỚI)
+
+> Public endpoint — dùng cho QR scan flow. Ai cũng gọi được, không cần JWT.
+
+```http
+GET /api/v1/qr-memories/code/a1b2c3d4e5f6
+```
+
+**Expected Response (200):**
+```json
+{
+  "qrMemory": {
+    "id": "{{QR_MEMORY_ID}}",
+    "engravingId": "{{ENGRAVING_ID}}",
+    "qrCode": "a1b2c3d4e5f6",
+    "cardTitle": "Nhẫn của chúng ta",
+    "greetingMessage": "Cảm ơn em đã đến bên anh",
+    "customImages": "{\"uri\":\"https://...\",\"dateLabel\":\"May 18, 2026\"}",
+    "biometricDisplaySettings": "{\"amplitudes\":[18,44,28],\"heartbeatPattern\":[8,14,58],\"audioUrl\":\"https://...\"}",
+    "isLocked": true,
+    "cardTheme": { "themeCode": "champagne-archive", "defaultBgUrl": "https://..." },
+    "createdAt": "2026-07-07T..."
+  }
+}
+```
+
+> 🧪 **Test:** QR code không tồn tại → 404 "QR memory not found"
+> 🧪 **Test:** Gọi không cần JWT → vẫn 200 (public)
+
+---
+
+## 17. QR Memory: Upload Photo (MỚI)
+
+> Upload ảnh lên MinIO, trả URL. Dùng cho memory card photo.
+
+```http
+POST /api/v1/qr-memories/upload-photo
+Authorization: Bearer {{customerJwt}}
+Content-Type: multipart/form-data
+
+file: @photo.jpg
+```
+
+**Expected Response (200):**
+```json
+{
+  "url": "https://minio.bioring.com/knowledge-documents/qr-photos/uuid-photo.jpg"
+}
+```
+
+> 🧪 **Test:** Không gửi file → 400
+> 🧪 **Test:** Gọi không JWT → 401
+
+---
+
+## 18. Full Flow: Từ IN_PRODUCTION → COMPLETED (DELIVERY)
 
 | Step | Actor | API Call |
 |------|-------|----------|
@@ -616,7 +706,7 @@ Content-Type: application/json
 
 ---
 
-## 16. Full Flow: Từ IN_PRODUCTION → COMPLETED (PICKUP)
+## 19. Full Flow: Từ IN_PRODUCTION → COMPLETED (PICKUP)
 
 | Step | Actor | API Call |
 |------|-------|----------|
@@ -627,7 +717,7 @@ Content-Type: application/json
 
 ---
 
-## 17. Test Edge Cases Tổng Hợp
+## 20. Test Edge Cases Tổng Hợp
 
 | # | Test case | Expected |
 |---|-----------|----------|
@@ -645,13 +735,18 @@ Content-Type: application/json
 | 12 | GET delivery info cho order chưa initiate delivery | 404 hoặc rỗng |
 | 13 | GET warranty info cho order chưa COMPLETED | 404 hoặc rỗng |
 | 14 | Lookup order với `orderCode` không tồn tại | 404 |
-| 15 | Activate QR memory với PIN sai | 404 |
+| 15 | Activate QR memory với PIN sai | 403 |
 | 16 | DELIVERED với staffId rỗng | 400 validation |
 | 17 | QC Accept FAIL → order về IN_PRODUCTION → Jeweler COMPLETED lại → QC Accept PASS | Flow đúng |
+| 18 | List QR memories không có JWT | 401 |
+| 19 | List QR memories không có data | `qrMemories: [], total: 0` |
+| 20 | Public lookup QR code không tồn tại | 404 |
+| 21 | Upload photo không gửi file | 400 |
+| 22 | Upload photo không JWT | 401 |
 
 ---
 
-## 18. Variable Reference
+## 21. Variable Reference
 
 | Variable | Nguồn | Ghi chú |
 |----------|-------|---------|

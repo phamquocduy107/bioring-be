@@ -129,7 +129,7 @@ export class CatalogController implements OnModuleInit {
 
   @Get('products/:id')
   @ApiGetProductByIdDocs()
-  getProductById(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
+  getProductById(@Param('id') id: string) {
     return this.call(() => this.grpc!.getProductById({ id }));
   }
 

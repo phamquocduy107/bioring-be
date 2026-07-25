@@ -133,104 +133,116 @@ export class GuestService {
     };
   }
 
-  async createGuestOrder(data: {
+  async createGuestEngraving(data: {
     guestCode: string;
     productId?: string;
     staffId: string;
-    selectedBiometrics?: string;
   }) {
     const guest = await this.prisma.guest_customers.findUnique({
       where: { guest_code: data.guestCode },
     });
     if (!guest) throw new NotFoundException('Guest not found');
 
-    // Validate biometrics: nếu đã set selectedBiometrics, kiểm tra đủ file
-    const existingSession = await this.prisma.orders.findFirst({
-      where: { guest_customer_id: guest.id },
-      orderBy: { created_at: 'desc' },
-      include: {
-        engraving: {
-          include: {
-            engraving_versions_engraving_versions_engraving_idToengravings: {
-              orderBy: { version_number: 'desc' },
-              take: 1,
-            },
-          },
-        },
-      },
-    });
-
-    if (existingSession?.engraving) {
-      const version =
-        existingSession.engraving
-          .engraving_versions_engraving_versions_engraving_idToengravings[0];
-      const selected =
-        version?.selected_biometrics?.split(',').filter(Boolean) ?? [];
-      if (selected.length > 0) {
-        const uploaded = await this.prisma.engraving_biometrics.findMany({
-          where: {
-            engraving_id: existingSession.engraving.id,
-            status: 'CAPTURED',
-          },
-          select: { biometric_type: true },
-        });
-        const uploadedTypes = new Set(uploaded.map((b) => b.biometric_type));
-        const missing = selected.filter((t) => !uploadedTypes.has(t));
-        if (missing.length > 0) {
-          throw new BadRequestException(
-            `Missing biometric data: ${missing.join(', ')}. Please upload before creating order.`,
-          );
-        }
-      }
-    }
-
     const engraving = (await this.prisma.engravings.create({
       data: {
         id: randomUUID(),
-        user_id: data.staffId,
+        user_id: data.staffId, // Admin/Staff owns the engraving
         product_id: data.productId,
         status: 'PENDING',
       },
     })) as unknown as EngravingRecord;
-
-    const normalizedBiometrics = data.selectedBiometrics
-      ? (JSON.parse(data.selectedBiometrics) as string[]).join(',')
-      : undefined;
 
     const version = (await this.prisma.engraving_versions.create({
       data: {
         id: randomUUID(),
         engraving_id: engraving.id,
         version_number: 1,
-        selected_biometrics: normalizedBiometrics,
         status: 'PENDING',
       },
     })) as unknown as VersionRecord;
 
-    const qrCode = randomBytes(6).toString('hex');
-    const accessPinHash = createHash('sha256').update('123456').digest('hex');
+    return {
+      engraving: this.mapEngraving(engraving),
+      version: this.mapVersion(version),
+    };
+  }
 
-    await this.prisma.qr_memories.create({
-      data: {
-        id: randomUUID(),
-        engraving_id: engraving.id,
-        qr_code: qrCode,
-        access_pin_hash: accessPinHash,
-        is_locked: true,
-      },
+  async createGuestOrder(data: {
+    guestCode: string;
+    engravingId: string;
+    staffId: string;
+  }) {
+    const guest = await this.prisma.guest_customers.findUnique({
+      where: { guest_code: data.guestCode },
     });
+    if (!guest) throw new NotFoundException('Guest not found');
+
+    const engraving = (await this.prisma.engravings.findUnique({
+      where: { id: data.engravingId },
+      include: {
+        engraving_versions_engraving_versions_engraving_idToengravings: {
+          orderBy: { version_number: 'desc' },
+          take: 1,
+        },
+      },
+    })) as unknown as EngravingRecord & {
+      engraving_versions_engraving_versions_engraving_idToengravings: VersionRecord[];
+    };
+    if (!engraving) throw new NotFoundException('Engraving not found');
+
+    const version =
+      engraving.engraving_versions_engraving_versions_engraving_idToengravings[0];
+    if (!version) throw new NotFoundException('Engraving version not found');
+
+    // Validate biometrics
+    const selected =
+      version.selected_biometrics?.split(',').filter(Boolean) ?? [];
+    if (selected.length > 0) {
+      const uploaded = await this.prisma.engraving_biometrics.findMany({
+        where: {
+          engraving_id: engraving.id,
+          status: 'CAPTURED',
+        },
+        select: { biometric_type: true },
+      });
+      const uploadedTypes = new Set(uploaded.map((b) => b.biometric_type));
+      const missing = selected.filter((t) => !uploadedTypes.has(t));
+      if (missing.length > 0) {
+        throw new BadRequestException(
+          `Missing biometric data: ${missing.join(', ')}. Please upload before creating order.`,
+        );
+      }
+    }
+
+    let packageType: string | undefined;
+    let captureRoute: string | undefined;
+    if (selected.length > 0) {
+      packageType = selected.join('_');
+      captureRoute = packageType === 'SW' ? 'ONLINE' : 'OFFLINE';
+    }
+
+    // Check if qr memory exists (it might have been created during guestUpdateQrMemory)
+    const existingQr = await this.prisma.qr_memories.findFirst({
+      where: { engraving_id: engraving.id },
+    });
+
+    if (!existingQr) {
+      const qrCode = randomBytes(6).toString('hex');
+      const accessPinHash = createHash('sha256').update('123456').digest('hex');
+      await this.prisma.qr_memories.create({
+        data: {
+          id: randomUUID(),
+          engraving_id: engraving.id,
+          qr_code: qrCode,
+          access_pin_hash: accessPinHash,
+          is_locked: true,
+        },
+      });
+    }
 
     const subtotal = await this.calculateSubtotal(engraving);
     const serviceFee = Math.round(subtotal * 0.1);
     const totalPrice = subtotal + serviceFee;
-
-    let packageType: string | undefined;
-    let captureRoute: string | undefined;
-    if (normalizedBiometrics) {
-      const selected = normalizedBiometrics.split(',');
-      packageType = selected.join('_');
-      captureRoute = packageType === 'SW' ? 'ONLINE' : 'OFFLINE';
-    }
 
     const order = (await this.prisma.orders.create({
       data: {

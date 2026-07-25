@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateQrMemoryDto {
@@ -51,4 +51,16 @@ export class UpdateQrMemoryDto {
   @IsOptional()
   @IsString()
   biometricDisplaySettings?: string;
+
+  @ApiPropertyOptional({
+    description: 'Access PIN (4-10 chars). Hash will be stored. Omit to keep current PIN.',
+    example: '2048',
+    minLength: 4,
+    maxLength: 10,
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(4)
+  @MaxLength(10)
+  accessPin?: string;
 }

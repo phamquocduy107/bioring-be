@@ -18,10 +18,16 @@ export class GoogleOauthGuard extends AuthGuard('google') {
       statePayload.appRedirect = appRedirect;
     }
 
+    const protocol =
+      (req.headers['x-forwarded-proto'] as string) || req.protocol;
+    const host = (req.headers['x-forwarded-host'] as string) || req.get('host');
+    const callbackURL = `${protocol}://${host}/auth/google/callback`;
+
     return {
       prompt: 'select_account consent' as const,
       access_type: 'offline' as const,
       state: Buffer.from(JSON.stringify(statePayload)).toString('base64url'),
+      callbackURL,
     };
   }
 
@@ -33,17 +39,18 @@ export class GoogleOauthGuard extends AuthGuard('google') {
     if (user) return user;
 
     let platform = 'web';
+    let appRedirect: string | undefined;
     try {
       const decoded = JSON.parse(
         Buffer.from(rawState, 'base64url').toString('utf-8'),
       );
       platform = decoded.platform || 'web';
+      appRedirect = decoded.appRedirect;
     } catch {
       platform = rawState || 'web';
     }
 
     if (platform === 'mobile') {
-      const appRedirect = req.query.app_redirect as string;
       if (appRedirect) {
         const redirect = new URL(appRedirect);
         redirect.searchParams.set('status', 'cancelled');

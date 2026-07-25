@@ -25,6 +25,25 @@ interface EngravingRecord {
   engraving_versions_engraving_versions_engraving_idToengravings?: EngravingVersionRecord[];
   engraving_biometrics?: EngravingBiometricRecord[];
   qr_memories?: QrMemoryRecord[];
+  biometric_assets?: Array<{
+    id: string;
+    asset_type: string;
+    status: string;
+    artifact_id: string;
+    approved_files?: unknown;
+    created_at: Date | null;
+  }>;
+  products?: {
+    id: string;
+    name: string;
+    description: string | null;
+    base_price: unknown;
+    thumbnail_url: string | null;
+    model_3d_url: string | null;
+    materials?: MaterialRecord | null;
+    product_materials?: Array<{ materials: MaterialRecord }>;
+    product_gemstones?: Array<{ gemstones: GemstoneRecord }>;
+  } | null;
 }
 
 interface EngravingVersionRecord {
@@ -206,23 +225,32 @@ export class EngravingService {
 
     // Ràng buộc theo order status
     if (order) {
-      // Có order → block đổi package (selectedBiometrics) vĩnh viễn
-      if (data.selectedBiometrics !== undefined) {
-        throw new BadRequestException(
-          'Cannot change package after order creation',
-        );
-      }
-
       const orderStatus = order.status ?? '';
-      // Cho edit nếu chưa submit hoặc đang REVISION_REQUIRED
       const editableStatuses = [
         'AWAITING_SUBMIT',
         'AWAITING_DEPOSIT_1',
         'REVISION_REQUIRED',
       ];
+      
+      // Khóa hoàn toàn nếu status không nằm trong danh sách cho phép
       if (!editableStatuses.includes(orderStatus)) {
         throw new BadRequestException(
           'Cannot edit after order has been submitted',
+        );
+      }
+
+      // Khóa các trường ảnh hưởng đến giá và thiết kế gốc nếu đã có Order
+      const blockedFields: string[] = [];
+      if (data.selectedBiometrics !== undefined) blockedFields.push('selectedBiometrics');
+      if (data.selectedMaterialId !== undefined) blockedFields.push('selectedMaterialId');
+      if (data.selectedGemstoneId !== undefined) blockedFields.push('selectedGemstoneId');
+      if (data.ringSize !== undefined) blockedFields.push('ringSize');
+      if (data.ringStyle !== undefined) blockedFields.push('ringStyle');
+      if (data.ringShape !== undefined) blockedFields.push('ringShape');
+
+      if (blockedFields.length > 0) {
+        throw new BadRequestException(
+          `Cannot change base design/package fields (${blockedFields.join(', ')}) after order creation.`,
         );
       }
     }
@@ -310,10 +338,12 @@ export class EngravingService {
     limit: number,
     status?: string,
     orderId?: string,
+    withoutOrder?: boolean,
   ) {
     const where: Record<string, unknown> = { user_id: userId };
     if (status) where.status = status;
     if (orderId) where.order_id = orderId;
+    if (withoutOrder) where.order = null;
 
     const [engravings, total] = await Promise.all([
       this.prisma.engravings.findMany({
@@ -323,10 +353,9 @@ export class EngravingService {
             include: { materials: true, gemstones: true },
             orderBy: { version_number: 'desc' },
           },
-          engraving_biometrics: {
-            include: { biometric_asset: true },
-          },
+          biometric_assets: true,
           qr_memories: true,
+          order: { select: { id: true } },
         },
         orderBy: { created_at: 'desc' },
         skip: (page - 1) * limit,
@@ -353,10 +382,16 @@ export class EngravingService {
           include: { materials: true, gemstones: true },
           orderBy: { version_number: 'desc' },
         },
-        engraving_biometrics: {
-          include: { biometric_asset: true },
-        },
+        biometric_assets: true,
         qr_memories: true,
+        order: { select: { id: true } },
+        products: {
+          include: {
+            materials: true,
+            product_materials: { include: { materials: true } },
+            product_gemstones: { include: { gemstones: true } },
+          },
+        },
       },
     });
     if (!engraving) throw new NotFoundException('Engraving not found');
@@ -431,22 +466,17 @@ export class EngravingService {
               : null,
           }),
         ) ?? [],
-      biometrics:
-        engraving.engraving_biometrics?.map((b: EngravingBiometricRecord) => {
-          const urls = resolveUrlsFromApprovedFiles(
-            b.biometric_asset?.approved_files,
-          );
+      biometricAssets:
+        engraving.biometric_assets?.map((b) => {
+          const urls = resolveUrlsFromApprovedFiles(b.approved_files);
           return {
             id: b.id,
-            engravingId: b.engraving_id,
-            biometricType: b.biometric_type,
-            requiredChannel: b.required_channel,
-            biometricAssetId:
-              b.biometric_asset_id ?? b.biometric_asset?.id ?? '',
+            assetType: b.asset_type,
+            status: b.status,
+            artifactId: b.artifact_id,
             rawFileUrl: urls.rawFileUrl,
             processedSvgUrl: urls.processedSvgUrl,
-            extraData: b.extra_data ?? '',
-            status: b.status ?? '',
+            createdAt: b.created_at?.toISOString() ?? '',
           };
         }) ?? [],
       qrMemory: qrMem
@@ -513,6 +543,58 @@ export class EngravingService {
                     : '',
                 }
               : null,
+          }
+        : null,
+      product: engraving.products
+        ? {
+            id: engraving.products.id,
+            name: engraving.products.name,
+            description: engraving.products.description ?? '',
+            basePrice: Number(engraving.products.base_price ?? 0),
+            thumbnailUrl: engraving.products.thumbnail_url ?? '',
+            model3dUrl: engraving.products.model_3d_url ?? '',
+            baseMaterial: engraving.products.materials
+              ? {
+                  id: engraving.products.materials.id,
+                  name: engraving.products.materials.name,
+                  purity: engraving.products.materials.purity ?? '',
+                  color: engraving.products.materials.color ?? '',
+                  currentPricePerGram: Number(
+                    engraving.products.materials.current_price_per_gram ?? 0,
+                  ),
+                  renderConfig: engraving.products.materials.render_config
+                    ? JSON.stringify(engraving.products.materials.render_config)
+                    : '',
+                }
+              : null,
+            availableMaterials:
+              engraving.products.product_materials?.map((pm) => ({
+                id: pm.materials.id,
+                name: pm.materials.name,
+                purity: pm.materials.purity ?? '',
+                color: pm.materials.color ?? '',
+                currentPricePerGram: Number(
+                  pm.materials.current_price_per_gram ?? 0,
+                ),
+                renderConfig: pm.materials.render_config
+                  ? JSON.stringify(pm.materials.render_config)
+                  : '',
+              })) ?? [],
+            availableGemstones:
+              engraving.products.product_gemstones?.map((pg) => ({
+                id: pg.gemstones.id,
+                type: pg.gemstones.type,
+                carat: Number(pg.gemstones.carat ?? 0),
+                cut: pg.gemstones.cut ?? '',
+                color: pg.gemstones.color ?? '',
+                clarity: pg.gemstones.clarity ?? '',
+                certificationCode: pg.gemstones.certification_code ?? '',
+                price: Number(pg.gemstones.price ?? 0),
+                isAvailable: pg.gemstones.is_available ?? false,
+                renderConfig: pg.gemstones.render_config
+                  ? JSON.stringify(pg.gemstones.render_config)
+                  : '',
+              })) ?? [],
           }
         : null,
     };

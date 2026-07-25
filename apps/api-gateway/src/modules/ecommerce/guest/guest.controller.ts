@@ -81,15 +81,19 @@ interface EcommerceGrpcService {
     note?: string;
     staffId: string;
   }): Observable<CreateGuestSessionResponse>;
-  createGuestOrder(data: {
+  createGuestEngraving(data: {
     guestCode: string;
     productId?: string;
     staffId: string;
-    selectedBiometrics?: string;
+  }): Observable<{ engraving: any; version: any }>;
+  createGuestOrder(data: {
+    guestCode: string;
+    engravingId: string;
+    staffId: string;
   }): Observable<GuestOrderResponse>;
 }
 
-@Controller('api/v1/guest')
+@Controller('api/v1/guest-tablet')
 export class GuestController implements OnModuleInit {
   private grpc?: EcommerceGrpcService;
 
@@ -128,6 +132,22 @@ export class GuestController implements OnModuleInit {
     );
   }
 
+  @Post('engravings')
+  // @ApiCreateGuestEngravingDocs()
+  @Permissions(Permission.OrderWrite)
+  async createEngraving(
+    @Body() dto: import('@app/common').CreateGuestEngravingDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.call(() =>
+      this.grpc!.createGuestEngraving({
+        guestCode: dto.guestCode,
+        productId: dto.productId,
+        staffId: user.sub,
+      }),
+    );
+  }
+
   @Post('orders')
   @ApiCreateGuestOrderDocs()
   @Permissions(Permission.OrderWrite)
@@ -138,11 +158,8 @@ export class GuestController implements OnModuleInit {
     return this.call(() =>
       this.grpc!.createGuestOrder({
         guestCode: dto.guestCode,
-        productId: dto.productId,
+        engravingId: dto.engravingId,
         staffId: user.sub,
-        selectedBiometrics: dto.selectedBiometrics
-          ? JSON.stringify(dto.selectedBiometrics)
-          : undefined,
       }),
     );
   }

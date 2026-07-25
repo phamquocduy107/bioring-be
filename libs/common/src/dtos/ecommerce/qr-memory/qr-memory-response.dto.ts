@@ -50,3 +50,22 @@ export class QrMemoryActivateResponse {
   @ApiProperty({ type: QrMemoryResponse })
   qrMemory!: QrMemoryResponse;
 }
+
+export class QrMemoryListResponse {
+  @ApiProperty({ type: [QrMemoryResponse] })
+  qrMemories!: QrMemoryResponse[];
+
+  @ApiProperty()
+  total!: number;
+
+  @ApiProperty()
+  page!: number;
+
+  @ApiProperty()
+  limit!: number;
+}
+
+export class QrMemoryUploadPhotoResponse {
+  @ApiProperty()
+  url!: string;
+}

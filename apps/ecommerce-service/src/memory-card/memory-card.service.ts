@@ -25,21 +25,9 @@ export class MemoryCardService {
       cardThemeId?: string;
       customImages?: string;
       biometricDisplaySettings?: string;
+      accessPin?: string;
     },
   ) {
-    const engraving = await this.prisma.engravings.findUnique({
-      where: { id: engravingId },
-      include: { order: true },
-    });
-    if (engraving?.order) {
-      const orderStatus = engraving.order.status ?? '';
-      if (orderStatus !== 'REVISION_REQUIRED') {
-        throw new BadRequestException(
-          'Cannot edit memory card after order creation (except in REVISION_REQUIRED)',
-        );
-      }
-    }
-
     const qrMemory = await this.prisma.qr_memories.findUnique({
       where: { engraving_id: engravingId },
     });
@@ -59,6 +47,8 @@ export class MemoryCardService {
       updateData.biometric_display_settings = JSON.parse(
         data.biometricDisplaySettings,
       );
+    if (data.accessPin !== undefined)
+      updateData.access_pin_hash = createHash('sha256').update(data.accessPin).digest('hex');
 
     const updated = await this.prisma.qr_memories.update({
       where: { engraving_id: engravingId },
@@ -97,6 +87,35 @@ export class MemoryCardService {
     });
 
     return this.mapQrMemory(updated);
+  }
+
+  async getQrMemoryByCode(qrCode: string) {
+    const qrMemory = await this.prisma.qr_memories.findUnique({
+      where: { qr_code: qrCode },
+      include: { card_themes: true },
+    });
+    if (!qrMemory) throw new NotFoundException('QR memory not found');
+    return this.mapQrMemory(qrMemory);
+  }
+
+  async listQrMemories(userId: string, page: number, limit: number) {
+    const where = { engravings: { user_id: userId } };
+    const [qrMemories, total] = await Promise.all([
+      this.prisma.qr_memories.findMany({
+        where,
+        include: { card_themes: true },
+        orderBy: { created_at: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.qr_memories.count({ where }),
+    ]);
+    return {
+      qrMemories: (qrMemories ?? []).map((q) => this.mapQrMemory(q)),
+      total: total ?? 0,
+      page,
+      limit,
+    };
   }
 
   private mapQrMemory(qr: QrMemoryRecord) {

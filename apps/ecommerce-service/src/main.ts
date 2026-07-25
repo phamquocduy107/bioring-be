@@ -17,6 +17,7 @@ async function bootstrap() {
         protoPath: join(process.cwd(), 'proto/ecommerce.proto'),
         url: GRPC_URL,
         channelOptions: BIOMETRIC_GRPC_CHANNEL_OPTIONS,
+        loader: { arrays: true },
       },
     },
   );

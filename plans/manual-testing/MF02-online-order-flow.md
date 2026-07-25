@@ -196,7 +196,7 @@ Content-Type: application/json
 
 > Gói đã chọn, design + mem card đã hoàn tất. Tạo order để chốt.
 > Server tự derive `packageType` từ `selected_biometrics`.
-> **Sau bước này: CHỈ block đổi package (selectedBiometrics). Vẫn cho PATCH config design, PUT qr-memories, POST biometrics.**
+> **Sau bước này: KHÓA VĨNH VIỄN Base Design (Size, Material, Gemstone) & Package (selectedBiometrics). Chỉ cho PATCH config để lưu vị trí (engravingPositions), PUT qr-memories, POST biometrics.**
 
 ```http
 POST /api/v1/orders
@@ -242,8 +242,8 @@ Ghi nhớ `ORDER_ID`. Order ở `AWAITING_SUBMIT` — không edit được gì n
 
 ## 6. Upload audio biometric + Lấy PBR Textures
 
-> Sau tạo order, user ghi âm → upload file audio trực tiếp qua multipart `POST /api/v1/me/engravings/:engravingId/biometrics`.
-> Server (Auto-Approve): gửi file sang Python Engine xử lý, tự động duyệt và tự động gán (`BiometricAsset`) vào bản khắc. Trả về `biometricAssetId`.
+> Sau tạo order, user ghi âm -> upload file audio trực tiếp qua API dành cho Customer.
+> Backend sẽ tự động gọi sang Python Engine xử lý, tự động duyệt (Approve) và tự động gán (`BiometricAsset`) vào bản khắc. Trả về `biometricAssetId`.
 
 ```http
 POST /api/v1/me/engravings/ENGRAVING_ID/biometrics
@@ -274,8 +274,8 @@ Content-Disposition: form-data; name="extraData"
     "engravingId": "ENGRAVING_ID",
     "biometricType": "SW",
     "requiredChannel": "ENGRAVING",
-    "rawFileUrl": "http://localhost:9000/bioring-personalization/personalization/review/soundwave/sw_12345/audio_original.mp3",
-    "processedSvgUrl": "http://localhost:9000/bioring-personalization/personalization/review/soundwave/sw_12345/soundwave.svg",
+    "rawFileUrl": "http://localhost:9000/.../audio_original.mp3",
+    "processedSvgUrl": "http://localhost:9000/.../soundwave.svg",
     "biometricAssetId": "ASSET_ID_001",
     "extraData": "{\"startMs\":2000,\"endMs\":5000}",
     "status": "CAPTURED"
@@ -283,11 +283,10 @@ Content-Disposition: form-data; name="extraData"
 }
 ```
 
-> Backend gọi Python Pipeline xử lý waveform, tự động Publish (Approve) và gán Asset cho Customer. Trả về `biometricAssetId`.
-
 ### 6b. Lấy PBR Textures (viewer-assets) để hiển thị 3D
 
-> FE dùng `biometricAssetId` vừa nhận để lấy các map (normal, alpha...) render Decal Mesh.
+> FE dùng `ASSET_ID_001` vừa nhận để lấy các map (normal, alpha...) render Decal Mesh. Dựa vào đó để KHÁCH HÀNG KÉO THẢ VỊ TRÍ.
+
 
 ```http
 GET /api/v1/me/biometric-assets/ASSET_ID_001/viewer-assets

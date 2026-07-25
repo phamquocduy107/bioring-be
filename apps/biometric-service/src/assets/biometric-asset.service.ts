@@ -318,12 +318,13 @@ export class BiometricAssetService {
     this.assertAssignedUser(asset, data.userId);
     this.assertStatus(
       asset,
-      [ASSET_APPROVED, PLACEMENT_CONFIRMED],
+      [ASSET_APPROVED, PLACEMENT_CONFIRMED, 'CAPTURED', READY_FOR_REVIEW, PROCESSING],
       'viewer-assets',
     );
 
     const approvedFiles = asset.approved_files as ApprovedFilesBundleDto | null;
-    let viewerFiles = approvedFiles?.viewerFiles;
+    const reviewFiles = asset.review_files as ReviewFilesBundleDto | null;
+    let viewerFiles = approvedFiles?.viewerFiles || reviewFiles?.viewerFiles;
     let placement = asset.placement as Record<string, unknown> | null;
 
     if (
@@ -335,7 +336,7 @@ export class BiometricAssetService {
           asset.artifact_id,
           toPythonArtifactType(asset.asset_type),
         );
-        viewerFiles = refreshed.viewerFiles;
+        viewerFiles = refreshed.viewerFiles || viewerFiles;
         placement = refreshed.placement ?? placement;
       } catch {
         // Fall back to PostgreSQL cached URLs.
@@ -364,7 +365,7 @@ export class BiometricAssetService {
     this.assertAssignedUser(asset, data.userId);
     this.assertStatus(
       asset,
-      [ASSET_APPROVED, PLACEMENT_CONFIRMED],
+      [ASSET_APPROVED, PLACEMENT_CONFIRMED, 'CAPTURED', READY_FOR_REVIEW],
       'confirm-placement',
     );
 

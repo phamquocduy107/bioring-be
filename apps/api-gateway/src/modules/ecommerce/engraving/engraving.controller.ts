@@ -76,6 +76,7 @@ interface EcommerceGrpcService {
     limit: number;
     status?: string;
     orderId?: string;
+    withoutOrder?: boolean;
   }): Observable<{
     engravings: EngravingResponse[];
     total: number;
@@ -105,7 +106,7 @@ interface EcommerceGrpcService {
   }): Observable<{ count: number; biometrics: EngravingBioMetricResponse[] }>;
   cancelEngraving(data: {
     id: string;
-    user_id: string;
+    userId: string;
   }): Observable<{ success: boolean }>;
 }
 
@@ -157,6 +158,7 @@ export class EngravingController implements OnModuleInit {
         limit: query.limit ?? 10,
         status: query.status,
         orderId: query.orderId,
+        withoutOrder: query.withoutOrder,
       }),
     );
   }
@@ -239,7 +241,7 @@ export class EngravingController implements OnModuleInit {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.call(() =>
-      this.grpc!.cancelEngraving({ id, user_id: user.sub }),
+      this.grpc!.cancelEngraving({ id, userId: user.sub }),
     );
   }
 }

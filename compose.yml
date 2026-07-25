@@ -1,0 +1,25 @@
+services:
+  postgres-test:
+    image: postgres:16-alpine
+    container_name: bioring-postgres-test
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: bioring
+      POSTGRES_PASSWORD: bioring_test_123
+      POSTGRES_DB: bioring
+
+    ports:
+      - '5433:5432'
+
+    volumes:
+      - bioring_postgres_test_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U bioring -d bioring']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  bioring_postgres_test_data:

@@ -87,6 +87,53 @@ export class EngravingBioMetricResponse {
   status!: string;
 }
 
+class MaterialBrief {
+  @ApiProperty() id!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty() purity!: string;
+  @ApiProperty() color!: string;
+  @ApiProperty() currentPricePerGram!: number;
+  @ApiPropertyOptional() renderConfig?: string;
+}
+
+class GemstoneBrief {
+  @ApiProperty() id!: string;
+  @ApiProperty() type!: string;
+  @ApiProperty() carat!: number;
+  @ApiProperty() cut!: string;
+  @ApiProperty() color!: string;
+  @ApiProperty() clarity!: string;
+  @ApiProperty() certificationCode!: string;
+  @ApiProperty() price!: number;
+  @ApiProperty() isAvailable!: boolean;
+  @ApiPropertyOptional() renderConfig?: string;
+}
+
+export class BiometricAssetBrief {
+  @ApiProperty() id!: string;
+  @ApiProperty() assetType!: string;
+  @ApiProperty() status!: string;
+  @ApiProperty() artifactId!: string;
+  @ApiProperty() rawFileUrl!: string;
+  @ApiProperty() processedSvgUrl!: string;
+  @ApiProperty() createdAt!: string;
+}
+
+export class ProductBriefResponse {
+  @ApiProperty() id!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty() description!: string;
+  @ApiProperty() basePrice!: number;
+  @ApiProperty() thumbnailUrl!: string;
+  @ApiProperty() model3dUrl!: string;
+  @ApiPropertyOptional({ type: MaterialBrief })
+  baseMaterial?: MaterialBrief;
+  @ApiProperty({ type: [MaterialBrief] })
+  availableMaterials!: MaterialBrief[];
+  @ApiProperty({ type: [GemstoneBrief] })
+  availableGemstones!: GemstoneBrief[];
+}
+
 export class EngravingResponse {
   @ApiProperty()
   id!: string;
@@ -112,14 +159,17 @@ export class EngravingResponse {
   @ApiProperty({ type: [EngravingVersionResponse] })
   versions!: EngravingVersionResponse[];
 
-  @ApiProperty({ type: [EngravingBioMetricResponse] })
-  biometrics!: EngravingBioMetricResponse[];
-
   @ApiPropertyOptional({ type: QrMemoryResponse })
   qrMemory?: QrMemoryResponse;
 
   @ApiPropertyOptional({ type: EngravingVersionResponse })
   currentVersion?: EngravingVersionResponse;
+
+  @ApiPropertyOptional({ type: ProductBriefResponse })
+  product?: ProductBriefResponse;
+
+  @ApiProperty({ type: [BiometricAssetBrief] })
+  biometricAssets!: BiometricAssetBrief[];
 }
 
 export class GetEngravingResponse {

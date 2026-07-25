@@ -85,10 +85,11 @@ export class PersonalizationEngineClient {
   private readonly baseUrl: string;
 
   constructor(private readonly configService: ConfigService) {
-    this.baseUrl = this.configService.get<string>(
+    const rawUrl = this.configService.get<string>(
       'PERSONALIZATION_ENGINE_URL',
-      'http://localhost:8010',
+      'http://127.0.0.1:8010',
     );
+    this.baseUrl = rawUrl.replace('localhost', '127.0.0.1');
   }
 
   async downloadUrl(url: string): Promise<UploadedFilePayload> {

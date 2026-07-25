@@ -46,6 +46,7 @@ export class EngravingController {
     limit: number;
     status?: string;
     orderId?: string;
+    withoutOrder?: boolean;
   }) {
     return this.engravingService.getMyEngravings(
       data.userId,
@@ -53,6 +54,7 @@ export class EngravingController {
       data.limit,
       data.status,
       data.orderId,
+      data.withoutOrder,
     );
   }
 
@@ -62,7 +64,7 @@ export class EngravingController {
   }
 
   @GrpcMethod('EcommerceService', 'CancelEngraving')
-  async cancelEngraving(data: { id: string; user_id: string }) {
-    return this.engravingService.cancelEngraving(data.id, data.user_id);
+  async cancelEngraving(data: { id: string; userId: string }) {
+    return this.engravingService.cancelEngraving(data.id, data.userId);
   }
 }
