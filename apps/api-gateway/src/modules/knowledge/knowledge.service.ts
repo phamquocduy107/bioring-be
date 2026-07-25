@@ -11,6 +11,8 @@ export interface KnowledgeDocument {
   mimetype: string;
   size: number;
   status: string;
+  chunkCount?: number;
+  errorMessage?: string;
   documentType?: string;
   retrievalTypes?: string[];
   createdAt: string;
@@ -63,6 +65,17 @@ interface KnowledgeGrpcService {
     errorMessage: string;
     chunkCount: number;
     updatedAt: string;
+  }>;
+  getDocumentDownloadUrl(data: {
+    userId: string;
+    documentId: string;
+    expiresInSeconds?: number;
+  }): Observable<{
+    url: string;
+    expiresIn: number;
+    originalName: string;
+    mimetype: string;
+    expiresAt: string;
   }>;
   deleteDocument(data: {
     userId: string;
@@ -162,15 +175,45 @@ export class KnowledgeService implements OnModuleInit {
     return lastValueFrom(fn());
   }
 
+  private normalizeInt(value: unknown, fallback = 0): number {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === 'string' && value.trim() !== '') {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : fallback;
+    }
+    if (value && typeof value === 'object') {
+      const longLike = value as { low?: unknown; toNumber?: () => number };
+      if (typeof longLike.toNumber === 'function') {
+        const n = longLike.toNumber();
+        return Number.isFinite(n) ? n : fallback;
+      }
+      if ('low' in longLike) {
+        const low = Number(longLike.low);
+        return Number.isFinite(low) ? low : fallback;
+      }
+    }
+    return fallback;
+  }
+
+  private normalizeDocument(document: KnowledgeDocument): KnowledgeDocument {
+    return {
+      ...document,
+      size: this.normalizeInt(document?.size, 0),
+      chunkCount: this.normalizeInt(document?.chunkCount, 0),
+    };
+  }
+
   // Documents
-  uploadDocument(
+  async uploadDocument(
     userId: string,
     file: UploadedFilePayload,
     options?: { documentType?: string; retrievalTypes?: string[] },
   ) {
     // Gateway gắn workspace mặc định rồi proxy upload PDF sang rag-service.
     const workspaceId = getKnowledgeWorkspaceId();
-    return this.call(() =>
+    const res = await this.call(() =>
       this.grpc!.uploadDocument({
         userId,
         workspaceId,
@@ -179,25 +222,51 @@ export class KnowledgeService implements OnModuleInit {
         retrievalTypes: options?.retrievalTypes,
       }),
     );
+    return { document: this.normalizeDocument(res.document) };
   }
 
-  findAllDocuments(userId: string) {
+  async findAllDocuments(userId: string) {
     // Danh sách tài liệu knowledge được lấy qua rag-service
     const workspaceId = getKnowledgeWorkspaceId();
-    return this.call(() =>
+    const res = await this.call(() =>
       this.grpc!.findAllDocuments({ userId, workspaceId }),
     );
+    return {
+      documents: (res.documents ?? []).map((doc) => this.normalizeDocument(doc)),
+    };
   }
 
-  findOneDocument(userId: string, documentId: string) {
+  async findOneDocument(userId: string, documentId: string) {
     // Proxy chi tiết tài liệu sang rag-service để giữ authorization/DB logic tập trung.
-    return this.call(() => this.grpc!.findOneDocument({ userId, documentId }));
+    const res = await this.call(() =>
+      this.grpc!.findOneDocument({ userId, documentId }),
+    );
+    return { document: this.normalizeDocument(res.document) };
   }
 
-  getDocumentStatus(userId: string, documentId: string) {
+  async getDocumentStatus(userId: string, documentId: string) {
     // Status ingestion/vector hóa được rag-service quản lý theo document.
-    return this.call(() =>
+    const res = await this.call(() =>
       this.grpc!.getDocumentStatus({ userId, documentId }),
+    );
+    return {
+      ...res,
+      chunkCount: this.normalizeInt(res.chunkCount, 0),
+    };
+  }
+
+  getDocumentDownloadUrl(
+    userId: string,
+    documentId: string,
+    expiresInSeconds?: number,
+  ) {
+    // Presigned MinIO URL — ownership check + signing ở rag-service.
+    return this.call(() =>
+      this.grpc!.getDocumentDownloadUrl({
+        userId,
+        documentId,
+        expiresInSeconds,
+      }),
     );
   }
 
@@ -206,14 +275,20 @@ export class KnowledgeService implements OnModuleInit {
     return this.call(() => this.grpc!.deleteDocument({ userId, documentId }));
   }
 
-  retryIngestion(userId: string, documentId: string) {
+  async retryIngestion(userId: string, documentId: string) {
     // Retry ingestion publish job ở rag-service/worker flow
-    return this.call(() => this.grpc!.retryIngestion({ userId, documentId }));
+    const res = await this.call(() =>
+      this.grpc!.retryIngestion({ userId, documentId }),
+    );
+    return { document: this.normalizeDocument(res.document) };
   }
 
-  reindexDocument(userId: string, documentId: string) {
+  async reindexDocument(userId: string, documentId: string) {
     // Reindex chỉ yêu cầu rag-service tạo job ingestion lại.
-    return this.call(() => this.grpc!.reindexDocument({ userId, documentId }));
+    const res = await this.call(() =>
+      this.grpc!.reindexDocument({ userId, documentId }),
+    );
+    return { document: this.normalizeDocument(res.document) };
   }
 
   // Chat

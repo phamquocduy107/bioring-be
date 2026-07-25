@@ -1,5 +1,8 @@
 import 'dotenv/config';
-import { KNOWLEDGE_GRPC_CHANNEL_OPTIONS } from '@app/common';
+import {
+  KNOWLEDGE_GRPC_CHANNEL_OPTIONS,
+  KNOWLEDGE_GRPC_LOADER_OPTIONS,
+} from '@app/common';
 import { join } from 'node:path';
 import { NestFactory } from '@nestjs/core';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
@@ -17,6 +20,7 @@ async function bootstrap() {
         protoPath: join(process.cwd(), 'proto/knowledge.proto'),
         url: GRPC_URL,
         channelOptions: KNOWLEDGE_GRPC_CHANNEL_OPTIONS,
+        loader: KNOWLEDGE_GRPC_LOADER_OPTIONS,
       },
     },
   );

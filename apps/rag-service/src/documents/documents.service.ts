@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '@app/prisma';
 import {
+  KNOWLEDGE_DOWNLOAD_URL_TTL_SECONDS,
   normalizeDocumentType,
   normalizeRetrievalTypes,
   type RetrievalType,
@@ -18,6 +19,10 @@ import { IngestionService } from '../ingestion/ingestion.service';
 
 /** Document statuses that are safe for RAG query. */
 const READY_DOCUMENT_STATUSES = new Set(['COMPLETED', 'READY']);
+
+/** Clamp client-requested TTL (seconds). */
+const MIN_DOWNLOAD_TTL_SECONDS = 60;
+const MAX_DOWNLOAD_TTL_SECONDS = 60 * 60;
 
 @Injectable()
 export class DocumentsService {
@@ -106,6 +111,28 @@ export class DocumentsService {
       errorMessage: document.error_message ?? '',
       chunkCount: document.chunk_count,
       updatedAt: document.updated_at.toISOString(),
+    };
+  }
+
+  async getDownloadUrl(data: {
+    userId: string;
+    documentId: string;
+    expiresInSeconds?: number;
+  }) {
+    const document = await this.getOwnedDocument(data.userId, data.documentId);
+    const expiresIn = clampDownloadTtl(data.expiresInSeconds);
+    const url = await this.minioService.getPresignedGetUrl(
+      document.storage_key,
+      expiresIn,
+    );
+    const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
+
+    return {
+      url,
+      expiresIn,
+      originalName: document.original_name,
+      mimetype: document.mimetype,
+      expiresAt,
     };
   }
 
@@ -219,8 +246,12 @@ export class DocumentsService {
       userId: document.user_id,
       originalName: document.original_name,
       mimetype: document.mimetype,
-      size: document.size,
+      // Number() so gRPC/HTTP never emit Long / BigInt for size.
+      size: Number(document.size) || 0,
+      // Raw DB status: PENDING | PROCESSING | COMPLETED | FAILED (READY legacy alias accepted).
       status: document.status,
+      chunkCount: Number(document.chunk_count) || 0,
+      errorMessage: document.error_message ?? '',
       documentType: document.document_type,
       retrievalTypes: parseRetrievalTypes(document.retrieval_types),
       createdAt: document.created_at.toISOString(),
@@ -239,4 +270,23 @@ export function parseRetrievalTypes(
   return value.filter(
     (item): item is RetrievalType => typeof item === 'string',
   );
+}
+
+function clampDownloadTtl(requested?: number): number {
+  const fallback = KNOWLEDGE_DOWNLOAD_URL_TTL_SECONDS;
+  if (
+    requested === undefined ||
+    requested === null ||
+    !Number.isFinite(requested)
+  ) {
+    return fallback;
+  }
+  const seconds = Math.floor(Number(requested));
+  if (seconds < MIN_DOWNLOAD_TTL_SECONDS) {
+    return MIN_DOWNLOAD_TTL_SECONDS;
+  }
+  if (seconds > MAX_DOWNLOAD_TTL_SECONDS) {
+    return MAX_DOWNLOAD_TTL_SECONDS;
+  }
+  return seconds;
 }
