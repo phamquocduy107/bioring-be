@@ -42,7 +42,7 @@
 - **BR-A01 đến BR-A08:** *(Giữ nguyên như bản cũ)*.
 - **BR-A09:** Khách hàng Online (Flow 2) không cần duyệt lại bản Final sau khi Manager đã Approve. Hệ thống tự động chuyển sang bước Deposit.
 - **BR-A10:** Đơn hàng Package 2 tại cửa hàng (Flow 3) yêu cầu thanh toán chia làm 3 giai đoạn: Deposit 1 (trước khi dùng IoT) -> Deposit 2 (sau khi Manager duyệt mẫu) -> Remaining Payment (trước khi nhận hàng).
-- **BR-A11:** Khách vãng lai (Walk-in Guest - Flow 4) bắt buộc phải thanh toán 100% (Full Payment) ngay khi chốt đơn, không áp dụng chính sách đặt cọc nhiều đợt.
+- **BR-A11:** Khách vãng lai (Walk-in Guest - Flow 4) bắt buộc phải thanh toán 100% (Full Payment) sau khi Manager duyệt design và chọn phương thức nhận hàng. Không áp dụng chính sách đặt cọc nhiều đợt.
 - **BR-A12:** Mọi sản phẩm sau khi Jeweler chế tác xong phải qua bước Manager kiểm tra và nghiệm thu (Accept) thì mới được chuyển sang trạng thái Ready for Delivery.
 - **BR-A13:** Dịch vụ bảo hành/sửa chữa nằm ngoài chính sách miễn phí bắt buộc phải được xuất báo giá (Quotation) và có sự xác nhận thanh toán/đồng ý (Confirm) của khách hàng trước khi Store Staff tiếp nhận sản phẩm vật lý.
 - **BR-A14:** Quy trình thiết kế trên Mobile gồm 3 màn hình bắt buộc theo thứ tự: (1) Simple Design → (2) Package Selection → (3) Advanced Design. Không được bỏ qua hoặc đảo thứ tự.
@@ -65,7 +65,7 @@
 |------|---------------|-----------|
 | MF-02 (Online - SW only) | ONLINE | 1 lần Deposit → Remaining Payment |
 | MF-03 (Offline - có FP/HB) | OFFLINE | Deposit 1 (giữ IoT) → Deposit 2 (sau duyệt) → Remaining Payment |
-| MF-04 (Walk-in) | OFFLINE (hoặc ONLINE nếu chỉ SW) | Full Payment (100% 1 lần) |
+| MF-04 (Walk-in) | OFFLINE (hoặc ONLINE nếu chỉ SW) | Full Payment (100% 1 lần, sau manager approve + chọn delivery) |
 | MF-05 | - | Remaining Payment (nếu là đơn MF-02/MF-03) |
 
 ---
@@ -161,25 +161,36 @@ Flow 3 dành cho trường hợp khách hàng tự thao tác trên App ở nhà,
 13. Nếu Approve $\rightarrow$ order $\rightarrow$ `AWAITING_DEPOSIT_2`.
 14. Customer thanh toán **Deposit 2**. Chọn địa chỉ giao hàng.
 
-**D. Flow 4: Walk-in Guest In-store Order (Luồng khách vãng lai - iPad Staff)**
+**D. Flow 4: Walk-in Guest In-store Order (Luồng khách vãng lai - Tablet + Staff Web)**
 
-1. Khách vãng lai đến trực tiếp cửa hàng. Store Staff mở Ring Catalog trên iPad.
-2. **Màn hình 1 - Simple Design & Sizing:** Staff hỗ trợ khách chọn mẫu, cấu hình thiết kế cơ bản, Size. Bấm **Continue**. *(Giá tự động update).*
-3. **Màn hình 2 - Package Selection:** Khách chọn tổ hợp biometric bất kỳ.
-   - Chỉ SW $\rightarrow$ **ONLINE** (xử lý trên iPad).
-   - FP/HB $\rightarrow$ **OFFLINE** (dùng IoT tại chỗ).
-4. **Tạo Guest Order - CHỐT GIÁ & LOCK CONFIG:**
-   - iPad gọi `POST /api/v1/guest-tablet/orders`.
-   - Các trường Base Design bị khóa vĩnh viễn. Order chuyển sang đợi thanh toán.
-5. **Khách hàng thanh toán toàn bộ (Full Payment - 100%)** ngay tại cửa hàng.
-   - Sau khi thanh toán, trạng thái Order chuyển thành `AWAITING_SUBMIT`.
-6. **Màn hình 3 - Advanced Design (Thu âm / Lấy mẫu & Chọn vị trí):**
-   - **ONLINE (chỉ SW):** Thu âm trực tiếp trên iPad $\rightarrow$ Hệ thống Approve/Assign tự động $\rightarrow$ Load PBR Texture thật $\rightarrow$ Kéo thả vị trí $\rightarrow$ `PATCH config`.
-   - **OFFLINE (FP/HB):** Dùng máy IoT lấy mẫu $\rightarrow$ Staff Approve & Assign qua Admin $\rightarrow$ iPad load PBR Texture thật $\rightarrow$ Khách chọn vị trí trực tiếp $\rightarrow$ `PATCH config`.
-7. Thiết kế memory card (HB được cấu hình tại đây).
-8. iPad gọi **Submit Order** $\rightarrow$ `PENDING_REVIEW`. *(API kiểm tra bắt buộc phải có tọa độ vị trí thật).*
-9. **Manager thực hiện Review**.
-10. Hệ thống sinh **Order Lookup Code (VD: ORD-123)** cấp cho khách. System assign task cho Jeweler tiến hành sản xuất.
+> **Phân vai:** Staff web chỉ tạo session + monitor + assign biometrics. Guest tự thao tác chính trên tablet.
+
+### Pha 1: Staff tạo Session (Web)
+1. Store Staff mở Web, tạo guest session $\rightarrow$ lấy `guestCode`. Bên dưới ô hiển thị code có nút **Refresh** để đồng bộ DB xem guest đã chọn mẫu, chất liệu, đá chưa.
+
+### Pha 2: Guest thiết kế + Tạo Order (Tablet)
+2. Guest lướt collection/products trên tablet (không cần nhập mã). Vào product detail $\rightarrow$ bấm **"Design your ring"** $\rightarrow$ nhập `guestCode`. Tablet gọi `POST /api/v1/guest-tablet/engravings` (public) với `guestCode` + `productId` $\rightarrow$ tạo engraving + version PENDING.
+3. **Simple Design:** Guest chọn material, gemstone, size $\rightarrow$ `PATCH /api/v1/guest-tablet/engravings/:versionId/config`. *(Giá tự động update).*
+4. **Package Selection:** Guest chọn package biometric. Bấm **Next** $\rightarrow$ popup *"Bạn đã chắc chắn? Các lựa chọn sẽ không được thay đổi nếu xác nhận"*.
+   - **Confirm** $\rightarrow$ gọi `POST /api/v1/guest-tablet/orders` (public) $\rightarrow$ tạo order `AWAITING_SUBMIT` + **LOCK** base design (material, gem, size, selectedBiometrics). Tablet tự động end session, quay về màn hình browse.
+   - **Cancel** $\rightarrow$ tiếp tục chỉnh sửa.
+
+### Pha 3: Staff Assign Biometric (Web)
+5. Staff bấm **Refresh** $\rightarrow$ gọi `GET /api/v1/guest-tablet/sessions/:guestCode` $\rightarrow$ thấy order + product + material + gem + size + package. Staff upload raw biometric data $\rightarrow$ Python pipeline $\rightarrow$ Approve $\rightarrow$ Assign vào engraving (giống MF-02/03).
+
+### Pha 4: Guest chỉnh Biometric Asset (Tablet)
+6. Guest quay lại tablet. Màn hình browse có nút **"Already have an order?"** (góc trên phải). Bấm vào $\rightarrow$ nhập `guestCode` $\rightarrow$ gọi `GET /api/v1/guest-tablet/sessions/:guestCode` $\rightarrow$ load order + biometric_assets + qrMemory. UI nhảy thẳng vào step **edit biometric asset**, các step khác greyed out + disabled.
+7. Guest chỉnh vị trí khắc, engravedType $\rightarrow$ `PATCH config` (chỉ gửi `customizationConfig`).
+8. Guest thiết kế memory card $\rightarrow$ `PUT /api/v1/guest-tablet/qr-memories/:engravingId`.
+9. Guest bấm **Confirm** $\rightarrow$ popup xác nhận lần cuối $\rightarrow$ **OK** $\rightarrow$ gọi `PATCH /api/v1/guest-tablet/orders/:orderId/submit` $\rightarrow$ `PENDING_REVIEW`.
+
+### Pha 5: Manager Review + Delivery + Payment
+10. Manager review $\rightarrow$ `PUT /api/v1/orders/:id/review`.
+    - **Approve:** $\rightarrow$ `AWAITING_DEPOSIT`.
+    - **Reject:** $\rightarrow$ `REVISION_REQUIRED` $\rightarrow$ guest sửa lại $\rightarrow$ resubmit.
+11. Guest chọn nhận hàng: `POST /api/v1/guest-tablet/orders/:orderId/delivery` (DELIVERY/PICKUP).
+12. Guest thanh toán FULL: `POST /api/v1/guest-tablet/orders/:orderId/pay` $\rightarrow$ PayOS.
+13. Manager assign Jeweler $\rightarrow$ sản xuất (giống MF-02/03/05).
 
 **E. Flow 5: Delivery, Pickup & QR Memory**
 

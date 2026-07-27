@@ -14,4 +14,27 @@ export class CreateGuestEngravingDto {
   @IsOptional()
   @IsString()
   productId?: string;
+
+  @ApiPropertyOptional({ description: 'Material ID' })
+  @IsOptional()
+  @IsString()
+  selectedMaterialId?: string;
+
+  @ApiPropertyOptional({ description: 'Gemstone ID' })
+  @IsOptional()
+  @IsString()
+  selectedGemstoneId?: string;
+
+  @ApiPropertyOptional({ description: 'Ring size', example: '7' })
+  @IsOptional()
+  @IsString()
+  ringSize?: string;
+
+  @ApiPropertyOptional({
+    description: 'Selected biometrics (comma-separated, e.g. SW,FP)',
+    example: 'SW,FP',
+  })
+  @IsOptional()
+  @IsString()
+  selectedBiometrics?: string;
 }

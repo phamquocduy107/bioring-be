@@ -85,6 +85,10 @@ interface EcommerceGrpcService {
     guestCode: string;
     productId?: string;
     staffId: string;
+    selectedMaterialId?: string;
+    selectedGemstoneId?: string;
+    ringSize?: string;
+    selectedBiometrics?: string;
   }): Observable<{ engraving: any; version: any }>;
   createGuestOrder(data: {
     guestCode: string;
@@ -143,6 +147,10 @@ export class GuestController implements OnModuleInit {
       this.grpc!.createGuestEngraving({
         guestCode: dto.guestCode,
         productId: dto.productId,
+        selectedMaterialId: dto.selectedMaterialId,
+        selectedGemstoneId: dto.selectedGemstoneId,
+        ringSize: dto.ringSize,
+        selectedBiometrics: dto.selectedBiometrics,
         staffId: user.sub,
       }),
     );

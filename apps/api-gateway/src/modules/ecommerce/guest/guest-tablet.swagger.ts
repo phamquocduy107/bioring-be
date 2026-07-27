@@ -102,7 +102,8 @@ export function ApiGuestUpdateConfigDocs() {
     ApiOperation({
       summary: 'Guest cập nhật engraving config',
       description:
-        'Cập nhật design config trên engraving version. guestCode trong query param để xác thực.',
+        'Cập nhật design config trên engraving version. guestCode trong query param để xác thực.\n' +
+        'Sau khi order đã tạo: chỉ customizationConfig được cập nhật, các field core (selectedMaterialId, selectedGemstoneId, ringSize, ringStyle, ringShape, selectedBiometrics) bị bỏ qua.',
     }),
     ApiParam({
       name: 'versionId',
@@ -252,9 +253,11 @@ export function ApiGuestUpdateQrMemoryDocs() {
 export function ApiGuestSetShippingInfoDocs() {
   return applyDecorators(
     ApiOperation({
-      summary: 'Guest chọn hình thức nhận hàng + nhập địa chỉ',
+      summary: 'Guest chọn hình thức nhận hàng + nhập địa chỉ (sau Manager approve)',
       description:
-        'Guest chọn PICKUP hoặc DELIVERY, nếu DELIVERY thì nhập tên, SĐT, địa chỉ. Tạo shipment PENDING (chưa kích hoạt, chờ Manager approve order + production xong).',
+        'Guest chọn PICKUP hoặc DELIVERY, nếu DELIVERY thì nhập tên, SĐT, địa chỉ.\n' +
+        'Chỉ gọi được khi order ở status AWAITING_DEPOSIT (Manager đã approve).\n' +
+        'Tạo shipment PENDING.',
     }),
     ApiParam({
       name: 'orderId',
@@ -293,5 +296,43 @@ export function ApiGuestSetShippingInfoDocs() {
       description: 'Invalid delivery method or already set',
     }),
     ApiResponse({ status: 403, description: 'Invalid guest code' }),
+  );
+}
+
+export function ApiGuestCreateEngravingDocs() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Guest tạo engraving trên tablet',
+      description:
+        'Guest nhập guestCode + chọn product → tạo engraving + version v1 + qr_memories. Public endpoint.',
+    }),
+    ApiBody({
+      schema: {
+        example: {
+          guestCode: 'GUE-A7B9X2',
+          productId: '550e8400-e29b-41d4-a716-446655440010',
+        },
+      },
+    }),
+    ApiResponse({ status: 201, description: 'Engraving + version created' }),
+  );
+}
+
+export function ApiGuestCreateOrderDocs() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Guest tạo order trên tablet (tại step package selection)',
+      description:
+        'Tạo order với status AWAITING_SUBMIT. Từ bước này: LOCK base design + package. Public endpoint.',
+    }),
+    ApiBody({
+      schema: {
+        example: {
+          guestCode: 'GUE-A7B9X2',
+          engravingId: '550e8400-e29b-41d4-a716-446655440010',
+        },
+      },
+    }),
+    ApiResponse({ status: 201, description: 'Order created' }),
   );
 }

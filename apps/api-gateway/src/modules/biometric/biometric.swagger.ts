@@ -616,7 +616,8 @@ export function ApiMeConfirmBiometricPlacementDocs() {
       summary: 'Customer — xác nhận vị trí FP/SW trên model 3D',
       description:
         'Lưu placement transform (rotation, scale, offsetU/V) sau khi customer chỉnh trên ring viewer.\n' +
-        'Cập nhật `status = PLACEMENT_CONFIRMED`.',
+        'Cập nhật `status = PLACEMENT_CONFIRMED`.\n' +
+        'ponytail: MF04 — NOT used. Placement is driven by engraving_version.customization_config.',
     }),
     assetIdParam(),
     ApiBody({ type: ConfirmBiometricPlacementDto }),

@@ -213,6 +213,8 @@ export class MeBiometricAssetsController {
     );
   }
 
+  // ponytail: MF04 — NOT used. Placement is driven by engraving_version.customization_config,
+  // not by individual asset confirm-placement. Kept for backward compat.
   @Post(':assetId/confirm-placement')
   @ApiMeConfirmBiometricPlacementDocs()
   confirmPlacement(

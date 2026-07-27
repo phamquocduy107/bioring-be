@@ -99,13 +99,13 @@ SELECT * FROM guest_customers WHERE email = 'guest@example.com';
 
 ---
 
-## 2. Staff: Tạo Engraving nháp cho Guest
+## 2. Guest trên Tablet: Browse + Chọn Product + Tạo Engraving
 
-> Khác với khách hàng Online, khách Walk-in sẽ được Staff tạo một bản khắc nháp trước.
+> Guest lướt collection, vào product detail, bấm "Design your ring" → nhập guestCode → hệ thống tự tạo engraving.
+> **Lưu ý:** Endpoint public, không cần JWT. `qr_memories` được tự động tạo cùng lúc với engraving.
 
 ```http
 POST /api/v1/guest-tablet/engravings
-Authorization: Bearer {{staffJwt}}
 Content-Type: application/json
 
 {
@@ -119,7 +119,6 @@ Content-Type: application/json
 {
   "engraving": {
     "id": "{{ENGRAVING_ID}}",
-    "userId": "{{STAFF_ID}}",
     "productId": "{{PRODUCT_ID}}",
     "status": "PENDING"
   },
@@ -134,17 +133,16 @@ Content-Type: application/json
 
 ---
 
-## 2.1 Staff: Simple Design (Chọn Material, Gemstone, Size)
+## 3. Guest trên Tablet: Simple Design (Chọn Material, Gemstone, Size)
 
-> Dựa vào bản khắc nháp, Staff tư vấn và chọn size, chất liệu cho khách. Guest Flow vẫn có thể tuỳ biến giống như Offline Flow.
+> Guest chọn chất liệu, đá, size. Có thể gửi kèm selectedBiometrics nếu muốn.
+> **Từ lúc này:** nếu chưa có order, PATCH config cho phép cập nhật mọi field.
 
 ```http
-PATCH /api/v1/guest-tablet/engravings/versions/{{VERSION_ID}}/config
-Authorization: Bearer {{staffJwt}}
+PATCH /api/v1/guest-tablet/engravings/versions/{{VERSION_ID}}/config?guestCode={{GUEST_CODE}}
 Content-Type: application/json
 
 {
-  "guestCode": "{{GUEST_CODE}}",
   "selectedMaterialId": "MAT_1",
   "selectedGemstoneId": "GEM_1",
   "ringSize": "14",
@@ -154,13 +152,17 @@ Content-Type: application/json
 
 ---
 
-## 2.2 Staff: Tạo Order cho Guest
+## 4. Guest trên Tablet: Package Selection + Tạo Order
 
-> Sau khi chọn xong, tiến hành chốt Order. **Từ bước này: KHÓA VĨNH VIỄN Base Design (Size, Material, Gemstone, Product) & Package (selectedBiometrics).**
+> Guest chọn package biometric. Sau khi chọn → popup xác nhận:
+> *"Bạn đã chắc chắn với những lựa chọn của mình chứ? Các lựa chọn này sẽ không được thay đổi nữa nếu bạn xác nhận."*
+>
+> **Confirm** → gọi API này. **Cancel** → quay lại chỉnh sửa.
+> **Sau bước này: KHÓA VĨNH VIỄN** base design + package. PATCH config sau đó chỉ cho phép `customizationConfig`.
+> **Sau khi tạo order thành công:** tablet tự động end session, navigate về màn hình browse.
 
 ```http
 POST /api/v1/guest-tablet/orders
-Authorization: Bearer {{staffJwt}}
 Content-Type: application/json
 
 {
@@ -186,7 +188,6 @@ Content-Type: application/json
   },
   "engraving": {
     "id": "{{ENGRAVING_ID}}",
-    "userId": "{{STAFF_ID}}",
     "productId": "{{PRODUCT_ID}}",
     "status": "PENDING"
   },
@@ -209,7 +210,7 @@ SELECT * FROM orders WHERE guest_customer_id = (SELECT id FROM guest_customers W
 -- status = AWAITING_SUBMIT, user_id IS NULL, design_source = WALK_IN
 
 SELECT * FROM engravings WHERE id = '{{ENGRAVING_ID}}';
--- user_id = staffId, status = PENDING
+-- user_id IS NULL, guest_customer_id = guest_id, status = PENDING
 
 SELECT * FROM engraving_versions WHERE engraving_id = '{{ENGRAVING_ID}}';
 -- version_number = 1, status = PENDING, ring_size = '14'
@@ -217,7 +218,42 @@ SELECT * FROM engraving_versions WHERE engraving_id = '{{ENGRAVING_ID}}';
 
 ---
 
-## 3. Staff: Xử lý & Upload Biometric(s) (Admin Biometric Assets Flow)
+## 5. Staff Web: Refresh + Xem Order của Guest
+
+> Sau khi guest tạo order trên tablet, Staff bấm **Refresh** để kiểm tra.
+> Endpoint này trả về guest + order + engraving + versions + biometrics + qrMemory.
+
+```http
+GET /api/v1/guest-tablet/sessions/{{GUEST_CODE}}
+```
+
+**Expected Response — order đã tồn tại:**
+```json
+{
+  "guest": { "id": "{{GUEST_ID}}", "guestCode": "{{GUEST_CODE}}", "fullName": "...", ... },
+  "order": {
+    "id": "{{ORDER_ID}}",
+    "status": "AWAITING_SUBMIT",
+    "engraving": {
+      "id": "{{ENGRAVING_ID}}",
+      "versions": [{
+        "id": "{{VERSION_ID}}",
+        "selectedMaterialId": "MAT_1",
+        "selectedGemstoneId": "GEM_1",
+        "ringSize": "14",
+        "selectedBiometrics": "SW,FP"
+      }],
+      "biometricAssets": []
+    }
+  }
+}
+```
+
+> 📌 Staff thấy ngay: guest đã chọn sản phẩm gì, vật liệu + đá nào, package nào → bắt đầu assign biometric.
+
+---
+
+## 6. Staff: Xử lý & Upload Biometric(s) (Admin Biometric Assets Flow)
 
 > Luồng tại Store: Staff dùng bộ API `/api/v1/admin/biometric-assets` để Upload $\rightarrow$ Kiểm tra/Reprocess với Presets $\rightarrow$ Approve $\rightarrow$ Assign vào Engraving.
 
@@ -367,9 +403,39 @@ Authorization: Bearer {{staffJwt}}
 
 ---
 
-## 27. Guest Tablet: Advanced Design (chọn engravedType + vị trí)
+## 7. Guest quay lại Tablet: "Already have an order?" + Edit Biometric Asset
 
-> Chọn loại khắc lên nhẫn (FP hoặc SW), điều chỉnh vị trí.
+> Staff đã assign biometric xong. Guest quay lại tablet. Màn hình browse → góc trên phải nút **"Already have an order?"** → nhập `guestCode`. Tablet gọi endpoint này để load order + biometric_assets + qrMemory. UI **nhảy thẳng vào step edit biometric asset**, các step khác visible nhưng greyed out + disabled.
+
+```http
+GET /api/v1/guest-tablet/sessions/{{GUEST_CODE}}
+```
+
+**Expected Response — biometric_assets đã có data:**
+```json
+{
+  "guest": { "id": "{{GUEST_ID}}", "guestCode": "{{GUEST_CODE}}", ... },
+  "order": {
+    "id": "{{ORDER_ID}}",
+    "status": "AWAITING_SUBMIT",
+    "engraving": {
+      "id": "{{ENGRAVING_ID}}",
+      "versions": [...],
+      "biometricAssets": [
+        { "id": "ASSET_FP_001", "assetType": "fingerprint", "status": "ASSET_APPROVED", "rawFileUrl": "...", "processedSvgUrl": "..." },
+        { "id": "ASSET_SW_001", "assetType": "soundwave", "status": "ASSET_APPROVED", "rawFileUrl": "...", "processedSvgUrl": "..." }
+      ],
+      "qrMemory": { "id": "...", "cardTitle": "", "greetingMessage": "", ... }
+    }
+  }
+}
+```
+
+---
+
+## 8. Guest Tablet: Advanced Design (edit engravedType + vị trí)
+
+> Chọn loại khắc lên nhẫn, chỉnh vị trí biometric.
 
 ```http
 PATCH /api/v1/guest-tablet/engravings/{{VERSION_ID}}/config?guestCode={{GUEST_CODE}}
@@ -391,11 +457,11 @@ Content-Type: application/json
 }
 ```
 
-> 📌 `customizationConfig` phải là JSON string hợp lệ. `engravedType` = `"fp"` hoặc `"sw"`, chỉ 1 loại được khắc lên nhẫn.
+> ⛔ **Lock:** Vì order đã tồn tại, các field core (`selectedMaterialId`, `selectedGemstoneId`, `ringSize`, ...) bị **bỏ qua**. Chỉ `customizationConfig` được cập nhật. 🚫 confirmPlacement không dùng.
 
 ---
 
-## 27. Guest Tablet: Memory Card
+## 9. Guest Tablet: Memory Card
 
 > Guest thiết kế thiệp kỷ niệm.
 
@@ -429,48 +495,7 @@ Content-Type: application/json
 
 ---
 
-## 27. Guest Tablet: Shipping Info
-
-> Chọn hình thức nhận hàng. Nếu DELIVERY → nhập địa chỉ.
-
-```http
-POST /api/v1/guest-tablet/orders/{{ORDER_ID}}/shipping-info
-Content-Type: application/json
-
-{
-  "guestCode": "{{GUEST_CODE}}",
-  "deliveryMethod": "DELIVERY",
-  "recipientName": "Nguyễn Văn A",
-  "recipientPhone": "0909123456",
-  "shippingAddressText": "123 Đường ABC, Quận 1, TP.HCM"
-}
-```
-
-**Expected Response (201):**
-```json
-{
-  "id": "{{SHIPMENT_ID}}",
-  "orderId": "{{ORDER_ID}}",
-  "deliveryMethod": "DELIVERY",
-  "status": "PENDING",
-  "recipientName": "Nguyễn Văn A",
-  "recipientPhone": "0909123456",
-  "shippingAddressText": "123 Đường ABC, Quận 1, TP.HCM"
-}
-```
-
-**Verify DB:**
-```sql
-SELECT * FROM shipments WHERE order_id = '{{ORDER_ID}}';
--- status = PENDING, delivery_method = DELIVERY
-```
-
-> 🧪 **Test edge case:** Gọi lại 1 lần nữa → 400 "Shipping info already set"
-> 🧪 **Test edge case:** `deliveryMethod` không phải PICKUP/DELIVERY → 400
-
----
-
-## 27. Guest Tablet: Submit Design
+## 10. Guest Tablet: Confirm + Submit Design
 
 > Guest gửi thiết kế cho Manager duyệt.
 
@@ -503,7 +528,7 @@ SELECT status FROM orders WHERE id = '{{ORDER_ID}}';
 
 ---
 
-## 27. Manager: Review Order — Approve
+## 11. Manager: Review Order — Approve
 
 ```http
 PUT /api/v1/orders/{{ORDER_ID}}/review
@@ -540,9 +565,9 @@ SELECT status, version_number FROM engraving_versions WHERE engraving_id = '{{EN
 
 ---
 
-## 27. Manager: Review Order — Reject (test riêng)
+## 12. Manager: Review Order — Reject (test riêng)
 
-> Tạo guest mới, làm lại bước 1-11, sau đó reject.
+> Tạo guest mới, làm lại bước 1-7 (tạo guest → design → order → biometric → config → memcard → submit), sau đó reject.
 
 ```http
 PUT /api/v1/orders/{{ORDER_ID}}/review
@@ -580,10 +605,10 @@ SELECT status, version_number FROM engraving_versions WHERE engraving_id = '{{EN
 
 ---
 
-## 27. Guest Tablet: Resubmit sau Reject
+## 13. Guest Tablet: Resubmit sau Reject
 
-> Guest quay lại (bước 6) → thấy order REVISION_REQUIRED + version 2 PENDING.
-> Sửa design (bước 7-8) → submit lại.
+> Guest quay lại tablet → thấy order REVISION_REQUIRED + version 2 PENDING.
+> Sửa `customizationConfig` + memcard → submit lại.
 
 ```http
 PATCH /api/v1/guest-tablet/orders/{{ORDER_ID}}/submit
@@ -614,16 +639,58 @@ SELECT status FROM engravings WHERE id = '{{ENGRAVING_ID}}';
 -- PENDING
 ```
 
-> 📌 Manager review lại → approve → AWAITING_DEPOSIT (như bước 12).
+> 📌 Manager review lại → approve → AWAITING_DEPOSIT. Sau đó guest set delivery → pay FULL.
 
 ---
 
-## 27. Guest Tablet: Thanh toán FULL
+## 14. Guest Tablet: Delivery (sau Manager approve)
 
-> Manager đã approve, order AWAITING_DEPOSIT → guest thanh toán 100%.
+> **Thời điểm gọi:** Order ở status `AWAITING_DEPOSIT` (Manager đã approve).
+> Chọn hình thức nhận hàng. Nếu DELIVERY → nhập địa chỉ. Hệ thống tạo `user_address` (user_id=null) + `shipment`.
 
 ```http
-POST /api/v1/guest-tablet/orders/{{ORDER_ID}}/payments
+POST /api/v1/guest-tablet/orders/{{ORDER_ID}}/delivery
+Content-Type: application/json
+
+{
+  "guestCode": "{{GUEST_CODE}}",
+  "deliveryMethod": "DELIVERY",
+  "recipientName": "Nguyễn Văn A",
+  "recipientPhone": "0909123456",
+  "shippingAddressText": "123 Đường ABC, Quận 1, TP.HCM"
+}
+```
+
+**Expected Response (201):**
+```json
+{
+  "id": "{{SHIPMENT_ID}}",
+  "orderId": "{{ORDER_ID}}",
+  "deliveryMethod": "DELIVERY",
+  "status": "PENDING",
+  "recipientName": "Nguyễn Văn A",
+  "recipientPhone": "0909123456",
+  "shippingAddressText": "123 Đường ABC, Quận 1, TP.HCM"
+}
+```
+
+**Verify DB:**
+```sql
+SELECT * FROM shipments WHERE order_id = '{{ORDER_ID}}';
+-- status = PENDING, delivery_method = DELIVERY
+```
+
+> 🧪 **Test edge case:** Gọi lại 1 lần nữa → 400 "Shipping info already set"
+> 🧪 **Test edge case:** `deliveryMethod` không phải PICKUP/DELIVERY → 400
+
+---
+
+## 15. Guest Tablet: Thanh toán FULL (sau khi set delivery)
+
+> Order `AWAITING_DEPOSIT`, đã có delivery info → guest thanh toán 100% online.
+
+```http
+POST /api/v1/guest-tablet/orders/{{ORDER_ID}}/pay
 Content-Type: application/json
 
 {
@@ -656,7 +723,7 @@ Content-Type: application/json
 
 ---
 
-## 27. PayOS Webhook: FULL paid → DEPOSIT_PAID
+## 16. PayOS Webhook: FULL paid → DEPOSIT_PAID
 
 > Giả lập webhook từ PayOS. Gửi raw JSON payload PayOS (không wrap trong `{ webhookBody }`).
 
@@ -694,7 +761,7 @@ SELECT status FROM payments WHERE order_id = '{{ORDER_ID}}' AND payment_phase = 
 
 ---
 
-## 27. Manager: Assign Jeweler (MF-05)
+## 17. Manager: Assign Jeweler (MF-05)
 
 ```http
 POST /api/v1/orders/{{ORDER_ID}}/assign-jeweler
@@ -804,7 +871,7 @@ SELECT * FROM qa_checks WHERE order_id = '{{ORDER_ID}}';
 
 ## 27. Staff: Kích hoạt Delivery (MF-05)
 
-> Shipment đã có sẵn từ bước 10 (status=PENDING). Manager/staff gọi initiateDelivery → system dùng lại shipment.
+> Shipment đã có sẵn từ bước Delivery (status=PENDING). Manager/staff gọi initiateDelivery → system dùng lại shipment.
 
 ```http
 POST /api/v1/orders/{{ORDER_ID}}/delivery
@@ -833,7 +900,7 @@ Content-Type: application/json
 }
 ```
 
-> 📌 Nếu guest chọn PICKUP ở bước 10 → `orders.status = READY_FOR_PICKUP`.
+> 📌 Nếu guest chọn PICKUP ở bước Delivery → `orders.status = READY_FOR_PICKUP`.
 
 ---
 
@@ -937,14 +1004,17 @@ Content-Type: application/json
 | 2 | Guest gọi GET session với `guestCode` không tồn tại | 404 Not Found |
 | 3 | Guest submit khi order đã `PENDING_REVIEW` | 400 (phải là AWAITING_SUBMIT hoặc REVISION_REQUIRED) |
 | 4 | Guest submit khi order `AWAITING_DEPOSIT` | 400 |
-| 5 | Gọi POST shipping-info 2 lần | 400 "already set" |
+| 5 | Gọi POST delivery 2 lần | 400 "already set" |
 | 6 | Guest A (guestCode A) gọi PATCH config trên engraving của Guest B | 403 |
 | 7 | Guest A gọi GET order của Guest B | 403 |
 | 8 | FULL payment trên order không có `guest_customer_id` (non-guest) | 400 "only for walk-in guests" |
 | 9 | Biometric upload với `biometricType` không có trong package | 400 |
-| 10 | Gọi initiateDelivery trước khi order READY_FOR_DELIVERY | 400 |
-| 11 | Guest submit với `selectedBiometrics` rỗng | 200 (silently allowed, validateBiometricsReady returns early) |
+| 10 | Gọi POST delivery khi order chưa phải AWAITING_DEPOSIT | 400 |
+| 11 | Guest submit với `selectedBiometrics` rỗng | 200 (silently allowed) |
 | 12 | Gọi lookup với `orderCode` sai | 404 |
+| 13 | PATCH config `selectedMaterialId` sau khi order tạo → field bị bỏ qua | Material không đổi |
+| 14 | PATCH config `selectedBiometrics` sau khi order tạo → field bị bỏ qua | selectedBiometrics không đổi |
+| 15 | PATCH config `customizationConfig` sau khi order tạo → vẫn cập nhật được | customizationConfig thay đổi |
 
 ---
 
@@ -968,6 +1038,6 @@ Content-Type: application/json
 | `{{JEWELER_ID}}` | Users table | UUID jeweler |
 | `{{STAFF_ID}}` | JWT payload.sub | Staff UUID |
 | `{{DELIVERY_STAFF_ID}}` | Users table | Delivery staff UUID |
-| `{{SHIPMENT_ID}}` | Response bước 10 | UUID shipments |
-| `{{TASK_ID}}` | Response bước 17 | UUID production_tasks |
-| `{{PAYMENT_ID}}` | Response bước 15 | UUID payments |
+| `{{SHIPMENT_ID}}` | Response bước Delivery | UUID shipments |
+| `{{TASK_ID}}` | Response bước Assign Jeweler | UUID production_tasks |
+| `{{PAYMENT_ID}}` | Response bước Payment | UUID payments |

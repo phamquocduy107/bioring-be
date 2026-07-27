@@ -23,6 +23,8 @@ import {
   ApiGuestInitiatePaymentDocs,
   ApiGuestUpdateQrMemoryDocs,
   ApiGuestSetShippingInfoDocs,
+  ApiGuestCreateEngravingDocs,
+  ApiGuestCreateOrderDocs,
 } from './guest-tablet.swagger';
 
 interface GuestSessionResponse {
@@ -112,6 +114,46 @@ interface ShippingInfoResponse {
   shippingAddressText: string;
 }
 
+interface EngravingCreateResponse {
+  engraving: unknown;
+  version: unknown;
+}
+
+interface GuestOrderCreateResponse {
+  order: {
+    id: string;
+    orderCode: string;
+    userId: string;
+    guestCustomerId: string;
+    designSource: string;
+    status: string;
+    totalPrice: number;
+    paidAmount: number;
+    remainingAmount: number;
+    createdAt: string;
+  };
+  engraving: {
+    id: string;
+    userId: string;
+    productId: string;
+    status: string;
+  };
+  version: {
+    id: string;
+    engravingId: string;
+    versionNumber: number;
+    selectedMaterialId: string;
+    selectedGemstoneId: string;
+    ringSize: string;
+    ringStyle: string;
+    ringShape: string;
+    customizationConfig: string;
+    selectedBiometrics: string;
+    status: string;
+    createdAt: string;
+  };
+}
+
 interface EcommerceGrpcService {
   getGuestSession(data: {
     guestCode: string;
@@ -136,6 +178,20 @@ interface EcommerceGrpcService {
   guestSetShippingInfo(
     data: Record<string, unknown>,
   ): Observable<ShippingInfoResponse>;
+  createGuestEngraving(data: {
+    guestCode: string;
+    productId?: string;
+    staffId: string;
+    selectedMaterialId?: string;
+    selectedGemstoneId?: string;
+    ringSize?: string;
+    selectedBiometrics?: string;
+  }): Observable<EngravingCreateResponse>;
+  createGuestOrder(data: {
+    guestCode: string;
+    engravingId: string;
+    staffId: string;
+  }): Observable<GuestOrderCreateResponse>;
 }
 
 @Controller('api/v1/guest-tablet')
@@ -252,7 +308,7 @@ export class GuestTabletController implements OnModuleInit {
     );
   }
 
-  @Post('orders/:orderId/shipping-info')
+  @Post('orders/:orderId/delivery')
   @Public()
   @ApiGuestSetShippingInfoDocs()
   async setShippingInfo(
@@ -276,6 +332,52 @@ export class GuestTabletController implements OnModuleInit {
         recipientPhone: body.recipientPhone,
         addressId: body.addressId,
         shippingAddressText: body.shippingAddressText,
+      }),
+    );
+  }
+
+  @Post('engravings')
+  @Public()
+  @ApiGuestCreateEngravingDocs()
+  async createEngraving(
+    @Body()
+    body: {
+      guestCode: string;
+      productId?: string;
+      selectedMaterialId?: string;
+      selectedGemstoneId?: string;
+      ringSize?: string;
+      selectedBiometrics?: string;
+    },
+  ) {
+    return this.call(() =>
+      this.grpc!.createGuestEngraving({
+        guestCode: body.guestCode,
+        productId: body.productId,
+        staffId: '',
+        selectedMaterialId: body.selectedMaterialId,
+        selectedGemstoneId: body.selectedGemstoneId,
+        ringSize: body.ringSize,
+        selectedBiometrics: body.selectedBiometrics,
+      }),
+    );
+  }
+
+  @Post('orders')
+  @Public()
+  @ApiGuestCreateOrderDocs()
+  async createOrder(
+    @Body()
+    body: {
+      guestCode: string;
+      engravingId: string;
+    },
+  ) {
+    return this.call(() =>
+      this.grpc!.createGuestOrder({
+        guestCode: body.guestCode,
+        engravingId: body.engravingId,
+        staffId: '',
       }),
     );
   }

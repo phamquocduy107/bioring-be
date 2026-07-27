@@ -1847,9 +1847,31 @@ Route prefix: `api/v1/orders`
           "availableGemstones": []
         },
         "versions": [],
-        "biometrics": []
+        "biometricAssets": []
       },
-      "payments": []
+      "payments": [],
+      "customerName": "Nguyễn Văn A",
+      "customerEmail": "nguyenvana@example.com",
+      "customerPhone": "0901234567",
+      "paymentMethod": "PAYOS",
+      "paymentStatus": "PENDING",
+      "shippingInfo": {
+        "street": "123 Nguyễn Huệ",
+        "city": "Hồ Chí Minh",
+        "ward": "Bến Nghé",
+        "recipientName": "Nguyễn Văn A",
+        "recipientPhone": "0901234567"
+      },
+      "orderItems": [
+        {
+          "productName": "Nhẫn cưới Classic",
+          "productId": "...",
+          "quantity": 1,
+          "unitPrice": 5000000,
+          "totalPrice": 5000000,
+          "thumbnailUrl": "https://..."
+        }
+      ]
     }
   }
 }
@@ -1872,7 +1894,35 @@ Route prefix: `api/v1/orders`
   "statusCode": 200,
   "message": "Success",
   "data":   {
-    "orders": [{ "id": "...", "orderCode": "BIORING-A7B9X2", "status": "AWAITING_SUBMIT", ... }],
+    "orders": [
+      {
+        "id": "...",
+        "orderCode": "BIORING-A7B9X2",
+        "status": "AWAITING_SUBMIT",
+        "customerName": "Nguyễn Văn A",
+        "customerEmail": "nguyenvana@example.com",
+        "customerPhone": "0901234567",
+        "paymentMethod": "PAYOS",
+        "paymentStatus": "PENDING",
+        "shippingInfo": {
+          "street": "123 Nguyễn Huệ",
+          "city": "Hồ Chí Minh",
+          "ward": "Bến Nghé",
+          "recipientName": "Nguyễn Văn A",
+          "recipientPhone": "0901234567"
+        },
+        "orderItems": [
+          {
+            "productName": "Nhẫn cưới Classic",
+            "productId": "...",
+            "quantity": 1,
+            "unitPrice": 5000000,
+            "totalPrice": 5000000,
+            "thumbnailUrl": "https://..."
+          }
+        ]
+      }
+    ],
     "total": 1,
     "page": 1,
     "limit": 10
@@ -2952,13 +3002,17 @@ Route prefix: `api/v1/guest-tablet`
 
 ### 84. POST `/api/v1/guest-tablet/engravings`
 **Auth:** `order.write`
-**Description:** Tạo bản khắc sơ khởi cho guest vãng lai. Staff tạo bản khắc nháp cho khách vãng lai (Guest). Khách sẽ dùng bản khắc này để chọn material/gemstone (qua PATCH config) trước khi tạo Order.
+**Description:** Tạo bản khắc sơ khởi cho guest vãng lai. Có thể gửi kèm material/gemstone/size/selectedBiometrics ngay từ đầu để giảm số lần gọi API. Nếu không gửi, có thể set sau qua PATCH config.
 
 **Request:**
 ```json
 {
   "guestCode": "GUE-A7B9X2",
-  "productId": "550e8400-..."
+  "productId": "550e8400-...",
+  "selectedMaterialId": "550e8400-...",
+  "selectedGemstoneId": "550e8400-...",
+  "ringSize": "7",
+  "selectedBiometrics": "SW,FP"
 }
 ```
 
@@ -2966,6 +3020,10 @@ Route prefix: `api/v1/guest-tablet`
 |------|------|----------|-------------|
 | guestCode | string | Yes | Guest code (GUE-XXXXXX) |
 | productId | string | No | Product UUID |
+| selectedMaterialId | string | No | Material UUID |
+| selectedGemstoneId | string | No | Gemstone UUID |
+| ringSize | string | No | Ring size |
+| selectedBiometrics | string | No | Comma-separated: SW,FP,HB |
 
 **Response (201):**
 ```json
@@ -2974,7 +3032,15 @@ Route prefix: `api/v1/guest-tablet`
   "message": "Success",
   "data": {
     "engraving": { "id": "550e8400-...", "productId": "550e8400-...", "status": "PENDING" },
-    "version": { "id": "550e8400-...", "versionNumber": 1, "status": "PENDING" }
+    "version": {
+      "id": "550e8400-...",
+      "versionNumber": 1,
+      "selectedMaterialId": "550e8400-...",
+      "selectedGemstoneId": "550e8400-...",
+      "ringSize": "7",
+      "selectedBiometrics": "SW,FP",
+      "status": "PENDING"
+    }
   }
 }
 ```

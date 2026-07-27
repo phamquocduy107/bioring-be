@@ -47,6 +47,7 @@ export class AssignBiometricAssetDto {
   userId?: string;
 }
 
+// ponytail: MF04 — NOT used. Placement is driven by engraving_version.customization_config.
 export class ConfirmBiometricPlacementDto {
   @ApiProperty({
     description: 'Ring model code used in 3D preview',

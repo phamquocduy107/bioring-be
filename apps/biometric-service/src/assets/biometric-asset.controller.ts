@@ -257,6 +257,9 @@ export class BiometricAssetController {
     return assetJson(await this.assets.getUserViewerAssets(data));
   }
 
+  // ponytail: MF04 — biometric placement is driven by engraving_version.customization_config,
+  // NOT by individual asset confirm-placement. These handlers are kept for backward compat
+  // but NOT called in MF04 workflow.
   @GrpcMethod('BiometricService', 'ConfirmBiometricPlacement')
   async confirmBiometricPlacement(data: {
     assetId: string;

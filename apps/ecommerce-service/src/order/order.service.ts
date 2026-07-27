@@ -184,6 +184,15 @@ export class OrderService implements OnModuleInit {
           },
         },
         payments: true,
+        users_orders_user_idTousers: {
+          select: { id: true, full_name: true, email: true, phone: true },
+        },
+        guest_customers: {
+          select: { id: true, full_name: true, email: true, phone: true },
+        },
+        shipments: {
+          include: { user_addresses: true },
+        },
       },
     });
     if (!order) throw new NotFoundException('Order not found');
@@ -233,6 +242,18 @@ export class OrderService implements OnModuleInit {
         take: limit,
         include: {
           payments: true,
+          users_orders_user_idTousers: {
+            select: { id: true, full_name: true, email: true, phone: true },
+          },
+          guest_customers: {
+            select: { id: true, full_name: true, email: true, phone: true },
+          },
+          shipments: {
+            include: { user_addresses: true },
+          },
+          engraving: {
+            include: { products: true },
+          },
         },
       }),
       this.prisma.orders.count({ where }),
@@ -1938,8 +1959,44 @@ export class OrderService implements OnModuleInit {
       paid_at: Date | null;
       created_at: Date | null;
     }>;
+    users_orders_user_idTousers?: {
+      id: string;
+      full_name?: string | null;
+      email?: string | null;
+      phone?: string | null;
+    } | null;
+    guest_customers?: {
+      id: string;
+      full_name?: string | null;
+      email?: string | null;
+      phone?: string | null;
+    } | null;
+    shipments?: Array<{
+      recipient_name?: string | null;
+      recipient_phone?: string | null;
+      shipping_address_text?: string | null;
+      user_addresses?: {
+        full_address?: string | null;
+        ward?: string | null;
+        district?: string | null;
+        province?: string | null;
+      } | null;
+    }>;
+    engraving?: {
+      products?: {
+        id: string;
+        name: string;
+        base_price?: unknown;
+        thumbnail_url?: string | null;
+      } | null;
+    } | null;
   }) {
     const payments = order.payments ?? [];
+    const user = order.users_orders_user_idTousers;
+    const guest = order.guest_customers;
+    const shipment = order.shipments?.[0];
+    const addr = shipment?.user_addresses;
+    const product = order.engraving?.products;
 
     return {
       id: order.id,
@@ -1959,6 +2016,32 @@ export class OrderService implements OnModuleInit {
       note: order.note ?? '',
       createdAt: order.created_at?.toISOString() ?? '',
       updatedAt: order.updated_at?.toISOString() ?? '',
+      customerName: user?.full_name ?? guest?.full_name ?? '',
+      customerEmail: user?.email ?? guest?.email ?? '',
+      customerPhone: user?.phone ?? guest?.phone ?? '',
+      paymentMethod: payments[0]?.method ?? '',
+      paymentStatus: payments[0]?.status ?? '',
+      shippingInfo: shipment
+        ? {
+            street: shipment.shipping_address_text ?? addr?.full_address ?? '',
+            city: addr?.province ?? '',
+            ward: addr?.ward ?? '',
+            recipientName: shipment.recipient_name ?? '',
+            recipientPhone: shipment.recipient_phone ?? '',
+          }
+        : null,
+      orderItems: product
+        ? [
+            {
+              productName: product.name,
+              productId: product.id,
+              quantity: 1,
+              unitPrice: Number(product.base_price ?? 0),
+              totalPrice: Number(product.base_price ?? 0),
+              thumbnailUrl: product.thumbnail_url ?? '',
+            },
+          ]
+        : [],
       payments: payments.map((p) => ({
         id: p.id,
         orderId: p.order_id ?? '',

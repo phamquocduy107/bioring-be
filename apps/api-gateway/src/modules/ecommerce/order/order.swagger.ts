@@ -28,6 +28,28 @@ function orderExample() {
     note: '',
     createdAt: '2026-06-24T10:00:00.000Z',
     updatedAt: '2026-06-24T10:00:00.000Z',
+    customerName: 'Nguyễn Văn A',
+    customerEmail: 'nguyenvana@example.com',
+    customerPhone: '0901234567',
+    paymentMethod: 'PAYOS',
+    paymentStatus: 'PENDING',
+    shippingInfo: {
+      street: '123 Nguyễn Huệ',
+      city: 'Hồ Chí Minh',
+      ward: 'Bến Nghé',
+      recipientName: 'Nguyễn Văn A',
+      recipientPhone: '0901234567',
+    },
+    orderItems: [
+      {
+        productName: 'Nhẫn cưới Classic',
+        productId: 'prod-classic-band',
+        quantity: 1,
+        unitPrice: 12000000,
+        totalPrice: 12000000,
+        thumbnailUrl: 'https://...',
+      },
+    ],
     payments: [],
     engraving: {
       id: '550e8400-e29b-41d4-a716-446655440003',
@@ -56,7 +78,7 @@ function orderExample() {
           createdAt: '2026-06-24T10:00:00.000Z',
         },
       ],
-      biometrics: [],
+      biometricAssets: [],
     },
   };
 }

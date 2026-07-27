@@ -418,6 +418,30 @@ message Order {
   DesignDraft designDraft = 18;
   repeated Payment payments = 19;
   Engraving engraving = 20;
+  string customerName = 21;
+  string customerEmail = 22;
+  string customerPhone = 23;
+  string paymentMethod = 24;
+  string paymentStatus = 25;
+  ShippingInfo shippingInfo = 26;
+  repeated OrderItem orderItems = 27;
+}
+
+message ShippingInfo {
+  string street = 1;
+  string city = 2;
+  string ward = 3;
+  string recipientName = 4;
+  string recipientPhone = 5;
+}
+
+message OrderItem {
+  string productName = 1;
+  string productId = 2;
+  int32 quantity = 3;
+  double unitPrice = 4;
+  double totalPrice = 5;
+  string thumbnailUrl = 6;
 }
 
 message CreateOrderRequest {
@@ -1072,6 +1096,10 @@ message CreateGuestEngravingRequest {
   string guestCode = 1;
   string productId = 2;
   string staffId = 3;
+  string selectedMaterialId = 4;
+  string selectedGemstoneId = 5;
+  string ringSize = 6;
+  string selectedBiometrics = 7;
 }
 
 message CreateGuestEngravingResponse {

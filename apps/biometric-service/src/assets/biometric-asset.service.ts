@@ -356,6 +356,7 @@ export class BiometricAssetService {
     };
   }
 
+  // ponytail: MF04 — NOT called. Placement is driven by engraving_version.customization_config.
   async confirmPlacement(data: {
     assetId: string;
     userId: string;

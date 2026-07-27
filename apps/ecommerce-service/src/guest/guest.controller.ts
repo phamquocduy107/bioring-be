@@ -22,6 +22,10 @@ export class GuestController {
     guestCode: string;
     productId?: string;
     staffId: string;
+    selectedMaterialId?: string;
+    selectedGemstoneId?: string;
+    ringSize?: string;
+    selectedBiometrics?: string;
   }) {
     return this.guestService.createGuestEngraving(data);
   }

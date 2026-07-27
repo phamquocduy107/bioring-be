@@ -38,6 +38,9 @@ service BiometricService {
 
   rpc GetUserFingerprintViewerAssets (GetUserBiometricViewerAssetsRequest) returns (BiometricAssetResponse);
 
+  // ponytail: MF04 — biometric placement is driven by engraving_version.customization_config,
+  // not by individual asset confirm-placement. These RPCs are kept for backward compat
+  // but NOT called in MF04 workflow.
   rpc ConfirmFingerprintPlacement (ConfirmBiometricPlacementRequest) returns (BiometricAssetResponse);
 
 
@@ -56,6 +59,7 @@ service BiometricService {
 
   rpc GetUserSoundwaveViewerAssets (GetUserBiometricViewerAssetsRequest) returns (BiometricAssetResponse);
 
+  // ponytail: MF04 — not used. See ConfirmFingerprintPlacement note.
   rpc ConfirmSoundwavePlacement (ConfirmBiometricPlacementRequest) returns (BiometricAssetResponse);
 
 
@@ -82,6 +86,7 @@ service BiometricService {
 
   rpc GetUserBiometricViewerAssets (GetUserBiometricViewerAssetsRequest) returns (BiometricAssetResponse);
 
+  // ponytail: MF04 — not used. See ConfirmFingerprintPlacement note.
   rpc ConfirmBiometricPlacement (ConfirmBiometricPlacementRequest) returns (BiometricAssetResponse);
 
   // Processing preset catalogs (proxy Python personalization_engine)
@@ -315,6 +320,8 @@ message GetUserBiometricViewerAssetsRequest {
 
 
 
+// ponytail: MF04 — placement is determined by engraving_version.customization_config,
+// not by individual biometric asset. This message is kept for backward compat only.
 message ConfirmBiometricPlacementRequest {
 
   string assetId = 1;

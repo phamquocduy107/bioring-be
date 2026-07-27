@@ -136,7 +136,11 @@ export class GuestService {
   async createGuestEngraving(data: {
     guestCode: string;
     productId?: string;
-    staffId: string;
+    staffId?: string;
+    selectedMaterialId?: string;
+    selectedGemstoneId?: string;
+    ringSize?: string;
+    selectedBiometrics?: string;
   }) {
     const guest = await this.prisma.guest_customers.findUnique({
       where: { guest_code: data.guestCode },
@@ -146,7 +150,8 @@ export class GuestService {
     const engraving = (await this.prisma.engravings.create({
       data: {
         id: randomUUID(),
-        user_id: data.staffId, // Admin/Staff owns the engraving
+        user_id: data.staffId || null,
+        guest_customer_id: guest.id,
         product_id: data.productId,
         status: 'PENDING',
       },
@@ -158,8 +163,25 @@ export class GuestService {
         engraving_id: engraving.id,
         version_number: 1,
         status: 'PENDING',
+        ...(data.selectedMaterialId ? { selected_material_id: data.selectedMaterialId } : {}),
+        ...(data.selectedGemstoneId ? { selected_gemstone_id: data.selectedGemstoneId } : {}),
+        ...(data.ringSize ? { ring_size: data.ringSize } : {}),
+        ...(data.selectedBiometrics ? { selected_biometrics: data.selectedBiometrics } : {}),
       },
     })) as unknown as VersionRecord;
+
+    // ponytail: create qr_memories at engraving time so guest can edit memcard immediately
+    const qrCode = randomBytes(6).toString('hex');
+    const accessPinHash = createHash('sha256').update('123456').digest('hex');
+    await this.prisma.qr_memories.create({
+      data: {
+        id: randomUUID(),
+        engraving_id: engraving.id,
+        qr_code: qrCode,
+        access_pin_hash: accessPinHash,
+        is_locked: true,
+      },
+    });
 
     return {
       engraving: this.mapEngraving(engraving),
@@ -170,7 +192,7 @@ export class GuestService {
   async createGuestOrder(data: {
     guestCode: string;
     engravingId: string;
-    staffId: string;
+    staffId?: string;
   }) {
     const guest = await this.prisma.guest_customers.findUnique({
       where: { guest_code: data.guestCode },
@@ -194,25 +216,10 @@ export class GuestService {
       engraving.engraving_versions_engraving_versions_engraving_idToengravings[0];
     if (!version) throw new NotFoundException('Engraving version not found');
 
-    // Validate biometrics
+    // ponytail: biometric validation moved to submit step (guestSubmitOrder), removed here
+    // so guest can create order at package selection before staff assigns biometrics
     const selected =
       version.selected_biometrics?.split(',').filter(Boolean) ?? [];
-    if (selected.length > 0) {
-      const uploaded = await this.prisma.engraving_biometrics.findMany({
-        where: {
-          engraving_id: engraving.id,
-          status: 'CAPTURED',
-        },
-        select: { biometric_type: true },
-      });
-      const uploadedTypes = new Set(uploaded.map((b) => b.biometric_type));
-      const missing = selected.filter((t) => !uploadedTypes.has(t));
-      if (missing.length > 0) {
-        throw new BadRequestException(
-          `Missing biometric data: ${missing.join(', ')}. Please upload before creating order.`,
-        );
-      }
-    }
 
     let packageType: string | undefined;
     let captureRoute: string | undefined;
@@ -221,25 +228,7 @@ export class GuestService {
       captureRoute = packageType === 'SW' ? 'ONLINE' : 'OFFLINE';
     }
 
-    // Check if qr memory exists (it might have been created during guestUpdateQrMemory)
-    const existingQr = await this.prisma.qr_memories.findFirst({
-      where: { engraving_id: engraving.id },
-    });
-
-    if (!existingQr) {
-      const qrCode = randomBytes(6).toString('hex');
-      const accessPinHash = createHash('sha256').update('123456').digest('hex');
-      await this.prisma.qr_memories.create({
-        data: {
-          id: randomUUID(),
-          engraving_id: engraving.id,
-          qr_code: qrCode,
-          access_pin_hash: accessPinHash,
-          is_locked: true,
-        },
-      });
-    }
-
+    // ponytail: qr_memories already created at engraving time, fallback removed
     const subtotal = await this.calculateSubtotal(engraving);
     const serviceFee = Math.round(subtotal * 0.1);
     const totalPrice = subtotal + serviceFee;
@@ -251,7 +240,7 @@ export class GuestService {
         engraving_id: engraving.id,
         user_id: null,
         guest_customer_id: guest.id,
-        created_by_staff_id: data.staffId,
+        created_by_staff_id: data.staffId || null,
         design_source: 'WALK_IN',
         package_type: packageType,
         capture_route: captureRoute,
@@ -370,35 +359,47 @@ export class GuestService {
   ) {
     await this.validateGuestOwnership(guestCode, { engravingVersionId });
 
-    const version = await this.prisma.engraving_versions.findUnique({
+    const versionRecord = await this.prisma.engraving_versions.findUnique({
       where: { id: engravingVersionId },
+      include: {
+        engravings_engraving_versions_engraving_idToengravings: {
+          include: { order: true },
+        },
+      },
     });
-    if (!version) throw new NotFoundException('Version not found');
+    if (!versionRecord) throw new NotFoundException('Version not found');
+
+    // ponytail: lock core fields after order exists; only customizationConfig is editable
+    const hasOrder = !!versionRecord
+      .engravings_engraving_versions_engraving_idToengravings.order;
 
     const updateData: Record<string, unknown> = {};
-    if (data.selectedMaterialId !== undefined)
-      updateData.selected_material_id = data.selectedMaterialId;
-    if (data.selectedGemstoneId !== undefined)
-      updateData.selected_gemstone_id = data.selectedGemstoneId;
-    if (data.ringSize !== undefined) updateData.ring_size = data.ringSize;
-    if (data.ringStyle !== undefined) updateData.ring_style = data.ringStyle;
-    if (data.ringShape !== undefined) updateData.ring_shape = data.ringShape;
-    if (data.customizationConfig !== undefined)
-      updateData.customization_config = JSON.parse(data.customizationConfig);
-    if (data.selectedBiometrics !== undefined) {
-      const raw = data.selectedBiometrics;
-      if (raw.startsWith('[')) {
-        try {
-          updateData.selected_biometrics = (JSON.parse(raw) as string[]).join(
-            ',',
-          );
-        } catch {
+    if (!hasOrder) {
+      if (data.selectedMaterialId !== undefined)
+        updateData.selected_material_id = data.selectedMaterialId;
+      if (data.selectedGemstoneId !== undefined)
+        updateData.selected_gemstone_id = data.selectedGemstoneId;
+      if (data.ringSize !== undefined) updateData.ring_size = data.ringSize;
+      if (data.ringStyle !== undefined) updateData.ring_style = data.ringStyle;
+      if (data.ringShape !== undefined) updateData.ring_shape = data.ringShape;
+      if (data.selectedBiometrics !== undefined) {
+        const raw = data.selectedBiometrics;
+        if (raw.startsWith('[')) {
+          try {
+            updateData.selected_biometrics = (JSON.parse(raw) as string[]).join(
+              ',',
+            );
+          } catch {
+            updateData.selected_biometrics = raw;
+          }
+        } else {
           updateData.selected_biometrics = raw;
         }
-      } else {
-        updateData.selected_biometrics = raw;
       }
     }
+    // ponytail: customizationConfig always editable (before and after order)
+    if (data.customizationConfig !== undefined)
+      updateData.customization_config = JSON.parse(data.customizationConfig);
 
     const updated = (await this.prisma.engraving_versions.update({
       where: { id: engravingVersionId },
@@ -463,6 +464,17 @@ export class GuestService {
       );
     }
 
+    // ponytail: delivery can only be set after manager approves (AWAITING_DEPOSIT)
+    const order = await this.prisma.orders.findUnique({
+      where: { id: orderId },
+      select: { status: true },
+    });
+    if (!order || order.status !== 'AWAITING_DEPOSIT') {
+      throw new BadRequestException(
+        'Delivery can only be set when order is AWAITING_DEPOSIT (manager approved)',
+      );
+    }
+
     const existing = await this.prisma.shipments.findFirst({
       where: { order_id: orderId },
     });
@@ -470,6 +482,8 @@ export class GuestService {
       throw new BadRequestException('Shipping info already set');
     }
 
+    // ponytail: create user_address with user_id=null is not possible (schema requires user_id FK).
+    // Guest address is stored as text in shipment.shipping_address_text.
     const shipment = await this.prisma.shipments.create({
       data: {
         id: randomUUID(),
@@ -566,7 +580,8 @@ export class GuestService {
       if (!engravingWithOrder)
         throw new NotFoundException('Engraving not found');
       const order = engravingWithOrder.order;
-      if (!order || order.guest_customer_id !== guest.id) {
+      // ponytail: before order creation (pre-config), allow; after order, match guest
+      if (order && order.guest_customer_id !== guest.id) {
         throw new ForbiddenException('Guest does not own this engraving');
       }
     }
