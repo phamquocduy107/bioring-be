@@ -285,7 +285,7 @@ Content-Disposition: form-data; name="extraData"
 
 ### 6b. Lấy PBR Textures (viewer-assets) để hiển thị 3D
 
-> FE dùng `ASSET_ID_001` vừa nhận để lấy các map (normal, alpha...) render Decal Mesh. Dựa vào đó để KHÁCH HÀNG KÉO THẢ VỊ TRÍ.
+> FE dùng `ASSET_ID_001` vừa nhận để lấy các map (normal, alpha...) render Decal Mesh.
 
 
 ```http
@@ -305,7 +305,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
         "overlayPng": "http://...",
         "alphaMap": "http://...",
         "normalMap": "http://..."
-      }
+      },
+      "rawFileUrl": "https://minio.example/personalization/raw/fingerprint/abc123/input.png"
     }
   }
 }

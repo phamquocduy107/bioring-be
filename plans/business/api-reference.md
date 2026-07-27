@@ -923,7 +923,7 @@ Route prefix: `api/v1/me`
 
 ### 21k. GET `/api/v1/me/biometric-assets/:assetId/viewer-assets`
 **Auth:** Bearer token (Customer)
-**Description:** Get 3D viewer assets (reads exclusively from MinIO `APPROVED` stage)
+**Description:** Get 3D viewer assets + raw file URL (reads from MinIO `APPROVED` stage)
 
 **Response:**
 ```json
@@ -935,7 +935,6 @@ Route prefix: `api/v1/me`
       "assetId": "468e8d1c-bc28-40dc-bb4d-bb70ab2b7c9a",
       "artifactId": "...",
       "status": "ASSET_APPROVED",
-      "manifestUrl": "http://...",
       "viewerFiles": {
         "overlayPng": "...",
         "alphaMap": "...",
@@ -944,8 +943,7 @@ Route prefix: `api/v1/me`
         "roughnessMap": "...",
         "aoMap": "..."
       },
-      "createdAt": "2026-07-23T15:12:08.037Z",
-      "updatedAt": "2026-07-23T15:12:09.582Z"
+      "rawFileUrl": "https://minio.example/personalization/raw/fingerprint/abc123/input.png"
     }
   }
 }

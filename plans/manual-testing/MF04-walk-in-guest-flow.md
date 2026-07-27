@@ -425,7 +425,7 @@ GET /api/v1/guest-tablet/sessions/{{GUEST_CODE}}
         { "id": "ASSET_FP_001", "assetType": "fingerprint", "status": "ASSET_APPROVED", "rawFileUrl": "...", "processedSvgUrl": "..." },
         { "id": "ASSET_SW_001", "assetType": "soundwave", "status": "ASSET_APPROVED", "rawFileUrl": "...", "processedSvgUrl": "..." }
       ],
-      "qrMemory": { "id": "...", "cardTitle": "", "greetingMessage": "", ... }
+      "qrMemory": { "id": "...", "cardTitle": "", "greetingMessage": "", "cardTheme": null, ... }
     }
   }
 }

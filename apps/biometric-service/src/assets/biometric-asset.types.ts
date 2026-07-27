@@ -22,6 +22,7 @@ export interface BiometricAssetDto {
   surface?: string;
   viewerFiles?: ViewerFilesDto;
   placement?: Record<string, unknown>;
+  rawFileUrl?: string;
   assignedUserId?: string;
   engravingId?: string;
   /** @deprecated Prefer engravingId */
