@@ -1698,6 +1698,38 @@ Route prefix: `api/v1/engravings`
 
 ---
 
+### 39b. GET `/api/v1/engravings/admin`
+**Auth:** JWT (bearer) + `order.write` permission
+**Description:** List all engravings (admin/staff). Paginated, filterable.
+
+| Query | Type | Required | Example |
+|-------|------|----------|---------|
+| page | number | No | 1 |
+| limit | number | No | 10 |
+| status | string | No | PENDING |
+| userId | UUID | No | — |
+| orderId | UUID | No | — |
+| withoutOrder | boolean | No | true |
+
+**Response:**
+```json
+{
+  "engravings": [
+    {
+      "id": "550e8400-...",
+      "orderId": "550e8400-...",
+      "status": "PENDING",
+      "currentVersion": { "id": "...", "versionNumber": 1 }
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "limit": 10
+}
+```
+
+---
+
 ## 3.4 Order
 
 Controller: `apps/api-gateway/src/modules/ecommerce/order/order.controller.ts`
@@ -1831,21 +1863,50 @@ Route prefix: `api/v1/orders`
       "status": "AWAITING_SUBMIT",
       "engraving": {
         "id": "...",
-        "status": "PENDING",
+        "orderId": "...",
+        "userId": "...",
         "productId": "...",
+        "uniqueProductId": "RS-A7B9X2",
+        "approvedVersionId": "...",
+        "status": "ACTIVE",
+        "createdAt": "2026-06-24T10:00:00.000Z",
+        "updatedAt": "2026-06-24T10:00:00.000Z",
+        "versions": [
+          {
+            "id": "...",
+            "engravingId": "...",
+            "versionNumber": 1,
+            "selectedMaterialId": "mat-gold-18k",
+            "selectedGemstoneId": "gmt-diamond-05",
+            "ringSize": "7",
+            "ringStyle": "Nhẫn cưới Classic",
+            "ringShape": "ROUND",
+            "customizationConfig": "{\"engravedType\":\"sw\",\"selectedBiometrics\":[\"SW\"],\"engravingPositions\":{}}",
+            "status": "PENDING",
+            "managerId": "",
+            "managerNote": "",
+            "reviewedAt": "",
+            "createdAt": "2026-06-24T10:00:00.000Z",
+            "selectedMaterial": {
+              "id": "mat-gold-18k",
+              "name": "Vàng 18K"
+            },
+            "selectedGemstone": {
+              "id": "gmt-diamond-05",
+              "type": "Kim cương",
+              "carat": 0.5
+            }
+          }
+        ],
+        "biometricAssets": [],
         "product": {
           "id": "...",
           "name": "Nhẫn cưới Classic",
           "description": "Nhẫn cưới vàng 18K",
           "basePrice": 5000000,
           "thumbnailUrl": "https://...",
-          "model3dUrl": "https://...",
-          "baseMaterial": null,
-          "availableMaterials": [],
-          "availableGemstones": []
-        },
-        "versions": [],
-        "biometricAssets": []
+          "model3dUrl": "https://..."
+        }
       },
       "payments": [],
       "customerName": "Nguyễn Văn A",
@@ -1912,19 +1973,134 @@ Route prefix: `api/v1/orders`
         "orderItems": [
           {
             "productName": "Nhẫn cưới Classic",
-            "productId": "...",
+            "productId": "prod-classic-band",
             "quantity": 1,
-            "unitPrice": 5000000,
-            "totalPrice": 5000000,
+            "unitPrice": 12000000,
+            "totalPrice": 12000000,
             "thumbnailUrl": "https://..."
           }
-        ]
+        ],
+        "payments": [],
+        "engraving": {
+          "id": "...",
+          "orderId": "...",
+          "status": "ACTIVE",
+          "versions": [
+            {
+              "id": "...",
+              "ringStyle": "Nhẫn cưới Classic",
+              "ringSize": "7",
+              "selectedMaterial": {
+                "id": "mat-gold-18k",
+                "name": "Vàng 18K"
+              },
+              "selectedGemstone": {
+                "id": "gmt-diamond-05",
+                "name": "Kim cương"
+              }
+            }
+          ],
+          "biometricAssets": [],
+          "product": {
+            "id": "prod-classic-band",
+            "name": "Nhẫn cưới Classic",
+            "thumbnailUrl": "https://..."
+          }
+        },
+        "totalPrice": 13200000,
+        "paidAmount": 0,
+        "remainingAmount": 13200000,
+        "createdAt": "2026-06-24T10:00:00.000Z"
       }
     ],
     "total": 1,
     "page": 1,
     "limit": 10
   }
+}
+```
+
+---
+
+### 44b. GET `/api/v1/orders/admin`
+**Auth:** JWT (bearer) + `order.write` permission
+**Description:** List all orders (admin/staff). Paginated, filterable by status, search (order code / customer name), date range.
+
+| Query | Type | Required | Example |
+|-------|------|----------|---------|
+| page | number | No | 1 |
+| limit | number | No | 10 |
+| status | string | No | PENDING_REVIEW |
+| search | string | No | BIORING |
+| from_date | string (ISO) | No | 2026-01-01 |
+| to_date | string (ISO) | No | 2026-12-31 |
+
+**Response:**
+```json
+{
+  "orders": [
+    {
+      "id": "...",
+      "orderCode": "BIORING-A7B9X2",
+      "status": "PENDING_REVIEW",
+      "customerName": "Nguyễn Văn A",
+      "customerEmail": "nguyenvana@example.com",
+      "customerPhone": "0901234567",
+      "paymentMethod": "PAYOS",
+      "paymentStatus": "PENDING",
+      "shippingInfo": {
+        "street": "123 Nguyễn Huệ",
+        "city": "Hồ Chí Minh",
+        "ward": "Bến Nghé",
+        "recipientName": "Nguyễn Văn A",
+        "recipientPhone": "0901234567"
+      },
+      "orderItems": [
+        {
+          "productName": "Nhẫn cưới Classic",
+          "productId": "prod-classic-band",
+          "quantity": 1,
+          "unitPrice": 12000000,
+          "totalPrice": 12000000,
+          "thumbnailUrl": "https://..."
+        }
+      ],
+      "payments": [],
+      "engraving": {
+        "id": "...",
+        "orderId": "...",
+        "status": "ACTIVE",
+        "versions": [
+          {
+            "id": "...",
+            "ringStyle": "Nhẫn cưới Classic",
+            "ringSize": "7",
+            "selectedMaterial": {
+              "id": "mat-gold-18k",
+              "name": "Vàng 18K"
+            },
+            "selectedGemstone": {
+              "id": "gmt-diamond-05",
+              "name": "Kim cương"
+            }
+          }
+        ],
+        "biometricAssets": [],
+        "product": {
+          "id": "prod-classic-band",
+          "name": "Nhẫn cưới Classic",
+          "thumbnailUrl": "https://..."
+        }
+      },
+      "totalPrice": 13200000,
+      "paidAmount": 0,
+      "remainingAmount": 13200000,
+      "createdAt": "2026-06-24T10:00:00.000Z"
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "limit": 10
 }
 ```
 

@@ -356,6 +356,46 @@ GET /api/v1/orders?page=1&limit=10
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
 
+> **Verify:** Mỗi order trả về có `engraving.versions[].ringStyle` (fallback `product.name`), `selectedMaterial`, `selectedGemstone`, `biometricAssets`, `engraving.product`.
+
+---
+
+### 9b. Admin: List all orders
+
+> Yêu cầu staff/manager token có permission `order.write`.
+
+```http
+GET /api/v1/orders/admin?page=1&limit=10&status=PENDING_REVIEW
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+```
+
+| Query | Type | Required | Example |
+|-------|------|----------|---------|
+| page | number | No | 1 |
+| limit | number | No | 10 |
+| status | string | No | PENDING_REVIEW |
+| search | string | No | BIORING |
+| from_date | string | No | 2026-01-01 |
+| to_date | string | No | 2026-12-31 |
+
+---
+
+### 9c. Admin: List all engravings
+
+```http
+GET /api/v1/engravings/admin?page=1&limit=10&status=PENDING
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+```
+
+| Query | Type | Required | Example |
+|-------|------|----------|---------|
+| page | number | No | 1 |
+| limit | number | No | 10 |
+| status | string | No | PENDING |
+| userId | UUID | No | — |
+| orderId | UUID | No | — |
+| withoutOrder | boolean | No | true |
+
 ---
 
 ## 10. Duyệt order (manager)

@@ -1018,7 +1018,23 @@ Content-Type: application/json
 
 ---
 
-## 27. Variable Reference
+## 27. Admin utility: List all orders & engravings
+
+> Yêu cầu staff/manager token có permission `order.write`.
+
+```http
+GET /api/v1/orders/admin?page=1&limit=10&status=PENDING_REVIEW
+Authorization: Bearer {{staffJwt}}
+```
+
+```http
+GET /api/v1/engravings/admin?page=1&limit=10&status=PENDING
+Authorization: Bearer {{staffJwt}}
+```
+
+---
+
+## 28. Variable Reference
 
 | Variable | Nguồn | Ghi chú |
 |----------|-------|---------|

@@ -27,6 +27,7 @@ import {
   CreateEngravingFullResponse,
   UpdateConfigResponse,
   GetMyEngravingsQueryDto,
+  ListEngravingsQueryDto,
   UpdateEngravingVersionConfigDto,
   AttachBiometricDto,
   BIOMETRIC_MAX_UPLOAD_BYTES,
@@ -40,6 +41,7 @@ import {
   ApiUpdateEngravingVersionConfigDocs,
   ApiGetMyEngravingsDocs,
   ApiGetEngravingDocs,
+  ApiListEngravingsDocs,
   ApiAttachBiometricDocs,
   ApiAttachBiometricsBulkDocs,
   ApiCancelEngravingDocs,
@@ -75,6 +77,19 @@ interface EcommerceGrpcService {
     page: number;
     limit: number;
     status?: string;
+    orderId?: string;
+    withoutOrder?: boolean;
+  }): Observable<{
+    engravings: EngravingResponse[];
+    total: number;
+    page: number;
+    limit: number;
+  }>;
+  listEngravings(data: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    userId?: string;
     orderId?: string;
     withoutOrder?: boolean;
   }): Observable<{
@@ -161,6 +176,28 @@ export class EngravingController implements OnModuleInit {
         withoutOrder: query.withoutOrder,
       }),
     );
+  }
+
+  @Get('admin')
+  @Permissions(Permission.OrderWrite)
+  @ApiListEngravingsDocs()
+  async listEngravings(@Query() query: ListEngravingsQueryDto) {
+    const result = await this.call(() =>
+      this.grpc!.listEngravings({
+        page: query.page ?? 1,
+        limit: query.limit ?? 10,
+        status: query.status,
+        userId: query.userId,
+        orderId: query.orderId,
+        withoutOrder: query.withoutOrder,
+      }),
+    );
+    return {
+      engravings: result?.engravings ?? [],
+      total: result?.total ?? 0,
+      page: result?.page ?? 1,
+      limit: result?.limit ?? 10,
+    };
   }
 
   @Get(':id')

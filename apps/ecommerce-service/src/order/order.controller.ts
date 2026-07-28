@@ -75,6 +75,25 @@ export class OrderController {
     );
   }
 
+  @GrpcMethod('EcommerceService', 'ListOrders')
+  async listOrders(data: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    search?: string;
+    from_date?: string;
+    to_date?: string;
+  }) {
+    return this.orderService.listOrders(
+      data.page ?? 1,
+      data.limit ?? 10,
+      data.status,
+      data.search,
+      data.from_date,
+      data.to_date,
+    );
+  }
+
   @GrpcMethod('EcommerceService', 'ReviewOrder')
   async reviewOrder(data: {
     id: string;

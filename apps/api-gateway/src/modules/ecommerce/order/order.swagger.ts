@@ -59,6 +59,8 @@ function orderExample() {
       uniqueProductId: 'RS-A7B9X2',
       approvedVersionId: '550e8400-e29b-41d4-a716-446655440004',
       status: 'ACTIVE',
+      createdAt: '2026-06-24T10:00:00.000Z',
+      updatedAt: '2026-06-24T10:00:00.000Z',
       versions: [
         {
           id: '550e8400-e29b-41d4-a716-446655440004',
@@ -67,7 +69,7 @@ function orderExample() {
           selectedMaterialId: 'mat-gold-18k',
           selectedGemstoneId: 'gmt-diamond-05',
           ringSize: '7',
-          ringStyle: 'CLASSIC',
+          ringStyle: 'Nhẫn cưới Classic',
           ringShape: 'ROUND',
           customizationConfig:
             '{"engravedType":"sw","selectedBiometrics":["SW"],"engravingPositions":{"sw":{"enabled":true,"status":"pending","position":{"startAngle":45,"width":180}}},"memoryCard":false}',
@@ -76,9 +78,35 @@ function orderExample() {
           managerNote: '',
           reviewedAt: '',
           createdAt: '2026-06-24T10:00:00.000Z',
+          selectedMaterial: {
+            id: 'mat-gold-18k',
+            name: 'Vàng 18K',
+            purity: '75%',
+            color: 'Vàng',
+            currentPricePerGram: 1600000,
+          },
+          selectedGemstone: {
+            id: 'gmt-diamond-05',
+            type: 'Kim cương',
+            carat: 0.5,
+            cut: 'Round Brilliant',
+            color: 'D',
+            clarity: 'VS1',
+            certificationCode: 'GIA-123456',
+            price: 15000000,
+            isAvailable: true,
+          },
         },
       ],
       biometricAssets: [],
+      product: {
+        id: 'prod-classic-band',
+        name: 'Nhẫn cưới Classic',
+        description: 'Nhẫn cưới vàng 18K',
+        basePrice: 12000000,
+        thumbnailUrl: 'https://...',
+        model3dUrl: 'https://...',
+      },
     },
   };
 }
@@ -120,6 +148,37 @@ export function ApiGetOrderDocs() {
     }),
     ApiResponse({ status: 401, description: 'Unauthorized' }),
     ApiResponse({ status: 404, description: 'Order not found' }),
+  );
+}
+
+export function ApiListOrdersDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'List all orders (admin/staff)',
+      description:
+        'Paginated list of ALL orders. Requires order.write permission. Supports filter by status, search (order code / customer name), and date range.',
+    }),
+    ApiQuery({ name: 'page', type: Number, required: false, example: 1 }),
+    ApiQuery({ name: 'limit', type: Number, required: false, example: 10 }),
+    ApiQuery({ name: 'status', type: String, required: false, example: 'PENDING_REVIEW' }),
+    ApiQuery({ name: 'search', type: String, required: false, example: 'BIORING' }),
+    ApiQuery({ name: 'from_date', type: String, required: false, example: '2026-01-01' }),
+    ApiQuery({ name: 'to_date', type: String, required: false, example: '2026-12-31' }),
+    ApiResponse({
+      status: 200,
+      description: 'Paginated orders',
+      schema: {
+        example: {
+          orders: [orderExample()],
+          total: 1,
+          page: 1,
+          limit: 10,
+        },
+      },
+    }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+    ApiResponse({ status: 403, description: 'Forbidden' }),
   );
 }
 

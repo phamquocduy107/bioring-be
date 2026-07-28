@@ -365,6 +365,63 @@ export class EngravingService {
           biometric_assets: true,
           qr_memories: { include: { card_themes: true } },
           order: { select: { id: true } },
+          products: {
+            include: {
+              materials: true,
+              product_materials: { include: { materials: true } },
+              product_gemstones: { include: { gemstones: true } },
+            },
+          },
+        },
+        orderBy: { created_at: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.engravings.count({ where }),
+    ]);
+
+    return {
+      engravings: (engravings as unknown as EngravingRecord[]).map((e) =>
+        this.mapEngraving(e),
+      ),
+      total,
+      page,
+      limit,
+    };
+  }
+
+  async listEngravings(
+    page: number,
+    limit: number,
+    status?: string,
+    userId?: string,
+    orderId?: string,
+    withoutOrder?: boolean,
+  ) {
+    const where: Record<string, unknown> = {};
+    if (status) where.status = status;
+    if (userId) where.user_id = userId;
+    if (orderId) where.order_id = orderId;
+    if (withoutOrder) where.order = null;
+
+    const [engravings, total] = await Promise.all([
+      this.prisma.engravings.findMany({
+        where,
+        include: {
+          engraving_versions_engraving_versions_engraving_idToengravings: {
+            include: { materials: true, gemstones: true },
+            orderBy: { version_number: 'desc' },
+          },
+          biometric_assets: true,
+          qr_memories: { include: { card_themes: true } },
+          order: { select: { id: true } },
+          products: {
+            include: {
+              materials: true,
+              product_materials: { include: { materials: true } },
+              product_gemstones: { include: { gemstones: true } },
+            },
+          },
         },
         orderBy: { created_at: 'desc' },
         skip: (page - 1) * limit,

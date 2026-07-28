@@ -30,6 +30,7 @@ import {
 } from '@app/common';
 import { MinioService } from '@app/minio';
 import { ConfigService } from '@nestjs/config';
+import { ApiBearerAuth } from '@nestjs/swagger';
 import type { JwtPayload } from '@app/common';
 import {
   ApiUpdateQrMemoryDocs,
@@ -74,6 +75,7 @@ interface EcommerceGrpcService {
   }): Observable<{ qrMemory: QrMemoryResponse }>;
 }
 
+@ApiBearerAuth('access-token')
 @Controller('api/v1/qr-memories')
 export class MemoryCardController implements OnModuleInit {
   private grpc?: EcommerceGrpcService;

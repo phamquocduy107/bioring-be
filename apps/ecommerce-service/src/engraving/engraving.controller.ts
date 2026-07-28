@@ -63,6 +63,25 @@ export class EngravingController {
     return this.engravingService.getEngraving(data.id);
   }
 
+  @GrpcMethod('EcommerceService', 'ListEngravings')
+  async listEngravings(data: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    userId?: string;
+    orderId?: string;
+    withoutOrder?: boolean;
+  }) {
+    return this.engravingService.listEngravings(
+      data.page ?? 1,
+      data.limit ?? 10,
+      data.status,
+      data.userId,
+      data.orderId,
+      data.withoutOrder,
+    );
+  }
+
   @GrpcMethod('EcommerceService', 'CancelEngraving')
   async cancelEngraving(data: { id: string; userId: string }) {
     return this.engravingService.cancelEngraving(data.id, data.userId);

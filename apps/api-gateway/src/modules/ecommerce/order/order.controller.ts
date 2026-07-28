@@ -35,6 +35,7 @@ import {
   BulkReviewOrderDto,
   InitiatePaymentDto,
   GetMyOrdersQueryDto,
+  ListOrdersQueryDto,
   AssignJewelerDto,
   UpdateProductionStatusDto,
   GetProductionTasksQueryDto,
@@ -50,6 +51,7 @@ import {
   ApiCreateOrderDocs,
   ApiGetOrderDocs,
   ApiGetMyOrdersDocs,
+  ApiListOrdersDocs,
   ApiListDeliveriesDocs,
   ApiListPickupsDocs,
   ApiReviewOrderDocs,
@@ -221,6 +223,19 @@ interface EcommerceGrpcService {
     limit?: number;
     userId?: string;
     customerEmail?: string;
+  }): Observable<{
+    orders: OrderResponse[];
+    total: number;
+    page: number;
+    limit: number;
+  }>;
+  listOrders(data: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    search?: string;
+    from_date?: string;
+    to_date?: string;
   }): Observable<{
     orders: OrderResponse[];
     total: number;
@@ -423,6 +438,28 @@ export class OrderController implements OnModuleInit {
       jewelerId: query.jewelerId,
       all: query.all ?? false,
     });
+  }
+
+  @Get('admin')
+  @Permissions(Permission.OrderWrite)
+  @ApiListOrdersDocs()
+  async listOrders(@Query() query: ListOrdersQueryDto) {
+    const result = await this.grpcCall<
+      { orders: OrderResponse[]; total: number; page: number; limit: number }
+    >('listOrders', {
+      page: query.page ?? 1,
+      limit: query.limit ?? 10,
+      status: query.status,
+      search: query.search,
+      from_date: query.from_date,
+      to_date: query.to_date,
+    });
+    return {
+      orders: result?.orders ?? [],
+      total: result?.total ?? 0,
+      page: result?.page ?? 1,
+      limit: result?.limit ?? 10,
+    };
   }
 
   @Get(':id')

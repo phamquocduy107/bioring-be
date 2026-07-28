@@ -33,11 +33,13 @@ service EcommerceService {
   rpc ResubmitEngravingVersion (ResubmitEngravingVersionRequest) returns (ResubmitEngravingVersionResponse);
   rpc GetMyEngravings (GetMyEngravingsRequest) returns (GetMyEngravingsResponse);
   rpc GetEngraving (GetEngravingRequest) returns (GetEngravingResponse);
+  rpc ListEngravings (ListEngravingsRequest) returns (ListEngravingsResponse);
 
   // Orders
   rpc CreateOrder (CreateOrderRequest) returns (CreateOrderResponse);
   rpc GetOrder (GetOrderRequest) returns (GetOrderResponse);
   rpc GetMyOrders (GetMyOrdersRequest) returns (GetMyOrdersResponse);
+  rpc ListOrders (ListOrdersRequest) returns (ListOrdersResponse);
   rpc ReviewOrder (ReviewOrderRequest) returns (ReviewOrderResponse);
 
   // Orders — MF-03
@@ -396,6 +398,22 @@ message GetEngravingResponse {
   Engraving engraving = 1;
 }
 
+message ListEngravingsRequest {
+  int32 page = 1;
+  int32 limit = 2;
+  string status = 3;
+  string userId = 4;
+  string orderId = 5;
+  bool withoutOrder = 6;
+}
+
+message ListEngravingsResponse {
+  repeated Engraving engravings = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+}
+
 // === Orders ===
 message Order {
   string id = 1;
@@ -469,6 +487,22 @@ message GetMyOrdersRequest {
 }
 
 message GetMyOrdersResponse {
+  repeated Order orders = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+}
+
+message ListOrdersRequest {
+  int32 page = 1;
+  int32 limit = 2;
+  string status = 3;
+  string search = 4;
+  string from_date = 5;
+  string to_date = 6;
+}
+
+message ListOrdersResponse {
   repeated Order orders = 1;
   int32 total = 2;
   int32 page = 3;
