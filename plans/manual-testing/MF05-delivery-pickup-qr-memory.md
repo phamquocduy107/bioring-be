@@ -605,10 +605,10 @@ Content-Type: application/json
 
 ## 15. QR Memory: List (MỚI)
 
-> Danh sách memory cards của authenticated user.
+> Danh sách memory cards của authenticated user. Hỗ trợ lọc `hasTheme` (true: đã chọn theme, false: chưa chọn).
 
 ```http
-GET /api/v1/qr-memories?page=1&limit=10
+GET /api/v1/qr-memories?page=1&limit=10&hasTheme=true
 Authorization: Bearer {{customerJwt}}
 ```
 

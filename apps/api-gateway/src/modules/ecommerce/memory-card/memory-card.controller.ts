@@ -69,6 +69,7 @@ interface EcommerceGrpcService {
     userId: string;
     page: number;
     limit: number;
+    hasTheme?: boolean;
   }): Observable<QrMemoryListResponse>;
   getQrMemoryByCode(data: {
     qrCode: string;
@@ -152,12 +153,14 @@ export class MemoryCardController implements OnModuleInit {
   listQrMemories(
     @CurrentUser() user: JwtPayload,
     @Query() query: PaginationDto,
+    @Query('hasTheme') hasTheme?: string,
   ) {
     return this.call(() =>
       this.grpc!.listQrMemories({
         userId: user.sub,
         page: query.page ?? 1,
         limit: query.limit ?? 10,
+        ...(hasTheme !== undefined && { hasTheme: hasTheme === 'true' }),
       }),
     );
   }

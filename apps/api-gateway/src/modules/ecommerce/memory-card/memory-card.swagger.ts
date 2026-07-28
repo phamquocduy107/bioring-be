@@ -62,6 +62,7 @@ export function ApiListQrMemoriesDocs() {
     }),
     ApiQuery({ name: 'page', type: 'number', required: false, example: 1 }),
     ApiQuery({ name: 'limit', type: 'number', required: false, example: 10 }),
+    ApiQuery({ name: 'hasTheme', type: 'boolean', required: false, description: 'Filter by theme selection: true=has theme, false=no theme' }),
     ApiOkResponse({ type: QrMemoryListResponse }),
   );
 }

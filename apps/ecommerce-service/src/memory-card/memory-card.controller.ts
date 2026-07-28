@@ -48,11 +48,17 @@ export class MemoryCardController {
   }
 
   @GrpcMethod('EcommerceService', 'ListQrMemories')
-  async listQrMemories(data: { userId: string; page: number; limit: number }) {
+  async listQrMemories(data: {
+    userId: string;
+    page: number;
+    limit: number;
+    hasTheme?: boolean;
+  }) {
     return this.memoryCardService.listQrMemories(
       data.userId,
       data.page,
       data.limit,
+      data.hasTheme,
     );
   }
 

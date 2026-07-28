@@ -2916,7 +2916,7 @@ Route prefix: `api/v1/qr-memories`
 **Auth:** JWT (bearer)
 **Description:** List memory cards của authenticated user. Join qua `engravings.user_id`.
 
-**Query:** `page` (default 1), `limit` (default 10)
+**Query:** `page` (default 1), `limit` (default 10), `hasTheme` (boolean, optional — `true`: đã chọn theme, `false`: chưa chọn)
 
 **Response:**
 ```json

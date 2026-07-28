@@ -531,11 +531,12 @@ Logic trong `MemoryCardService.updateQrMemory()`:
 #### Request
 
 | Query | Type | Default | Description |
-|---|---|---|---|
+|---|---|---|---|---|
 | `page` | number? | 1 | |
 | `limit` | number? | 10 | |
+| `hasTheme` | boolean? | — | Lọc: `true`=đã chọn theme, `false`=chưa chọn |
 
-Logic: `findMany where engravings.user_id = :userId`, `orderBy created_at desc`.
+Logic: `findMany where engravings.user_id = :userId`, `orderBy created_at desc`. Nếu `hasTheme=true` → `theme_id != null`, nếu `hasTheme=false` → `theme_id = null`.
 
 #### Response 200
 
