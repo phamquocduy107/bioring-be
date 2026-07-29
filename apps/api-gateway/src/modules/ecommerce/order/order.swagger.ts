@@ -253,6 +253,7 @@ export function ApiInitiatePaymentDocs() {
             paymentUrl: 'https://pay.payos.vn/checkout/abc123',
             paidAt: '',
             createdAt: '2026-06-24T10:00:00.000Z',
+            orderCode: 'BIORING-ABC123',
           },
           paymentUrl: 'https://pay.payos.vn/checkout/abc123',
         },
@@ -806,10 +807,13 @@ export function ApiListPickupsDocs() {
           data: [
             {
               id: 'pic-1',
+              order_id: 'uuid-order-xxx',
               order_code: 'ORD-005',
               customer_name: 'David Chen',
               customer_phone: '0945678901',
               payment_status: 'final_pending',
+              remaining_amount: 5000000,
+              package_name: 'HeartBeat + FingerPrint',
               status: 'waiting',
               handover_staff_name: null,
               handover_note: null,
@@ -880,6 +884,7 @@ export function ApiGenerateDeliveryPaymentLinkDocs() {
             status: 'PENDING',
             paymentUrl: 'https://pay.payos.vn/checkout/abc123',
             createdAt: '2026-07-28T10:00:00.000Z',
+            orderCode: 'BIORING-ABC123',
           },
           paymentUrl: 'https://pay.payos.vn/checkout/abc123',
           qrCode: 'data:image/png;base64,...',
@@ -889,6 +894,39 @@ export function ApiGenerateDeliveryPaymentLinkDocs() {
     ApiResponse({ status: 400, description: 'No remaining amount' }),
     ApiResponse({ status: 401, description: 'Unauthorized' }),
     ApiResponse({ status: 403, description: 'Forbidden' }),
+  );
+}
+
+export function ApiSkipRemainingPaymentDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'Skip remaining payment — move to ready state',
+      description:
+        'Move order from AWAITING_REMAINING to READY_FOR_DELIVERY or READY_FOR_PICKUP without paying the remaining amount. Payment will be collected at delivery/pickup.',
+    }),
+    ApiBody({
+      schema: {
+        example: { deliveryMethod: 'DELIVERY' },
+      },
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Order moved to ready state',
+      schema: {
+        example: {
+          order: {
+            id: 'uuid-order-1',
+            status: 'READY_FOR_DELIVERY',
+            remaining_amount: 1500000,
+          },
+        },
+      },
+    }),
+    ApiResponse({ status: 400, description: 'Order not in AWAITING_REMAINING / no remaining amount' }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+    ApiResponse({ status: 403, description: 'Forbidden' }),
+    ApiResponse({ status: 404, description: 'Order not found' }),
   );
 }
 

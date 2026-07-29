@@ -763,6 +763,7 @@ export class OrderService implements OnModuleInit {
           payment: {
             id: existing.id,
             orderId: existing.order_id ?? '',
+            orderCode: order.order_code ?? '',
             paymentPhase: existing.payment_phase ?? '',
             amount: Number(existing.amount),
             method: existing.method ?? '',
@@ -824,6 +825,7 @@ export class OrderService implements OnModuleInit {
       payment: {
         id: payment.id,
         orderId: payment.order_id ?? '',
+        orderCode: order.order_code ?? '',
         paymentPhase: payment.payment_phase ?? '',
         amount: Number(payment.amount),
         method: payment.method ?? '',
@@ -893,20 +895,52 @@ export class OrderService implements OnModuleInit {
       } else if (payment.payment_phase === 'DEPOSIT_2') {
         newStatus = 'DEPOSIT_PAID';
       } else if (payment.payment_phase === 'REMAINING') {
-        const pendingShipment = await this.prisma.shipments.findFirst({
-          where: { order_id: order.id, status: 'PENDING' },
-        });
-        if (pendingShipment) {
-          await this.prisma.shipments.update({
-            where: { id: pendingShipment.id },
-            data: { status: 'ACTIVE' },
+        if (order.status === 'AWAITING_REMAINING') {
+          const pendingShipment = await this.prisma.shipments.findFirst({
+            where: { order_id: order.id, status: 'PENDING' },
           });
-          newStatus =
-            pendingShipment.delivery_method === 'PICKUP'
-              ? 'READY_FOR_PICKUP'
-              : 'READY_FOR_DELIVERY';
+          if (pendingShipment) {
+            const extraData: Record<string, any> = {};
+            if (pendingShipment.address_id && !pendingShipment.recipient_name) {
+              const info = await this.resolveShipmentAddress(pendingShipment.address_id);
+              if (info) {
+                extraData.recipient_name = info.recipient_name;
+                extraData.recipient_phone = info.recipient_phone;
+                extraData.shipping_address_text = info.shipping_address_text;
+              }
+            }
+            await this.prisma.shipments.update({
+              where: { id: pendingShipment.id },
+              data: extraData,
+            });
+            newStatus =
+              pendingShipment.delivery_method === 'PICKUP'
+                ? 'READY_FOR_PICKUP'
+                : 'READY_FOR_DELIVERY';
+          } else {
+            const defaultAddr = order.user_id
+              ? await this.prisma.user_addresses.findFirst({
+                  where: { user_id: order.user_id, is_default: true },
+                })
+              : null;
+            await this.prisma.shipments.create({
+              data: {
+                id: randomUUID(),
+                order_id: order.id,
+                delivery_method: 'DELIVERY',
+                status: 'PENDING',
+                recipient_name: defaultAddr?.recipient_name ?? null,
+                recipient_phone: defaultAddr?.phone_number ?? null,
+                address_id: defaultAddr?.id ?? null,
+                shipping_address_text: defaultAddr
+                  ? `${defaultAddr.full_address}, ${defaultAddr.ward ?? ''}, ${defaultAddr.district ?? ''}, ${defaultAddr.province ?? ''}`.replace(/, ,/g, ',').replace(/, $/, '')
+                  : null,
+              },
+            });
+            newStatus = 'READY_FOR_DELIVERY';
+          }
         } else {
-          newStatus = 'READY_FOR_DELIVERY';
+          newStatus = order.status;
         }
       } else if (payment.payment_phase === 'FULL') {
         newStatus = 'DEPOSIT_PAID';
@@ -949,7 +983,7 @@ export class OrderService implements OnModuleInit {
       }
     }
 
-    return { success: true };
+    return { success: true, orderCode: order.order_code };
   }
 
   async cancelPayment(orderId: string, userId: string) {
@@ -1130,6 +1164,25 @@ export class OrderService implements OnModuleInit {
       throw new BadRequestException(
         `Order must be READY_FOR_DELIVERY or READY_FOR_PICKUP, got ${order.status}`,
       );
+    }
+
+    // Create pickup record for audit trail
+    const shipment = await this.prisma.shipments.findFirst({
+      where: { order_id: orderId },
+    });
+    if (shipment) {
+      await this.prisma.pickup_records.create({
+        data: {
+          id: randomUUID(),
+          order_id: orderId,
+          store_staff_id: staffId,
+          receiver_name: shipment.recipient_name,
+          receiver_phone: shipment.recipient_phone,
+          identity_note: note,
+          proof_image_url: null,
+          picked_up_at: new Date(),
+        },
+      });
     }
 
     const updated = await this.prisma.orders.update({
@@ -1625,6 +1678,22 @@ export class OrderService implements OnModuleInit {
     return { order: await this.mapOrder(updated) };
   }
 
+  private async resolveShipmentAddress(addressId: string) {
+    const addr = await this.prisma.user_addresses.findUnique({
+      where: { id: addressId },
+    });
+    if (!addr) return null;
+    const text = `${addr.full_address ?? ''}, ${addr.ward ?? ''}, ${addr.district ?? ''}, ${addr.province ?? ''}`
+      .replace(/, ,/g, ',')
+      .replace(/, $/, '')
+      .replace(/^, /, '');
+    return {
+      recipient_name: addr.recipient_name,
+      recipient_phone: addr.phone_number,
+      shipping_address_text: text,
+    };
+  }
+
   async saveDeliveryPreference(
     orderId: string,
     addressId: string,
@@ -1641,6 +1710,9 @@ export class OrderService implements OnModuleInit {
       );
     }
 
+    const info = await this.resolveShipmentAddress(addressId);
+    if (!info) throw new NotFoundException('Address not found');
+
     const existing = await this.prisma.shipments.findFirst({
       where: { order_id: orderId, status: 'PENDING' },
     });
@@ -1651,6 +1723,9 @@ export class OrderService implements OnModuleInit {
         data: {
           address_id: addressId,
           delivery_method: method,
+          recipient_name: info.recipient_name,
+          recipient_phone: info.recipient_phone,
+          shipping_address_text: info.shipping_address_text,
         },
       });
       return { shipmentId: updated.id, status: updated.status ?? 'PENDING' };
@@ -1663,6 +1738,9 @@ export class OrderService implements OnModuleInit {
         address_id: addressId,
         delivery_method: method,
         status: 'PENDING',
+        recipient_name: info.recipient_name,
+        recipient_phone: info.recipient_phone,
+        shipping_address_text: info.shipping_address_text,
       },
     });
 
@@ -1753,6 +1831,45 @@ export class OrderService implements OnModuleInit {
     return this.mapShipment(shipment);
   }
 
+  async skipRemainingPayment(data: { orderId: string; deliveryMethod: string }) {
+    const order = await this.prisma.orders.findUnique({
+      where: { id: data.orderId },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.status !== 'AWAITING_REMAINING') {
+      throw new BadRequestException(
+        'Order must be AWAITING_REMAINING to skip remaining payment',
+      );
+    }
+    const remaining = Number(order.remaining_amount ?? 0);
+    if (remaining <= 0) {
+      throw new BadRequestException('No remaining amount to skip');
+    }
+
+    const deliveryMethod = data.deliveryMethod === 'PICKUP' ? 'PICKUP' : 'DELIVERY';
+    const newStatus = deliveryMethod === 'PICKUP' ? 'READY_FOR_PICKUP' : 'READY_FOR_DELIVERY';
+
+    await this.prisma.shipments.create({
+      data: {
+        id: randomUUID(),
+        order_id: order.id,
+        delivery_method: deliveryMethod,
+        status: 'PENDING',
+      },
+    });
+
+    const updated = await this.prisma.orders.update({
+      where: { id: order.id },
+      data: { status: newStatus },
+    });
+
+    if (newStatus === 'READY_FOR_DELIVERY') {
+      this.eventEmitter.emit('order.ready_for_delivery', { orderId: order.id });
+    }
+
+    return { order: await this.mapOrder(updated) };
+  }
+
   async updateShipmentStatus(data: {
     orderId: string;
     status: string;
@@ -1801,6 +1918,12 @@ export class OrderService implements OnModuleInit {
     }
 
     if (data.status === 'DELIVERED') {
+      const remaining = Number(order.remaining_amount ?? 0);
+      if (remaining > 0) {
+        throw new BadRequestException(
+          'Remaining payment must be completed before confirming delivery',
+        );
+      }
       if (deliveryMethod === 'PICKUP') {
         if (order.status !== 'READY_FOR_PICKUP') {
           throw new BadRequestException(
@@ -2619,6 +2742,7 @@ export class OrderService implements OnModuleInit {
         include: {
           orders: {
             select: {
+              id: true,
               order_code: true,
               total_price: true,
               paid_amount: true,
@@ -2672,6 +2796,7 @@ export class OrderService implements OnModuleInit {
     return {
       data: rows.map((s) => ({
         id: s.id,
+        order_id: s.order_id ?? s.orders?.id ?? '',
         order_code: s.orders?.order_code ?? '',
         tracking_code: s.tracking_code ?? '',
         customer: {
@@ -2715,40 +2840,10 @@ export class OrderService implements OnModuleInit {
     status?: string;
     search?: string;
   }) {
-    const where: Prisma.pickup_recordsWhereInput = {};
-    if (data.status === 'waiting') where.picked_up_at = null;
-    else if (data.status === 'completed') where.picked_up_at = { not: null };
-
-    if (data.search) {
-      where.orders = {
-        OR: [
-          { order_code: { contains: data.search } },
-          {
-            users_orders_user_idTousers: {
-              full_name: { contains: data.search },
-            },
-          },
-          { guest_customers: { full_name: { contains: data.search } } },
-        ],
-      };
-    }
-
-    const rows = await this.prisma.pickup_records.findMany({
-      where,
-      include: {
-        orders: {
-          include: {
-            users_orders_user_idTousers: { select: { full_name: true } },
-            guest_customers: { select: { full_name: true } },
-          },
-        },
-        users: { select: { full_name: true } },
-      },
-      orderBy: { picked_up_at: { sort: 'desc', nulls: 'last' } },
-      take: data.limit ?? 200,
-    });
-
-    const computePaymentStatus = (o: (typeof rows)[0]['orders']) => {
+    const computePaymentStatus = (o: {
+      total_price: any;
+      paid_amount: any;
+    } | null) => {
       const paid = Number(o?.paid_amount ?? 0);
       const total = Number(o?.total_price ?? 0);
       if (paid >= total && total > 0) return 'paid';
@@ -2756,22 +2851,103 @@ export class OrderService implements OnModuleInit {
       return 'cod_pending';
     };
 
-    return {
-      data: rows.map((r) => ({
-        id: r.id,
-        order_code: r.orders?.order_code ?? '',
-        customer_name:
-          r.orders?.users_orders_user_idTousers?.full_name ??
-          r.orders?.guest_customers?.full_name ??
-          '',
-        customer_phone: r.receiver_phone ?? '',
-        payment_status: computePaymentStatus(r.orders),
-        status: r.picked_up_at ? 'completed' : 'waiting',
-        handover_staff_name: r.users?.full_name ?? '',
-        handover_note: r.identity_note ?? '',
-        proof_image: r.proof_image_url ?? '',
-      })),
-    };
+    const orderSearch = data.search
+      ? {
+          OR: [
+            { order_code: { contains: data.search } },
+            { users_orders_user_idTousers: { full_name: { contains: data.search } } },
+            { guest_customers: { full_name: { contains: data.search } } },
+          ],
+        }
+      : undefined;
+
+    const limit = data.limit ?? 200;
+    const results: any[] = [];
+
+    // Waiting pickups — shipments with delivery_method = PICKUP, order READY_FOR_PICKUP
+    if (!data.status || data.status === 'waiting') {
+      const shipments = await this.prisma.shipments.findMany({
+        where: {
+          delivery_method: 'PICKUP',
+          orders: {
+            status: 'READY_FOR_PICKUP',
+            ...orderSearch,
+          },
+        },
+        include: {
+          orders: {
+            include: {
+              users_orders_user_idTousers: { select: { full_name: true } },
+              guest_customers: { select: { full_name: true } },
+            },
+          },
+          users: { select: { full_name: true } },
+        },
+        take: limit,
+      });
+      for (const s of shipments) {
+        results.push({
+          id: s.id,
+          order_id: s.orders?.id ?? '',
+          order_code: s.orders?.order_code ?? '',
+          remaining_amount: Number(s.orders?.remaining_amount ?? 0),
+          package_name: s.orders?.package_type ?? '',
+          customer_name:
+            s.orders?.users_orders_user_idTousers?.full_name ??
+            s.orders?.guest_customers?.full_name ??
+            '',
+          customer_phone: s.recipient_phone ?? '',
+          payment_status: computePaymentStatus(s.orders),
+          status: 'waiting',
+          handover_staff_name: s.users?.full_name ?? '',
+          handover_note: '',
+          proof_image: '',
+        });
+      }
+    }
+
+    // Completed pickups — pickup_records
+    if (!data.status || data.status === 'completed') {
+      const recordWhere: Prisma.pickup_recordsWhereInput = {};
+      if (data.status === 'completed') recordWhere.picked_up_at = { not: null };
+      if (orderSearch) recordWhere.orders = orderSearch;
+
+      const records = await this.prisma.pickup_records.findMany({
+        where: recordWhere,
+        include: {
+          orders: {
+            include: {
+              users_orders_user_idTousers: { select: { full_name: true } },
+              guest_customers: { select: { full_name: true } },
+            },
+          },
+          users: { select: { full_name: true } },
+        },
+        orderBy: { picked_up_at: { sort: 'desc', nulls: 'last' } },
+        take: limit,
+      });
+      for (const r of records) {
+        results.push({
+          id: r.id,
+          order_id: r.orders?.id ?? '',
+          order_code: r.orders?.order_code ?? '',
+          remaining_amount: Number(r.orders?.remaining_amount ?? 0),
+          package_name: r.orders?.package_type ?? '',
+          customer_name:
+            r.orders?.users_orders_user_idTousers?.full_name ??
+            r.orders?.guest_customers?.full_name ??
+            '',
+          customer_phone: r.receiver_phone ?? '',
+          payment_status: computePaymentStatus(r.orders),
+          status: 'completed',
+          handover_staff_name: r.users?.full_name ?? '',
+          handover_note: r.identity_note ?? '',
+          proof_image: r.proof_image_url ?? '',
+        });
+      }
+    }
+
+    return { data: results };
   }
 
   async claimDelivery(orderId: string, staffId: string) {
@@ -2883,6 +3059,7 @@ export class OrderService implements OnModuleInit {
           payment: {
             id: existing.id,
             orderId: existing.order_id ?? '',
+            orderCode: order.order_code ?? '',
             paymentPhase: existing.payment_phase ?? '',
             amount: Number(existing.amount),
             method: existing.method ?? '',
@@ -2922,10 +3099,9 @@ export class OrderService implements OnModuleInit {
         amount,
         method: 'BANK_TRANSFER',
         status: 'PENDING',
-        payos_order_code: payosOrderCode,
+        payment_code: String(payosOrderCode),
         payment_url: payosResult.paymentUrl,
         qr_code: payosResult.qrCode ?? null,
-        created_by_id: staffId,
       },
     });
 
@@ -2933,6 +3109,7 @@ export class OrderService implements OnModuleInit {
       payment: {
         id: payment.id,
         orderId: payment.order_id ?? '',
+        orderCode: order.order_code ?? '',
         paymentPhase: payment.payment_phase ?? '',
         amount: Number(payment.amount),
         method: payment.method ?? '',

@@ -170,6 +170,9 @@ rpc GetProductionTasks (GetProductionTasksRequest) returns (GetProductionTasksRe
   // Delivery Preference (MF-02 / MF-03 customer-facing)
   rpc SaveDeliveryPreference (SaveDeliveryPreferenceRequest) returns (SaveDeliveryPreferenceResponse);
 
+  // Skip remaining payment — move from AWAITING_REMAINING to READY_FOR_DELIVERY/PICKUP
+  rpc SkipRemainingPayment (SkipRemainingPaymentRequest) returns (GetOrderResponse);
+
   // Pickups (In-Store)
   rpc ListPickups (ListPickupsRequest) returns (ListPickupsResponse);
 
@@ -636,6 +639,7 @@ message Payment {
   string paymentUrl = 8;
   string paidAt = 9;
   string createdAt = 10;
+  string orderCode = 11;
 }
 
 message InitiatePaymentRequest {
@@ -658,6 +662,7 @@ message PayOSWebhookRequest {
 
 message PayOSWebhookResponse {
   bool success = 1;
+  string orderCode = 2;
 }
 
 message CancelPaymentRequest {
@@ -1071,6 +1076,11 @@ message SaveDeliveryPreferenceRequest {
 message SaveDeliveryPreferenceResponse {
   string shipmentId = 1;
   string status = 2;
+}
+
+message SkipRemainingPaymentRequest {
+  string orderId = 1;
+  string deliveryMethod = 2;
 }
 
 message GetDeliveryInfoRequest { string orderId = 1; }
@@ -1700,6 +1710,7 @@ message DeliveryRecord {
   string proof_of_delivery = 8;
   string created_at = 9;
   double remaining_amount = 10;
+  string order_id = 11;
 }
 
 message DeliveryCustomer {
@@ -1821,10 +1832,13 @@ message ListPickupsRequest {
 
 message PickupInfo {
   string id = 1;
+  string order_id = 10;
   string order_code = 2;
   string customer_name = 3;
   string customer_phone = 4;
   string payment_status = 5;
+  double remaining_amount = 11;
+  string package_name = 12;
   string status = 6;
   string handover_staff_name = 7;
   string handover_note = 8;

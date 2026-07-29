@@ -6,3 +6,4 @@ export * from './list-deliveries-query.dto';
 export * from './delivery-preference.dto';
 export * from './claim-delivery.dto';
 export * from './generate-payment-link.dto';
+export * from './skip-remaining-payment.dto';

@@ -47,6 +47,7 @@ import {
   DeliveryPreferenceDto,
   ClaimDeliveryDto,
   GeneratePaymentLinkDto,
+  SkipRemainingPaymentDto,
 } from '@app/common';
 import type { JwtPayload } from '@app/common';
 import {
@@ -75,6 +76,7 @@ import {
   ApiConfirmPickupDocs,
   ApiClaimDeliveryDocs,
   ApiGenerateDeliveryPaymentLinkDocs,
+  ApiSkipRemainingPaymentDocs,
 } from './order.swagger';
 
 interface EngravingBioMetricResponse {
@@ -376,6 +378,10 @@ interface EcommerceGrpcService {
     returnUrl: string;
     cancelUrl: string;
   }): Observable<unknown>;
+  skipRemainingPayment(data: {
+    orderId: string;
+    deliveryMethod: string;
+  }): Observable<unknown>;
 }
 
 @Controller('api/v1/orders')
@@ -641,19 +647,18 @@ export class OrderController implements OnModuleInit {
   @ApiPayOSWebhookDocs()
   async handlePayOSWebhook(@Body() body: Record<string, unknown>) {
     try {
-      const result = await this.grpcCall<{ success: boolean }>(
+      const result = await this.grpcCall<{ success: boolean; orderCode: string }>(
         'handlePayOSWebhook',
         {
           webhookBody: JSON.stringify(body),
         },
       );
       if (result?.success) {
-        const data = body.data as Record<string, unknown> | undefined;
-        const orderCode = data?.orderCode;
+        const orderCode = result.orderCode;
         if (orderCode && this.eventEmitter) {
           this.eventEmitter.emit(`payment.update.${orderCode}`, {
             status: body.code === '00' ? 'PAID' : 'FAILED',
-            transactionId: data?.reference,
+            transactionId: (body.data as Record<string, unknown> | undefined)?.reference,
             orderCode,
           });
         }
@@ -839,7 +844,7 @@ export class OrderController implements OnModuleInit {
   }
 
   @Get(':id/payment-status')
-  @Permissions(Permission.OrderWrite)
+  @Public()
   getPaymentStatus(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
   ) {
@@ -898,6 +903,21 @@ export class OrderController implements OnModuleInit {
         staffId: user.sub,
         returnUrl: body.returnUrl ?? '',
         cancelUrl: body.cancelUrl ?? '',
+      }),
+    );
+  }
+
+  @Post(':id/skip-remaining-payment')
+  @Permissions(Permission.OrderWrite)
+  @ApiSkipRemainingPaymentDocs()
+  skipRemainingPayment(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() body: SkipRemainingPaymentDto,
+  ) {
+    return this.call(() =>
+      this.grpc!.skipRemainingPayment({
+        orderId: id,
+        deliveryMethod: body.deliveryMethod,
       }),
     );
   }

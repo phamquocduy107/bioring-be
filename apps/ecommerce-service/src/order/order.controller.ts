@@ -204,6 +204,11 @@ export class OrderController {
     return this.orderService.initiateDelivery(data);
   }
 
+  @GrpcMethod('EcommerceService', 'SkipRemainingPayment')
+  async skipRemainingPayment(data: { orderId: string; deliveryMethod: string }) {
+    return this.orderService.skipRemainingPayment(data);
+  }
+
   @GrpcMethod('EcommerceService', 'UpdateShipmentStatus')
   async updateShipmentStatus(data: {
     orderId: string;

@@ -2194,7 +2194,8 @@ Route prefix: `api/v1/orders`
       "payosTransactionId": "txn_abc123",
       "paymentUrl": "https://pay.payos.vn/checkout/abc123",
       "paidAt": "",
-      "createdAt": "2026-06-24T10:00:00.000Z"
+      "createdAt": "2026-06-24T10:00:00.000Z",
+      "orderCode": "BIORING-ABC123"
     },
     "paymentUrl": "https://pay.payos.vn/checkout/abc123"
   }
@@ -2736,7 +2737,8 @@ data: { "status": "PAID", "transactionId": "txn_abc123", "orderCode": "172000000
       "payosTransactionId": null,
       "paymentUrl": "https://pay.payos.vn/checkout/abc123",
       "paidAt": null,
-      "createdAt": "2026-07-28T10:00:00.000Z"
+      "createdAt": "2026-07-28T10:00:00.000Z",
+      "orderCode": "BIORING-ABC123"
     },
     "paymentUrl": "https://pay.payos.vn/checkout/abc123",
     "qrCode": "data:image/png;base64,..."
@@ -2778,6 +2780,50 @@ data: { "status": "PAID", "transactionId": "txn_abc123", "orderCode": "172000000
   }
 }
 ```
+
+---
+
+### 68. POST `/api/v1/orders/:id/skip-remaining-payment`
+**Auth:** `order.write` (MANAGER / STAFF)
+**Description:** Move order from AWAITING_REMAINING to READY_FOR_DELIVERY or READY_FOR_PICKUP without paying the remaining amount. Payment will be collected at delivery/pickup. If remaining_amount > 0, `updateShipmentStatus(DELIVERED)` will be blocked until payment is completed.
+
+**Param:** `id` (UUID v4) — order ID
+
+**Request:**
+```json
+{
+  "deliveryMethod": "DELIVERY"
+}
+```
+
+**Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Success",
+  "data": {
+    "order": {
+      "id": "550e8400-...",
+      "status": "READY_FOR_DELIVERY",
+      "remaining_amount": 1500000
+    }
+  }
+}
+```
+
+**Errors:**
+
+| Precondition | Error | Code |
+|-------------|-------|------|
+| Order không tồn tại | Order not found | 404 |
+| Order không ở AWAITING_REMAINING | Order must be AWAITING_REMAINING to skip remaining payment | 400 |
+| Đã thanh toán hết | No remaining amount to skip | 400 |
+
+**Flow:**
+1. QC PASS + remaining > 0 → order vào `AWAITING_REMAINING`
+2. Staff gọi `POST /skip-remaining-payment` với deliveryMethod
+3. Order → `READY_FOR_DELIVERY` hoặc `READY_FOR_PICKUP` (shipment tạo mới, status PENDING)
+4. Khi tới giao hàng: staff gen QR → customer pay → webhook → SSE → `updateShipmentStatus(DELIVERED)`
 
 ---
 
