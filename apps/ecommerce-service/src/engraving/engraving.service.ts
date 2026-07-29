@@ -148,6 +148,7 @@ export class EngravingService {
         id: versionId,
         engraving_id: engravingId,
         version_number: 1,
+        ring_shape: 'ROUND',
         status: 'PENDING',
       },
     });

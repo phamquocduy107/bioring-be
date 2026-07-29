@@ -111,4 +111,33 @@ export class JewelerService {
       })),
     };
   }
+
+  async getMyCurrentTask(jewelerId: string) {
+    const task = await this.prisma.production_tasks.findFirst({
+      where: { assigned_jeweler_id: jewelerId, status: 'IN_PROGRESS' },
+      orderBy: { started_at: 'desc' },
+      include: {
+        orders: {
+          select: {
+            id: true,
+            order_code: true,
+            users_orders_user_idTousers: { select: { full_name: true } },
+            guest_customers: { select: { full_name: true } },
+          },
+        },
+      },
+    });
+    if (!task) return {};
+    return {
+      id: task.id,
+      order_id: task.orders?.id ?? '',
+      order_code: task.orders?.order_code ?? '',
+      status: task.status,
+      started_at: task.started_at?.toISOString() ?? '',
+      customer_name:
+        task.orders?.users_orders_user_idTousers?.full_name ??
+        task.orders?.guest_customers?.full_name ??
+        '',
+    };
+  }
 }

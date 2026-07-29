@@ -351,4 +351,29 @@ export class OrderController {
   }) {
     return this.orderService.listPickups(data);
   }
+
+  @GrpcMethod('EcommerceService', 'ClaimDelivery')
+  async claimDelivery(data: { orderId: string; staffId: string }) {
+    return this.orderService.claimDelivery(data.orderId, data.staffId);
+  }
+
+  @GrpcMethod('EcommerceService', 'GetMyCurrentDelivery')
+  async getMyCurrentDelivery(data: { staffId: string }) {
+    return this.orderService.getMyCurrentDelivery(data.staffId);
+  }
+
+  @GrpcMethod('EcommerceService', 'GenerateDeliveryPaymentLink')
+  async generateDeliveryPaymentLink(data: {
+    orderId: string;
+    staffId: string;
+    returnUrl: string;
+    cancelUrl: string;
+  }) {
+    return this.orderService.generateDeliveryPaymentLink(
+      data.orderId,
+      data.staffId,
+      data.returnUrl,
+      data.cancelUrl,
+    );
+  }
 }

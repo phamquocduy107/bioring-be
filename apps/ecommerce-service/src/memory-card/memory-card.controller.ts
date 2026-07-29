@@ -53,12 +53,14 @@ export class MemoryCardController {
     page: number;
     limit: number;
     hasTheme?: boolean;
+    status?: string;
   }) {
     return this.memoryCardService.listQrMemories(
       data.userId,
       data.page,
       data.limit,
       data.hasTheme,
+      data.status,
     );
   }
 

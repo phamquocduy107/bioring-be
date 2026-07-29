@@ -1,7 +1,6 @@
 import {
   Controller,
   Get,
-  Query,
   Inject,
   OnModuleInit,
   Optional,
@@ -10,21 +9,14 @@ import type { ClientGrpc } from '@nestjs/microservices';
 import { Observable, lastValueFrom } from 'rxjs';
 import { Permissions, Permission, CurrentUser } from '@app/common';
 import type { JwtPayload } from '@app/common';
-import {
-  ApiGetMyPerformanceDocs,
-  ApiGetMyCurrentTaskDocs,
-} from './jeweler.swagger';
+import { ApiGetMyCurrentDeliveryDocs } from './delivery-staff.swagger';
 
 interface EcommerceGrpcService {
-  getMyPerformance(data: {
-    jewelerId: string;
-    from_date?: string;
-  }): Observable<unknown>;
-  getMyCurrentTask(data: { jewelerId: string }): Observable<unknown>;
+  getMyCurrentDelivery(data: { staffId: string }): Observable<unknown>;
 }
 
-@Controller('api/v1/jewelers')
-export class JewelerController implements OnModuleInit {
+@Controller('api/v1/delivery-staff')
+export class DeliveryStaffController implements OnModuleInit {
   private grpc?: EcommerceGrpcService;
 
   constructor(
@@ -44,27 +36,12 @@ export class JewelerController implements OnModuleInit {
     return lastValueFrom(fn());
   }
 
-  @Get('me/performance')
-  @Permissions(Permission.DashboardView)
-  @ApiGetMyPerformanceDocs()
-  async getMyPerformance(
-    @CurrentUser() user: JwtPayload,
-    @Query('from_date') fromDate?: string,
-  ) {
-    return this.call(() =>
-      this.grpc!.getMyPerformance({
-        jewelerId: user.sub,
-        from_date: fromDate ?? '',
-      }),
-    );
-  }
-
   @Get('me/current-task')
   @Permissions(Permission.OrderRead)
-  @ApiGetMyCurrentTaskDocs()
-  async getMyCurrentTask(@CurrentUser() user: JwtPayload) {
+  @ApiGetMyCurrentDeliveryDocs()
+  async getMyCurrentDelivery(@CurrentUser() user: JwtPayload) {
     return this.call(() =>
-      this.grpc!.getMyCurrentTask({ jewelerId: user.sub }),
+      this.grpc!.getMyCurrentDelivery({ staffId: user.sub }),
     );
   }
 }

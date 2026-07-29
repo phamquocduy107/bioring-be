@@ -23,6 +23,7 @@ async function main() {
     // Order management
     { slug: 'order.read', description: 'View orders' },
     { slug: 'order.write', description: 'Create/Update/Delete orders' },
+    { slug: 'order.assign', description: 'Assign orders to jeweler' },
 
     // Dashboard
     { slug: 'dashboard.view', description: 'View dashboard & reports' },
@@ -73,6 +74,7 @@ async function main() {
         'role.read',
         'order.read',
         'order.write',
+        'order.assign',
         'dashboard.view',
         'catalog.write',
       ],
@@ -94,6 +96,7 @@ async function main() {
         'order.read',
         'product.read',
         'order.write',
+        'order.assign',
         'dashboard.view',
       ],
     },

@@ -346,9 +346,9 @@ export function ApiAssignJewelerDocs() {
   return applyDecorators(
     ApiBearerAuth('access-token'),
     ApiOperation({
-      summary: 'Assign jeweler to order (manager)',
+      summary: 'Assign jeweler to order (manager / jeweler self-claim)',
       description:
-        'Creates a production task and sets order status to IN_PRODUCTION.',
+        'Assigns a PENDING production task to a jeweler. If jewelerId omitted, uses JWT sub (self-claim). Task → IN_PROGRESS, order → IN_PRODUCTION.',
     }),
     ApiResponse({
       status: 201,
@@ -357,11 +357,11 @@ export function ApiAssignJewelerDocs() {
         example: {
           task: {
             id: '550e8400-e29b-41d4-a716-446655440020',
-            orderId: '550e8400-e29b-41d4-a716-446655440001',
-            engravingId: '550e8400-e29b-41d4-a716-446655440003',
-            assignedJewelerId: '550e8400-e29b-41d4-a716-446655440030',
-            assignedJewelerName: 'Nguyễn Văn A',
-            status: 'IN_PROGRESS',
+              orderId: '550e8400-e29b-41d4-a716-446655440001',
+               engravingId: '550e8400-e29b-41d4-a716-446655440003',
+               assignedJewelerId: '',
+               assignedJewelerName: '',
+               status: 'PENDING',
             note: '',
             startedAt: '2026-06-24T10:00:00.000Z',
             completedAt: '',
@@ -414,9 +414,9 @@ export function ApiGetProductionTasksDocs() {
   return applyDecorators(
     ApiBearerAuth('access-token'),
     ApiOperation({
-      summary: 'Get production tasks (manager)',
+      summary: 'Get production tasks',
       description:
-        'Paginated list of production tasks, filterable by status, orderId, jewelerId.',
+        'Paginated list of production tasks. Use ?status=PENDING to find next available job for jeweler self-claim. Filterable by status, orderId, jewelerId.',
     }),
     ApiResponse({
       status: 200,
@@ -741,6 +741,7 @@ export function ApiListDeliveriesDocs() {
     ApiQuery({ name: 'from_date', required: false, example: '2026-07-01' }),
     ApiQuery({ name: 'to_date', required: false, example: '2026-07-14' }),
     ApiQuery({ name: 'search', required: false, example: 'DH001' }),
+    ApiQuery({ name: 'assigned_delivery_staff_id', required: false, example: '550e8400-...' }),
     ApiResponse({
       status: 200,
       description: 'Delivery list',
@@ -818,6 +819,74 @@ export function ApiListPickupsDocs() {
         },
       },
     }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+    ApiResponse({ status: 403, description: 'Forbidden' }),
+  );
+}
+
+export function ApiClaimDeliveryDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'Claim a delivery task',
+      description:
+        'Staff claims a PENDING shipment by assigning themselves. One active delivery at a time.',
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Claimed delivery',
+      schema: {
+        example: {
+          id: 'uuid-ship-1',
+          order_id: 'uuid-order-1',
+          order_code: 'BIORING-ABC123',
+          status: 'PENDING',
+          assigned_delivery_staff_id: 'uuid-staff-1',
+          customer: { name: 'Nguyen Van A', phone: '090...', address: '123...' },
+        },
+      },
+    }),
+    ApiResponse({ status: 400, description: 'Already assigned / already active' }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+    ApiResponse({ status: 403, description: 'Forbidden' }),
+    ApiResponse({ status: 404, description: 'Shipment not found' }),
+  );
+}
+
+export function ApiGenerateDeliveryPaymentLinkDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'Generate PayOS payment link for delivery',
+      description:
+        'Staff generates a PayOS QR payment link for the customer to pay remaining amount.',
+    }),
+    ApiBody({
+      schema: {
+        example: { returnUrl: 'https://bioring.vn/payment/success', cancelUrl: 'https://bioring.vn/payment/cancel' },
+      },
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Payment link generated',
+      schema: {
+        example: {
+          payment: {
+            id: 'uuid-pay-1',
+            orderId: 'uuid-order-1',
+            paymentPhase: 'REMAINING',
+            amount: 1500000,
+            method: 'BANK_TRANSFER',
+            status: 'PENDING',
+            paymentUrl: 'https://pay.payos.vn/checkout/abc123',
+            createdAt: '2026-07-28T10:00:00.000Z',
+          },
+          paymentUrl: 'https://pay.payos.vn/checkout/abc123',
+          qrCode: 'data:image/png;base64,...',
+        },
+      },
+    }),
+    ApiResponse({ status: 400, description: 'No remaining amount' }),
     ApiResponse({ status: 401, description: 'Unauthorized' }),
     ApiResponse({ status: 403, description: 'Forbidden' }),
   );

@@ -15,6 +15,38 @@
 
 ---
 
+## 0. Upload Proof File
+
+> Upload ảnh/video bằng chứng lên MinIO trước, lấy URL để dùng cho `proofImages[]` / `proofVideos[]`.
+
+```http
+POST /api/v1/warranty-claims/upload
+Authorization: Bearer {{customerJwt}}
+Content-Type: multipart/form-data
+
+--boundary
+Content-Disposition: form-data; name="file"; filename="scratch.jpg"
+Content-Type: image/jpeg
+
+(binary data)
+--boundary--
+```
+
+**Expected Response (201):**
+```json
+{
+  "url": "https://minio.bioring.vn/warranty-proofs/uuid.jpg"
+}
+```
+
+**Verify DB:**
+```sql
+-- File được upload lên MinIO bucket, không lưu DB.
+-- Có thể kiểm tra trực tiếp URL trả về.
+```
+
+---
+
 ## 1. Customer: Tạo Warranty Claim
 
 > Customer có tài khoản, tạo yêu cầu bảo hành từ order đã mua.

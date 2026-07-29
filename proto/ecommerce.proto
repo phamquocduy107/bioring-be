@@ -156,6 +156,11 @@ rpc GetProductionTasks (GetProductionTasksRequest) returns (GetProductionTasksRe
   // FE API Gaps — Delivery Listing
   rpc ListDeliveries (ListDeliveriesRequest) returns (ListDeliveriesResponse);
 
+  // FE API Gaps — Delivery Staff
+  rpc ClaimDelivery (ClaimDeliveryRequest) returns (ClaimDeliveryResponse);
+  rpc GetMyCurrentDelivery (GetMyCurrentDeliveryRequest) returns (GetMyCurrentDeliveryResponse);
+  rpc GenerateDeliveryPaymentLink (GenerateDeliveryPaymentLinkRequest) returns (InitiatePaymentResponse);
+
   // Address CRUD (MF-02 / MF-03 customer-facing)
   rpc CreateAddress (CreateAddressRequest) returns (AddressResponse);
   rpc UpdateAddress (UpdateAddressRequest) returns (AddressResponse);
@@ -173,6 +178,9 @@ rpc GetProductionTasks (GetProductionTasksRequest) returns (GetProductionTasksRe
 
   // FE API Gaps — Jeweler Performance
   rpc GetMyPerformance (GetMyPerformanceRequest) returns (GetMyPerformanceResponse);
+
+  // FE API Gaps — Jeweler Current Task
+  rpc GetMyCurrentTask (GetMyCurrentTaskRequest) returns (GetMyCurrentTaskResponse);
 }
 
 // ===== Messages =====
@@ -941,6 +949,8 @@ message ListQrMemoriesRequest {
   string userId = 1;
   int32 page = 2;
   int32 limit = 3;
+  bool hasTheme = 4;
+  string status = 5;
 }
 
 message ListQrMemoriesResponse {
@@ -1676,6 +1686,7 @@ message ListDeliveriesRequest {
   string from_date = 4;
   string to_date = 5;
   string search = 6;
+  string assigned_delivery_staff_id = 7;
 }
 
 message DeliveryRecord {
@@ -1688,6 +1699,7 @@ message DeliveryRecord {
   string status = 7;
   string proof_of_delivery = 8;
   string created_at = 9;
+  double remaining_amount = 10;
 }
 
 message DeliveryCustomer {
@@ -1719,6 +1731,45 @@ message ListDeliveriesResponse {
   DeliveryStats stats = 6;
 }
 
+// === Delivery Staff ===
+message ClaimDeliveryRequest {
+  string orderId = 1;
+  string staffId = 2;
+}
+
+message ClaimDeliveryResponse {
+  string id = 1;
+  string order_id = 2;
+  string order_code = 3;
+  string status = 4;
+  string assigned_delivery_staff_id = 5;
+  DeliveryCustomer customer = 6;
+}
+
+message GetMyCurrentDeliveryRequest {
+  string staffId = 1;
+}
+
+message GetMyCurrentDeliveryResponse {
+  string id = 1;
+  string order_id = 2;
+  string order_code = 3;
+  string status = 4;
+  string tracking_code = 5;
+  DeliveryCustomer customer = 6;
+  string payment_status = 7;
+  double remaining_amount = 8;
+  string assigned_delivery_staff_id = 9;
+  string created_at = 10;
+}
+
+message GenerateDeliveryPaymentLinkRequest {
+  string orderId = 1;
+  string staffId = 2;
+  string returnUrl = 3;
+  string cancelUrl = 4;
+}
+
 // === Production Stats ===
 message ProductionStatsResponse {
   int32 total_jewelers = 1;
@@ -1745,6 +1796,20 @@ message CompletedTask {
   string completed_at = 3;
   string qa_result = 4;
   double duration_hours = 5;
+}
+
+// === Jeweler Current Task ===
+message GetMyCurrentTaskRequest {
+  string jewelerId = 1;
+}
+message GetMyCurrentTaskResponse {
+  string id = 1;
+  string order_id = 2;
+  string order_code = 3;
+  string status = 4;
+  string started_at = 5;
+  string customer_name = 6;
+  string ring_size = 7;
 }
 
 // === Pickups ===

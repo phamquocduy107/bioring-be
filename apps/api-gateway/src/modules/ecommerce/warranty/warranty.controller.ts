@@ -9,10 +9,16 @@ import {
   Query,
   Inject,
   OnModuleInit,
-  Optional,
+  UseInterceptors,
+  UploadedFile,
+  ParseFilePipe,
+  MaxFileSizeValidator,
+  FileTypeValidator,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import type { ClientGrpc } from '@nestjs/microservices';
 import { Observable, lastValueFrom } from 'rxjs';
+import { randomUUID } from 'node:crypto';
 import {
   Public,
   CurrentUser,
@@ -24,7 +30,16 @@ import {
   ReceiveServiceTicketDto,
   CompleteServiceTicketDto,
 } from '@app/common';
+import { MinioService } from '@app/minio';
+import { ConfigService } from '@nestjs/config';
 import type { JwtPayload } from '@app/common';
+import { ApiUploadWarrantyProofDocs } from './warranty.swagger';
+
+interface UploadedFile {
+  originalname: string;
+  mimetype: string;
+  buffer: Buffer;
+}
 
 interface EcommerceGrpcService {
   createWarrantyClaim(data: Record<string, unknown>): Observable<unknown>;
@@ -54,22 +69,21 @@ interface EcommerceGrpcService {
 
 @Controller('api/v1/warranty-claims')
 export class WarrantyController implements OnModuleInit {
-  private grpc?: EcommerceGrpcService;
+  private grpc!: EcommerceGrpcService;
 
   constructor(
-    @Optional()
     @Inject('ECOMMERCE_SERVICE')
-    private readonly client?: ClientGrpc,
+    private readonly client: ClientGrpc,
+    private readonly minioService: MinioService,
+    private readonly configService: ConfigService,
   ) {}
 
   onModuleInit() {
     this.grpc =
-      this.client?.getService<EcommerceGrpcService>('EcommerceService');
+      this.client.getService<EcommerceGrpcService>('EcommerceService');
   }
 
   private async call<T>(fn: () => Observable<T>): Promise<T> {
-    if (!this.grpc)
-      throw new Error('ECOMMERCE_SERVICE gRPC client not initialized');
     return lastValueFrom(fn());
   }
 
@@ -226,5 +240,29 @@ export class WarrantyController implements OnModuleInit {
     return this.call(() =>
       this.grpc!.returnWarrantyClaim({ id, staffId: user.sub }),
     );
+  }
+
+  @Post('upload')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiUploadWarrantyProofDocs()
+  async uploadProof(
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 50 * 1024 * 1024 }),
+          new FileTypeValidator({
+            fileType: /(image\/(jpeg|png|webp)|video\/(mp4|quicktime))$/,
+          }),
+        ],
+      }),
+    )
+    file: UploadedFile,
+  ) {
+    const ext = file.originalname.split('.').pop() ?? 'jpg';
+    const key = `warranty-proofs/${randomUUID()}.${ext}`;
+    await this.minioService.uploadObject(key, file.buffer, file.mimetype);
+    const endpoint = this.configService.get<string>('MINIO_PUBLIC_ENDPOINT', 'http://localhost:9000');
+    const bucket = this.minioService.getDefaultBucket();
+    return { url: `${endpoint}/${bucket}/${key}` };
   }
 }

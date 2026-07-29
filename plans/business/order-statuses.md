@@ -13,7 +13,7 @@
 | 3 | `PENDING_REVIEW` | Đã submit, chờ manager duyệt thiết kế | *Chờ duyệt* — mở tab manager review, khoá config | ✅ |
 | 4 | `REVISION_REQUIRED` | Manager reject, yêu cầu sửa lại thiết kế | *Cần chỉnh sửa* — mở khoá config, cho edit + resubmit | ✅ |
 | 5 | `AWAITING_DEPOSIT` | Manager approve, chờ thanh toán deposit 2 (30%, min 3tr) | *Chờ đặt cọc* — QR PayOS deposit 2 | ❌ |
-| 6 | `DEPOSIT_PAID` | Đã đóng deposit 2, chờ assign jeweler | *Đã đặt cọc* — chờ staff assign jeweler | ❌ |
+| 6 | `DEPOSIT_PAID` | Đã đóng deposit 2, chờ assign jeweler | *Đã đặt cọc* — auto tạo PENDING task, chờ jeweler claim hoặc staff assign | ❌ |
 | 7 | `IN_PRODUCTION` | Đang sản xuất (jeweler làm nhẫn) | *Đang sản xuất* — show tiến độ + estimated completion | ❌ |
 | 8 | `PENDING_QC` | Sản xuất xong, chờ QC kiểm tra | *Chờ kiểm định* — mở tab QC cho manager | ❌ |
 | 9 | `AWAITING_REMAINING` | QC pass nhưng còn nợ số tiền còn lại | *Chờ thanh toán còn lại* — QR PayOS phần remaining | ❌ |

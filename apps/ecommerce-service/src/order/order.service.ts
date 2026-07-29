@@ -496,7 +496,7 @@ export class OrderService implements OnModuleInit {
             selected_gemstone_id: latest.selected_gemstone_id,
             ring_size: latest.ring_size,
             ring_style: latest.ring_style,
-            ring_shape: latest.ring_shape,
+            ring_shape: latest.ring_shape ?? 'ROUND',
             customization_config:
               latest.customization_config as Prisma.InputJsonValue,
             selected_biometrics: latest.selected_biometrics,
@@ -935,6 +935,18 @@ export class OrderService implements OnModuleInit {
           },
         });
       }
+
+      if (newStatus === 'DEPOSIT_PAID') {
+        await this.prisma.production_tasks.create({
+          data: {
+            id: randomUUID(),
+            order_id: order.id,
+            engraving_id: order.engraving_id,
+            task_name: `Ring production - ${order.order_code}`,
+            status: 'PENDING',
+          },
+        });
+      }
     }
 
     return { success: true };
@@ -1067,6 +1079,18 @@ export class OrderService implements OnModuleInit {
 
     if (newStatus === 'DEPOSIT_PAID' || newStatus === 'READY_FOR_DELIVERY') {
       this.eventEmitter.emit('payment.confirmed', { orderId });
+    }
+
+    if (newStatus === 'DEPOSIT_PAID') {
+      await this.prisma.production_tasks.create({
+        data: {
+          id: randomUUID(),
+          order_id: orderId,
+          engraving_id: order.engraving_id,
+          task_name: `Ring production - ${order.order_code}`,
+          status: 'PENDING',
+        },
+      });
     }
 
     return {
@@ -1398,19 +1422,33 @@ export class OrderService implements OnModuleInit {
     const engraving = order.engraving;
     if (!engraving) throw new NotFoundException('No engraving for order');
 
-    const taskId = randomUUID();
-    const task = await this.prisma.production_tasks.create({
-      data: {
-        id: taskId,
-        order_id: orderId,
-        engraving_id: engraving.id,
-        assigned_jeweler_id: jewelerId,
-        task_name: `Ring production - ${order.order_code}`,
-        status: 'IN_PROGRESS',
-        started_at: new Date(),
-      },
-      include: this.taskInclude(),
+    let task = await this.prisma.production_tasks.findFirst({
+      where: { order_id: orderId, status: 'PENDING' },
     });
+    if (!task) {
+      task = await this.prisma.production_tasks.create({
+        data: {
+          id: randomUUID(),
+          order_id: orderId,
+          engraving_id: engraving.id,
+          assigned_jeweler_id: jewelerId,
+          task_name: `Ring production - ${order.order_code}`,
+          status: 'IN_PROGRESS',
+          started_at: new Date(),
+        },
+        include: this.taskInclude(),
+      });
+    } else {
+      task = await this.prisma.production_tasks.update({
+        where: { id: task.id },
+        data: {
+          assigned_jeweler_id: jewelerId,
+          status: 'IN_PROGRESS',
+          started_at: new Date(),
+        },
+        include: this.taskInclude(),
+      });
+    }
 
     await this.prisma.orders.update({
       where: { id: orderId },
@@ -2555,6 +2593,7 @@ export class OrderService implements OnModuleInit {
     from_date?: string;
     to_date?: string;
     search?: string;
+    assigned_delivery_staff_id?: string;
   }) {
     const where: Prisma.shipmentsWhereInput = {};
     if (data.status) where.status = data.status;
@@ -2569,6 +2608,9 @@ export class OrderService implements OnModuleInit {
         { recipient_phone: { contains: data.search } },
         { orders: { order_code: { contains: data.search } } },
       ];
+    }
+    if (data.assigned_delivery_staff_id) {
+      where.assigned_delivery_staff_id = data.assigned_delivery_staff_id;
     }
 
     const [rows, total] = await Promise.all([
@@ -2649,6 +2691,7 @@ export class OrderService implements OnModuleInit {
           : null,
         status: s.status ?? '',
         proof_of_delivery: '',
+        remaining_amount: Number(s.orders?.remaining_amount ?? 0),
         created_at: s.created_at?.toISOString() ?? '',
       })),
       total,
@@ -2728,6 +2771,179 @@ export class OrderService implements OnModuleInit {
         handover_note: r.identity_note ?? '',
         proof_image: r.proof_image_url ?? '',
       })),
+    };
+  }
+
+  async claimDelivery(orderId: string, staffId: string) {
+    const shipment = await this.prisma.shipments.findFirst({
+      where: { order_id: orderId },
+      include: { orders: { select: { order_code: true, status: true } } },
+    });
+    if (!shipment) throw new NotFoundException('No shipment found for this order');
+    if (shipment.status !== 'PENDING') throw new BadRequestException('Shipment is not PENDING');
+    if (shipment.assigned_delivery_staff_id && shipment.assigned_delivery_staff_id !== staffId) {
+      throw new BadRequestException('Shipment already assigned to another staff');
+    }
+
+    const activeCount = await this.prisma.shipments.count({
+      where: { assigned_delivery_staff_id: staffId, status: 'SHIPPING' },
+    });
+    if (activeCount > 0) throw new BadRequestException('You already have an active delivery');
+
+    await this.prisma.shipments.update({
+      where: { id: shipment.id },
+      data: { assigned_delivery_staff_id: staffId },
+    });
+
+    return {
+      id: shipment.id,
+      order_id: orderId,
+      order_code: shipment.orders?.order_code ?? '',
+      status: shipment.status ?? '',
+      assigned_delivery_staff_id: staffId,
+      customer: {
+        name: shipment.recipient_name ?? '',
+        phone: shipment.recipient_phone ?? '',
+        address: shipment.shipping_address_text ?? '',
+      },
+    };
+  }
+
+  async getMyCurrentDelivery(staffId: string) {
+    const shipment = await this.prisma.shipments.findFirst({
+      where: { assigned_delivery_staff_id: staffId, status: { in: ['PENDING', 'SHIPPING'] } },
+      orderBy: { updated_at: 'desc' },
+      include: {
+        orders: {
+          select: { order_code: true, total_price: true, paid_amount: true, remaining_amount: true },
+        },
+      },
+    });
+    if (!shipment) return {};
+
+    const remaining = Number(shipment.orders?.remaining_amount ?? 0);
+    const paid = Number(shipment.orders?.paid_amount ?? 0);
+    const total = Number(shipment.orders?.total_price ?? 0);
+    let paymentStatus = 'cod_pending';
+    if (remaining <= 0) paymentStatus = 'paid';
+    else if (paid >= total) paymentStatus = 'final_pending';
+
+    return {
+      id: shipment.id,
+      order_id: shipment.order_id,
+      order_code: shipment.orders?.order_code ?? '',
+      status: shipment.status ?? '',
+      tracking_code: shipment.tracking_code ?? '',
+      customer: {
+        name: shipment.recipient_name ?? '',
+        phone: shipment.recipient_phone ?? '',
+        address: shipment.shipping_address_text ?? '',
+      },
+      payment_status: paymentStatus,
+      remaining_amount: remaining,
+      assigned_delivery_staff_id: shipment.assigned_delivery_staff_id ?? '',
+      created_at: shipment.created_at?.toISOString() ?? '',
+    };
+  }
+
+  async generateDeliveryPaymentLink(
+    orderId: string,
+    staffId: string,
+    returnUrl: string,
+    cancelUrl: string,
+  ) {
+    const order = await this.prisma.orders.findUnique({ where: { id: orderId } });
+    if (!order) throw new NotFoundException('Order not found');
+
+    const allowedPhases = ['REMAINING', 'FULL'];
+    const paymentPhase = order.guest_customer_id ? 'FULL' : 'REMAINING';
+    if (!allowedPhases.includes(paymentPhase)) {
+      throw new BadRequestException('Cannot generate payment link for this order');
+    }
+
+    let amount = 0;
+    if (paymentPhase === 'FULL') {
+      amount = Number(order.total_price ?? 0);
+      if (amount <= 0) throw new BadRequestException('Invalid total price');
+    } else {
+      amount = Number(order.remaining_amount ?? 0);
+      if (amount <= 0) throw new BadRequestException('No remaining amount to pay');
+    }
+
+    const PAYOS_LINK_TTL_MS = DEFAULT_PAYOS_LINK_TTL_MS;
+    const existing = await this.prisma.payments.findFirst({
+      where: { order_id: orderId, payment_phase: paymentPhase, status: 'PENDING' },
+      orderBy: { created_at: 'desc' },
+    });
+
+    if (existing) {
+      const ageMs = existing.created_at ? Date.now() - existing.created_at.getTime() : Infinity;
+      if (ageMs < PAYOS_LINK_TTL_MS && existing.qr_code && existing.payment_url) {
+        return {
+          payment: {
+            id: existing.id,
+            orderId: existing.order_id ?? '',
+            paymentPhase: existing.payment_phase ?? '',
+            amount: Number(existing.amount),
+            method: existing.method ?? '',
+            status: existing.status ?? '',
+            payosTransactionId: existing.payos_transaction_id ?? '',
+            paymentUrl: existing.payment_url ?? '',
+            paidAt: existing.paid_at?.toISOString() ?? '',
+            createdAt: existing.created_at?.toISOString() ?? '',
+          },
+          paymentUrl: existing.payment_url,
+          qrCode: existing.qr_code,
+        };
+      }
+      if (existing.payos_transaction_id) {
+        try { await this.payOS.cancelPaymentLink(existing.payos_transaction_id); } catch { }
+      }
+      await this.prisma.payments.update({
+        where: { id: existing.id },
+        data: { status: 'CANCELLED' },
+      });
+    }
+
+    const payosOrderCode = Number(`${Date.now()}${Math.floor(Math.random() * 100)}`);
+    const payosResult = await this.payOS.createPaymentLink({
+      orderCode: payosOrderCode,
+      amount,
+      description: `TT ${order.order_code}`,
+      returnUrl: returnUrl || 'https://bioring.vn/payment/success',
+      cancelUrl: cancelUrl || 'https://bioring.vn/payment/cancel',
+    });
+
+    const payment = await this.prisma.payments.create({
+      data: {
+        id: randomUUID(),
+        order_id: orderId,
+        payment_phase: paymentPhase,
+        amount,
+        method: 'BANK_TRANSFER',
+        status: 'PENDING',
+        payos_order_code: payosOrderCode,
+        payment_url: payosResult.paymentUrl,
+        qr_code: payosResult.qrCode ?? null,
+        created_by_id: staffId,
+      },
+    });
+
+    return {
+      payment: {
+        id: payment.id,
+        orderId: payment.order_id ?? '',
+        paymentPhase: payment.payment_phase ?? '',
+        amount: Number(payment.amount),
+        method: payment.method ?? '',
+        status: payment.status ?? '',
+        payosTransactionId: payment.payos_transaction_id ?? '',
+        paymentUrl: payment.payment_url ?? '',
+        paidAt: payment.paid_at?.toISOString() ?? '',
+        createdAt: payment.created_at?.toISOString() ?? '',
+      },
+      paymentUrl: payosResult.paymentUrl,
+      qrCode: payosResult.qrCode ?? '',
     };
   }
 }

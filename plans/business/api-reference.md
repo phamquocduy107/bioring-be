@@ -1799,8 +1799,8 @@ Route prefix: `api/v1/orders`
 ---
 
 ### 42. GET `/api/v1/orders/production-tasks`
-**Auth:** `order.write`
-**Description:** Get production tasks (paginated, filterable)
+**Auth:** `order.read`
+**Description:** Get production tasks (paginated, filterable). Dùng `?status=PENDING` để lấy job kế tiếp cho jeweler self-claim.
 
 | Query | Type | Required |
 |-------|------|----------|
@@ -2248,8 +2248,8 @@ data: { "status": "PAID", "transactionId": "txn_abc123", "orderCode": "172000000
 ---
 
 ### 51. POST `/api/v1/orders/:id/assign-jeweler`
-**Auth:** `order.write`
-**Description:** Assign jeweler to order (manager). Creates production task → IN_PRODUCTION.
+**Auth:** `order.assign`
+**Description:** Assign jeweler to order (manager) or self-claim next job (jeweler). Tìm PENDING task → set IN_PROGRESS + assigned_jeweler_id.
 
 **Param:** `id` (UUID v4)
 
@@ -2259,6 +2259,7 @@ data: { "status": "PAID", "transactionId": "txn_abc123", "orderCode": "172000000
   "jewelerId": "550e8400-e29b-41d4-a716-446655440030"
 }
 ```
+> `jewelerId` optional — nếu thiếu, dùng `user.sub` từ JWT (jeweler tự claim).
 
 **Response:**
 ```json
@@ -2594,16 +2595,17 @@ data: { "status": "PAID", "transactionId": "txn_abc123", "orderCode": "172000000
 
 ### 63. GET `/api/v1/orders/deliveries`
 **Auth:** `order.read`
-**Description:** List deliveries (paginated). Filter by status, date range, search (order_code/tracking_code/phone).
+**Description:** List deliveries (paginated). Filter by status, date range, search (order_code/tracking_code/phone), assigned staff.
 
 | Query | Type | Required | Example |
 |-------|------|----------|---------|
 | page | number | No | 1 |
 | limit | number | No | 20 |
-| status | string | No | in_transit |
+| status | string | No | SHIPPING |
 | from_date | string | No | 2026-07-01 |
 | to_date | string | No | 2026-07-14 |
 | search | string | No | DH001 |
+| assigned_delivery_staff_id | string | No | 550e8400-... |
 
 **Response:**
 ```json
@@ -2619,8 +2621,9 @@ data: { "status": "PAID", "transactionId": "txn_abc123", "orderCode": "172000000
         "customer": { "name": "Nguyen Van A", "phone": "0901234567", "address": "123 Nguyen Hue, Q1, HCM" },
         "payment_status": "paid",
         "delivery_staff": { "id": "550e8400-...", "name": "Tran Van C", "avatar": "", "status": "busy", "current_deliveries": 3 },
-        "status": "in_transit",
+        "status": "SHIPPING",
         "proof_of_delivery": null,
+        "remaining_amount": 1500000,
         "created_at": "2026-07-14T10:00:00.000Z"
       }
     ],
@@ -2670,7 +2673,87 @@ data: { "status": "PAID", "transactionId": "txn_abc123", "orderCode": "172000000
 
 ---
 
-### 65. POST `/api/v1/orders/:id/delivery-preference`
+### 65. POST `/api/v1/orders/:id/delivery/claim`
+**Auth:** `order.write` (DELIVERY_STAFF)
+**Description:** Staff claims a PENDING shipment for delivery. Assigns `assigned_delivery_staff_id` from JWT. One active delivery per staff.
+
+**Param:** `id` (UUID v4) — order ID
+
+**Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Success",
+  "data": {
+    "id": "550e8400-...",
+    "order_id": "550e8400-...",
+    "order_code": "BIORING-ABC123",
+    "status": "PENDING",
+    "assigned_delivery_staff_id": "550e8400-...",
+    "customer": { "name": "Nguyen Van A", "phone": "0901234567", "address": "123 Nguyen Hue, Q1, HCM" }
+  }
+}
+```
+
+**Errors:**
+
+| Precondition | Error | Code |
+|-------------|-------|------|
+| Shipment không tồn tại | No shipment found for this order | 404 |
+| Shipment không ở PENDING | Shipment is not PENDING | 400 |
+| Đã có staff khác claim | Shipment already assigned to another staff | 400 |
+| Staff đã có delivery active | You already have an active delivery | 400 |
+
+---
+
+### 66. POST `/api/v1/orders/:id/delivery/payment-link`
+**Auth:** `order.write` (DELIVERY_STAFF)
+**Description:** Staff generates a PayOS payment link for the customer to pay remaining amount. Returns URL + QR code.
+
+**Param:** `id` (UUID v4) — order ID
+
+**Request:**
+```json
+{
+  "returnUrl": "https://bioring.vn/payment/success",
+  "cancelUrl": "https://bioring.vn/payment/cancel"
+}
+```
+
+**Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Success",
+  "data": {
+    "payment": {
+      "id": "550e8400-...",
+      "orderId": "550e8400-...",
+      "paymentPhase": "REMAINING",
+      "amount": 1500000,
+      "method": "BANK_TRANSFER",
+      "status": "PENDING",
+      "payosTransactionId": null,
+      "paymentUrl": "https://pay.payos.vn/checkout/abc123",
+      "paidAt": null,
+      "createdAt": "2026-07-28T10:00:00.000Z"
+    },
+    "paymentUrl": "https://pay.payos.vn/checkout/abc123",
+    "qrCode": "data:image/png;base64,..."
+  }
+}
+```
+
+**Errors:**
+
+| Precondition | Error | Code |
+|-------------|-------|------|
+| Order không tồn tại | Order not found | 404 |
+| Không còn nợ | No remaining amount to pay | 400 |
+
+---
+
+### 67. POST `/api/v1/orders/:id/delivery-preference`
 **Auth:** JWT (bearer)
 **Description:** Customer selects delivery address + method after deposit (DEPOSIT_PAID). Lưu vào shipments với status = PENDING. Nếu đã có shipment PENDING thì update thay vì tạo mới. Order giữ nguyên AWAITING_REMAINING. Khi PayOS webhook confirm REMAINING: shipment auto-activate + order → READY_FOR_DELIVERY/READY_FOR_PICKUP.
 
@@ -2914,9 +2997,9 @@ Route prefix: `api/v1/qr-memories`
 
 ### 84. GET `/api/v1/qr-memories` (MỚI)
 **Auth:** JWT (bearer)
-**Description:** List memory cards của authenticated user. Join qua `engravings.user_id`.
+**Description:** List memory cards của authenticated user. Join qua `engravings.user_id`. Có thể filter theo `orders.status`.
 
-**Query:** `page` (default 1), `limit` (default 10), `hasTheme` (boolean, optional — `true`: đã chọn theme, `false`: chưa chọn)
+**Query:** `page` (default 1), `limit` (default 10), `hasTheme` (boolean, optional — `true`: đã chọn theme, `false`: chưa chọn), `status` (string, optional — filter theo `orders.status`, VD: `COMPLETED`, `DELIVERED`)
 
 **Response:**
 ```json
@@ -4116,6 +4199,24 @@ Route prefix: `api/v1/warranty-claims`
 
 ---
 
+### 114. POST `/api/v1/warranty-claims/upload`
+**Auth:** JWT (bearer)
+**Description:** Upload warranty proof file (image or video) to MinIO, returns public URL.
+**Content-Type:** `multipart/form-data`
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| file | binary | Yes | Image: jpg/png/webp (max 10MB). Video: mp4/quicktime (max 50MB). |
+
+**Response:**
+```json
+{
+  "url": "https://minio.bioring.vn/warranty-proofs/uuid.jpg"
+}
+```
+
+---
+
 ### 114. GET `/api/v1/warranty-claims`
 **Auth:** JWT (bearer)
 **Description:** Get warranty claims (paginated). Mặc định trả claims của user đang login. Admin/Manager dùng `?view=all` để xem tất cả.
@@ -4271,6 +4372,73 @@ Route prefix: `api/v1/jewelers`
   }
 }
 ```
+
+---
+
+### 113. GET `/api/v1/jewelers/me/current-task`
+**Auth:** `order.read` (jeweler, manager, admin)
+**Description:** Get current jeweler's IN_PROGRESS task (most recently started). Returns empty object `{}` if none.
+
+**Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Success",
+  "data": {
+    "id": "550e8400-...",
+    "order_id": "550e8400-...",
+    "order_code": "BIORING-ABC123",
+    "status": "IN_PROGRESS",
+    "started_at": "2026-07-28T08:00:00.000Z",
+    "customer_name": "Nguyễn Văn A"
+  }
+}
+```
+
+**Errors:**
+
+| Precondition | Error | Code |
+|-------------|-------|------|
+| Token thiếu hoặc hết hạn | Unauthorized | 401 |
+| Không có quyền `order.read` | Forbidden | 403 |
+
+---
+
+## 3.17 Delivery Staff
+
+Controller: `apps/api-gateway/src/modules/ecommerce/delivery-staff/delivery-staff.controller.ts`
+Route prefix: `api/v1/delivery-staff`
+
+### 114. GET `/api/v1/delivery-staff/me/current-task`
+**Auth:** `order.read` (DELIVERY_STAFF)
+**Description:** Returns the active delivery (PENDING or SHIPPING) for the current staff. Empty object `{}` if none.
+
+**Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Success",
+  "data": {
+    "id": "550e8400-...",
+    "order_id": "550e8400-...",
+    "order_code": "BIORING-ABC123",
+    "status": "SHIPPING",
+    "tracking_code": "VNPOST123456",
+    "customer": { "name": "Nguyen Van A", "phone": "0901234567", "address": "123 Nguyen Hue, Q1, HCM" },
+    "payment_status": "cod_pending",
+    "remaining_amount": 1500000,
+    "assigned_delivery_staff_id": "550e8400-...",
+    "created_at": "2026-07-28T10:00:00.000Z"
+  }
+}
+```
+
+**Errors:**
+
+| Precondition | Error | Code |
+|-------------|-------|------|
+| Token thiếu hoặc hết hạn | Unauthorized | 401 |
+| Không có quyền `order.read` | Forbidden | 403 |
 
 ---
 
