@@ -173,6 +173,9 @@ rpc GetProductionTasks (GetProductionTasksRequest) returns (GetProductionTasksRe
 
   // FE API Gaps — Jeweler Performance
   rpc GetMyPerformance (GetMyPerformanceRequest) returns (GetMyPerformanceResponse);
+
+  // FE API Gaps — Jeweler Current Task
+  rpc GetMyCurrentTask (GetMyCurrentTaskRequest) returns (GetMyCurrentTaskResponse);
 }
 
 // ===== Messages =====
@@ -1746,6 +1749,20 @@ message CompletedTask {
   string completed_at = 3;
   string qa_result = 4;
   double duration_hours = 5;
+}
+
+// === Jeweler Current Task ===
+message GetMyCurrentTaskRequest {
+  string jewelerId = 1;
+}
+message GetMyCurrentTaskResponse {
+  string id = 1;
+  string order_id = 2;
+  string order_code = 3;
+  string status = 4;
+  string started_at = 5;
+  string customer_name = 6;
+  string ring_size = 7;
 }
 
 // === Pickups ===

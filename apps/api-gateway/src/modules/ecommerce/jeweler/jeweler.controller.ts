@@ -10,13 +10,17 @@ import type { ClientGrpc } from '@nestjs/microservices';
 import { Observable, lastValueFrom } from 'rxjs';
 import { Permissions, Permission, CurrentUser } from '@app/common';
 import type { JwtPayload } from '@app/common';
-import { ApiGetMyPerformanceDocs } from './jeweler.swagger';
+import {
+  ApiGetMyPerformanceDocs,
+  ApiGetMyCurrentTaskDocs,
+} from './jeweler.swagger';
 
 interface EcommerceGrpcService {
   getMyPerformance(data: {
     jewelerId: string;
     from_date?: string;
   }): Observable<unknown>;
+  getMyCurrentTask(data: { jewelerId: string }): Observable<unknown>;
 }
 
 @Controller('api/v1/jewelers')
@@ -52,6 +56,15 @@ export class JewelerController implements OnModuleInit {
         jewelerId: user.sub,
         from_date: fromDate ?? '',
       }),
+    );
+  }
+
+  @Get('me/current-task')
+  @Permissions(Permission.OrderRead)
+  @ApiGetMyCurrentTaskDocs()
+  async getMyCurrentTask(@CurrentUser() user: JwtPayload) {
+    return this.call(() =>
+      this.grpc!.getMyCurrentTask({ jewelerId: user.sub }),
     );
   }
 }

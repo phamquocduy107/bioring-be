@@ -1799,8 +1799,8 @@ Route prefix: `api/v1/orders`
 ---
 
 ### 42. GET `/api/v1/orders/production-tasks`
-**Auth:** `order.write`
-**Description:** Get production tasks (paginated, filterable)
+**Auth:** `order.read`
+**Description:** Get production tasks (paginated, filterable). Dùng `?status=PENDING` để lấy job kế tiếp cho jeweler self-claim.
 
 | Query | Type | Required |
 |-------|------|----------|
@@ -2248,8 +2248,8 @@ data: { "status": "PAID", "transactionId": "txn_abc123", "orderCode": "172000000
 ---
 
 ### 51. POST `/api/v1/orders/:id/assign-jeweler`
-**Auth:** `order.write`
-**Description:** Assign jeweler to order (manager). Creates production task → IN_PRODUCTION.
+**Auth:** `order.assign`
+**Description:** Assign jeweler to order (manager) or self-claim next job (jeweler). Tìm PENDING task → set IN_PROGRESS + assigned_jeweler_id.
 
 **Param:** `id` (UUID v4)
 
@@ -2259,6 +2259,7 @@ data: { "status": "PAID", "transactionId": "txn_abc123", "orderCode": "172000000
   "jewelerId": "550e8400-e29b-41d4-a716-446655440030"
 }
 ```
+> `jewelerId` optional — nếu thiếu, dùng `user.sub` từ JWT (jeweler tự claim).
 
 **Response:**
 ```json
@@ -4271,6 +4272,35 @@ Route prefix: `api/v1/jewelers`
   }
 }
 ```
+
+---
+
+### 113. GET `/api/v1/jewelers/me/current-task`
+**Auth:** `order.read` (jeweler, manager, admin)
+**Description:** Get current jeweler's IN_PROGRESS task (most recently started). Returns empty object `{}` if none.
+
+**Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Success",
+  "data": {
+    "id": "550e8400-...",
+    "order_id": "550e8400-...",
+    "order_code": "BIORING-ABC123",
+    "status": "IN_PROGRESS",
+    "started_at": "2026-07-28T08:00:00.000Z",
+    "customer_name": "Nguyễn Văn A"
+  }
+}
+```
+
+**Errors:**
+
+| Precondition | Error | Code |
+|-------------|-------|------|
+| Token thiếu hoặc hết hạn | Unauthorized | 401 |
+| Không có quyền `order.read` | Forbidden | 403 |
 
 ---
 

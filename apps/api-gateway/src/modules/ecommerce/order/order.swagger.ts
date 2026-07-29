@@ -346,9 +346,9 @@ export function ApiAssignJewelerDocs() {
   return applyDecorators(
     ApiBearerAuth('access-token'),
     ApiOperation({
-      summary: 'Assign jeweler to order (manager)',
+      summary: 'Assign jeweler to order (manager / jeweler self-claim)',
       description:
-        'Creates a production task and sets order status to IN_PRODUCTION.',
+        'Assigns a PENDING production task to a jeweler. If jewelerId omitted, uses JWT sub (self-claim). Task → IN_PROGRESS, order → IN_PRODUCTION.',
     }),
     ApiResponse({
       status: 201,
@@ -357,11 +357,11 @@ export function ApiAssignJewelerDocs() {
         example: {
           task: {
             id: '550e8400-e29b-41d4-a716-446655440020',
-            orderId: '550e8400-e29b-41d4-a716-446655440001',
-            engravingId: '550e8400-e29b-41d4-a716-446655440003',
-            assignedJewelerId: '550e8400-e29b-41d4-a716-446655440030',
-            assignedJewelerName: 'Nguyễn Văn A',
-            status: 'IN_PROGRESS',
+              orderId: '550e8400-e29b-41d4-a716-446655440001',
+               engravingId: '550e8400-e29b-41d4-a716-446655440003',
+               assignedJewelerId: '',
+               assignedJewelerName: '',
+               status: 'PENDING',
             note: '',
             startedAt: '2026-06-24T10:00:00.000Z',
             completedAt: '',
@@ -414,9 +414,9 @@ export function ApiGetProductionTasksDocs() {
   return applyDecorators(
     ApiBearerAuth('access-token'),
     ApiOperation({
-      summary: 'Get production tasks (manager)',
+      summary: 'Get production tasks',
       description:
-        'Paginated list of production tasks, filterable by status, orderId, jewelerId.',
+        'Paginated list of production tasks. Use ?status=PENDING to find next available job for jeweler self-claim. Filterable by status, orderId, jewelerId.',
     }),
     ApiResponse({
       status: 200,

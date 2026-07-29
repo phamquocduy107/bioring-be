@@ -162,6 +162,7 @@ export class GuestService {
         id: randomUUID(),
         engraving_id: engraving.id,
         version_number: 1,
+        ring_shape: 'ROUND',
         status: 'PENDING',
         ...(data.selectedMaterialId ? { selected_material_id: data.selectedMaterialId } : {}),
         ...(data.selectedGemstoneId ? { selected_gemstone_id: data.selectedGemstoneId } : {}),

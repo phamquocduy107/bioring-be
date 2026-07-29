@@ -15,6 +15,7 @@ export enum Permission {
   // Order management
   OrderRead = 'order.read',
   OrderWrite = 'order.write',
+  OrderAssign = 'order.assign',
 
   // Dashboard / Reports
   DashboardView = 'dashboard.view',

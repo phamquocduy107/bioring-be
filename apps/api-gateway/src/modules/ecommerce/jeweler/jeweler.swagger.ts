@@ -6,6 +6,33 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 
+export function ApiGetMyCurrentTaskDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'Get my current production task',
+      description:
+        'Returns the single IN_PROGRESS task for the current jeweler (most recently started). Empty object if none.',
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Current task or empty',
+      schema: {
+        example: {
+          id: 'uuid-1',
+          order_id: 'uuid-2',
+          order_code: 'BIORING-ABC123',
+          status: 'IN_PROGRESS',
+          started_at: '2026-07-28T08:00:00.000Z',
+          customer_name: 'Nguyen Van A',
+        },
+      },
+    }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+    ApiResponse({ status: 403, description: 'Forbidden' }),
+  );
+}
+
 export function ApiGetMyPerformanceDocs() {
   return applyDecorators(
     ApiBearerAuth('access-token'),

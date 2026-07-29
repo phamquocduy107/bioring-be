@@ -427,7 +427,7 @@ export class OrderController implements OnModuleInit {
   }
 
   @Get('production-tasks')
-  @Permissions(Permission.OrderWrite)
+  @Permissions(Permission.OrderRead)
   @ApiGetProductionTasksDocs()
   getProductionTasks(@Query() query: GetProductionTasksQueryDto) {
     return this.grpcCall('getProductionTasks', {
@@ -635,14 +635,16 @@ export class OrderController implements OnModuleInit {
   }
 
   @Post(':id/assign-jeweler')
-  @Permissions(Permission.OrderWrite)
+  @Permissions(Permission.OrderAssign)
   @ApiAssignJewelerDocs()
   assignJeweler(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @Body() body: AssignJewelerDto,
+    @CurrentUser() user: JwtPayload,
   ) {
+    const jewelerId = body.jewelerId ?? user.sub;
     return this.call(() =>
-      this.grpc!.assignJeweler({ orderId: id, jewelerId: body.jewelerId }),
+      this.grpc!.assignJeweler({ orderId: id, jewelerId }),
     );
   }
 

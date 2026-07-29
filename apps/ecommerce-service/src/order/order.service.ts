@@ -496,7 +496,7 @@ export class OrderService implements OnModuleInit {
             selected_gemstone_id: latest.selected_gemstone_id,
             ring_size: latest.ring_size,
             ring_style: latest.ring_style,
-            ring_shape: latest.ring_shape,
+            ring_shape: latest.ring_shape ?? 'ROUND',
             customization_config:
               latest.customization_config as Prisma.InputJsonValue,
             selected_biometrics: latest.selected_biometrics,
@@ -935,6 +935,18 @@ export class OrderService implements OnModuleInit {
           },
         });
       }
+
+      if (newStatus === 'DEPOSIT_PAID') {
+        await this.prisma.production_tasks.create({
+          data: {
+            id: randomUUID(),
+            order_id: order.id,
+            engraving_id: order.engraving_id,
+            task_name: `Ring production - ${order.order_code}`,
+            status: 'PENDING',
+          },
+        });
+      }
     }
 
     return { success: true };
@@ -1067,6 +1079,18 @@ export class OrderService implements OnModuleInit {
 
     if (newStatus === 'DEPOSIT_PAID' || newStatus === 'READY_FOR_DELIVERY') {
       this.eventEmitter.emit('payment.confirmed', { orderId });
+    }
+
+    if (newStatus === 'DEPOSIT_PAID') {
+      await this.prisma.production_tasks.create({
+        data: {
+          id: randomUUID(),
+          order_id: orderId,
+          engraving_id: order.engraving_id,
+          task_name: `Ring production - ${order.order_code}`,
+          status: 'PENDING',
+        },
+      });
     }
 
     return {
@@ -1398,19 +1422,33 @@ export class OrderService implements OnModuleInit {
     const engraving = order.engraving;
     if (!engraving) throw new NotFoundException('No engraving for order');
 
-    const taskId = randomUUID();
-    const task = await this.prisma.production_tasks.create({
-      data: {
-        id: taskId,
-        order_id: orderId,
-        engraving_id: engraving.id,
-        assigned_jeweler_id: jewelerId,
-        task_name: `Ring production - ${order.order_code}`,
-        status: 'IN_PROGRESS',
-        started_at: new Date(),
-      },
-      include: this.taskInclude(),
+    let task = await this.prisma.production_tasks.findFirst({
+      where: { order_id: orderId, status: 'PENDING' },
     });
+    if (!task) {
+      task = await this.prisma.production_tasks.create({
+        data: {
+          id: randomUUID(),
+          order_id: orderId,
+          engraving_id: engraving.id,
+          assigned_jeweler_id: jewelerId,
+          task_name: `Ring production - ${order.order_code}`,
+          status: 'IN_PROGRESS',
+          started_at: new Date(),
+        },
+        include: this.taskInclude(),
+      });
+    } else {
+      task = await this.prisma.production_tasks.update({
+        where: { id: task.id },
+        data: {
+          assigned_jeweler_id: jewelerId,
+          status: 'IN_PROGRESS',
+          started_at: new Date(),
+        },
+        include: this.taskInclude(),
+      });
+    }
 
     await this.prisma.orders.update({
       where: { id: orderId },
