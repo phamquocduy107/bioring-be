@@ -313,7 +313,31 @@ Personalization chạy độc lập, không cần Qdrant/RabbitMQ.
 
 ---
 
-## 11. Tích hợp NestJS (roadmap)
+## 11. Docker / Arcane deploy
+
+Một image dùng chung cho 3 process. Compose + `.env` kiểu Arcane nằm ở [`deploy/`](deploy/).
+
+```bash
+# Build
+docker build -t kietmn/bioring-python:latest -f python-services/Dockerfile python-services
+
+# Push (nếu dùng Docker Hub)
+docker push kietmn/bioring-python:latest
+```
+
+Trên Arcane: tạo project → paste `deploy/compose.yaml` + `deploy/.env.example` (đổi thành `.env`, sửa IP/key). Chi tiết: [`deploy/README.md`](deploy/README.md).
+
+| Container | Port | Command |
+|-----------|------|---------|
+| `rag-engine` | 8000 | `uvicorn rag_engine.main:app` |
+| `personalization-engine` | 8010 | `uvicorn personalization_engine.main:app` |
+| `ingestion-worker` | — | `python -m ingestion_worker.rabbitmq_worker` |
+
+Image đã có sẵn **FFmpeg** + **Potrace**. Qdrant / MinIO / RabbitMQ trỏ remote qua `.env`.
+
+---
+
+## 12. Tích hợp NestJS (roadmap)
 
 ```text
 FE → api-gateway → rag-service        → rag_engine :8000
@@ -332,7 +356,7 @@ Hiện prototype có thể gọi Python trực tiếp để test, chưa bắt bu
 
 ---
 
-## 12. Troubleshooting
+## 13. Troubleshooting
 
 | Vấn đề | Cách xử lý |
 |--------|------------|
@@ -346,7 +370,7 @@ Hiện prototype có thể gọi Python trực tiếp để test, chưa bắt bu
 
 ---
 
-## 13. TODO / hướng phát triển
+## 14. TODO / hướng phát triển
 
 - [ ] NestJS `biometric-service` proxy sang `personalization_engine`
 - [ ] Upload artifacts personalization lên MinIO

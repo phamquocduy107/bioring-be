@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -43,7 +43,10 @@ class FingerprintMetadata(BaseModel):
     )
     erodeSize: int = Field(
         ...,
-        description="Mặt nạ vùng vân chính. Cao → cắt mép ngoài; thấp (8–12) giữ đường viền.",
+        description=(
+            "Mặt nạ vùng vân chính. 0 = tắt erode; thấp (2–6) giữ mép; "
+            "cao dễ cắt rìa / mất nét mỏng."
+        ),
     )
     applyMorphology: bool = Field(
         ...,
@@ -176,6 +179,20 @@ class CleanupReviewResponse(BaseModel):
     localTmpDeleted: bool = True
 
 
+class PurgeArtifactRequest(BaseModel):
+    reason: str = "permanent_delete"
+
+
+class PurgeArtifactResponse(BaseModel):
+    artifactId: str
+    type: str
+    deletedObjects: int
+    deletedReviewObjects: int
+    deletedApprovedObjects: int
+    reason: str
+    localTmpDeleted: bool = True
+
+
 class ApprovedViewerAssetsResponse(BaseModel):
     artifactId: str
     type: str = "fingerprint"
@@ -186,6 +203,19 @@ class ApprovedViewerAssetsResponse(BaseModel):
     # Soundwave only — raw upload + engraved clip for memory-card playback
     audioOriginal: Optional[str] = None
     audioSegment: Optional[str] = None
+
+
+class ApprovedAssetsResponse(BaseModel):
+    """Full final APPROVED bundle (viewer + production + source)."""
+
+    artifactId: str
+    type: str = "fingerprint"
+    status: str
+    stage: str = "approved"
+    approvedFiles: ApprovedFilesBundle
+    placement: Optional[PlacementTransform] = None
+    manifestUrl: Optional[str] = None
+    debugFiles: Optional[DebugFiles] = None
 
 
 class FingerprintTextureFiles(BaseModel):
@@ -362,6 +392,19 @@ class SoundwavePublishApprovedResponse(BaseModel):
     manifestUrl: str
 
 
+class SoundwaveApprovedAssetsResponse(BaseModel):
+    """Full final APPROVED soundwave bundle."""
+
+    artifactId: str
+    type: str = "soundwave"
+    status: str
+    stage: str = "approved"
+    approvedFiles: SoundwaveApprovedFilesBundle
+    placement: Optional[PlacementTransform] = None
+    manifestUrl: Optional[str] = None
+    debugFiles: Optional[SoundwaveDebugFiles] = None
+
+
 class SoundwaveTuneOptions(BaseModel):
     """
     Body cho POST /soundwave/{id}/reprocess.
@@ -429,14 +472,19 @@ class SoundwaveTuneOptions(BaseModel):
 
 
 class ErrorResponse(BaseModel):
+    """Nest-compatible error envelope."""
+
+    statusCode: int
     message: str
-    detail: Optional[str] = None
+    data: Optional[Any] = None
+    timestamp: Optional[str] = None
+    path: Optional[str] = None
 
 
 DESC_MIN_AREA = (
-    "Lọc connected-component nhỏ (px). "
+    "Lọc connected-component nhỏ (px). 0 = không lọc. "
     "↑ cao: ít nhiễu nhưng mất đoạn vân mỏng → SVG đứt. "
-    "Gợi ý giữ đường: 10–20."
+    "Gợi ý giữ đường: 5–15."
 )
 DESC_ADAPTIVE_C = (
     "Hằng số adaptive threshold. "
@@ -445,8 +493,8 @@ DESC_ADAPTIVE_C = (
 )
 DESC_ERODE = (
     "Kích thước erode khi giữ vùng vân chính. "
-    "↑ cao: cắt mép ngoài. "
-    "Gợi ý giữ đường: 8–12."
+    "0 = tắt erode (chỉ lấy blob lớn sau close). "
+    "↑ cao: cắt mép ngoài / dễ còn đốm. Gợi ý: 0–6."
 )
 DESC_MORPH = (
     "Bật morphology open/close. "
@@ -482,11 +530,11 @@ class FingerprintTuneOptions(BaseModel):
         default=None,
         description="Preset gợi ý cho reprocess. Xem GET /fingerprint/presets.",
     )
-    minArea: Optional[int] = Field(default=None, ge=1, description=DESC_MIN_AREA)
+    minArea: Optional[int] = Field(default=None, ge=0, description=DESC_MIN_AREA)
     adaptiveC: Optional[int] = Field(
         default=None, ge=-20, le=40, description=DESC_ADAPTIVE_C
     )
-    erodeSize: Optional[int] = Field(default=None, ge=1, le=64, description=DESC_ERODE)
+    erodeSize: Optional[int] = Field(default=None, ge=0, le=64, description=DESC_ERODE)
     applyMorphology: Optional[bool] = Field(default=None, description=DESC_MORPH)
     turdsize: Optional[int] = Field(default=None, ge=0, le=100, description=DESC_TURD)
     opttolerance: Optional[float] = Field(
@@ -531,3 +579,14 @@ class HeartbeatStoreResponse(BaseModel):
     stage: str = "approved"
     approvedFiles: HeartbeatApprovedFiles
     manifestUrl: str
+
+
+class HeartbeatApprovedAssetsResponse(BaseModel):
+    """GET /heartbeat/{id}/approved-assets — full APPROVED raw file URLs."""
+
+    artifactId: str
+    type: str = "heartbeat"
+    status: str
+    stage: str = "approved"
+    approvedFiles: HeartbeatApprovedFiles
+    manifestUrl: Optional[str] = None

@@ -25,6 +25,7 @@ from .artifact_groups import (
     STAGE_APPROVED,
     STAGE_REVIEW,
     TYPE_FINGERPRINT,
+    TYPE_HEARTBEAT,
     TYPE_SOUNDWAVE,
 )
 from .config import Settings, settings
@@ -323,6 +324,16 @@ class PersonalizationStorage:
     ) -> int:
         return self.delete_stage_prefix(STAGE_REVIEW, artifact_type, artifact_id)
 
+    def delete_approved_artifact(
+        self,
+        artifact_id: str,
+        *,
+        artifact_type: str = TYPE_FINGERPRINT,
+    ) -> int:
+        return self.delete_stage_prefix(
+            STAGE_APPROVED, artifact_type, artifact_id
+        )
+
     def stage_file_exists(
         self,
         stage: str,
@@ -610,6 +621,25 @@ class PersonalizationStorage:
         # Local fallback (hydrate before MinIO list in some paths)
         artifact_dir = self.build_artifact_dir(artifact_id)
         for path in sorted(artifact_dir.glob("audio_original.*")):
+            if path.is_file():
+                return path.name
+        return None
+
+    def find_source_raw_filename(
+        self,
+        artifact_id: str,
+        *,
+        stage: str = STAGE_APPROVED,
+        artifact_type: str = TYPE_HEARTBEAT,
+    ) -> Optional[str]:
+        """Return `source_raw.<ext>` name if present under stage prefix."""
+        prefix = self.stage_prefix(stage, artifact_type, artifact_id)
+        for key in self._store.list_files(self.bucket, prefix):
+            name = Path(key).name
+            if name.startswith("source_raw."):
+                return name
+        artifact_dir = self.build_artifact_dir(artifact_id)
+        for path in sorted(artifact_dir.glob("source_raw.*")):
             if path.is_file():
                 return path.name
         return None

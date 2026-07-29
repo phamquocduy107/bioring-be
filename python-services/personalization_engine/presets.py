@@ -47,8 +47,9 @@ REPROCESS_PARAMETER_GUIDE: Dict[str, str] = {
         "Tăng lên làm vân mảnh/sạch hơn nhưng dễ đứt."
     ),
     "erodeSize": (
-        "Kích thước erode để giữ vùng vân chính. Tăng lên sẽ loại vùng ngoài mạnh hơn "
-        "nhưng dễ cắt mất mép. Giảm xuống sẽ giữ mép nhiều hơn."
+        "Kích thước erode để giữ vùng vân chính. 0 = tắt erode. "
+        "Tăng lên sẽ loại vùng ngoài mạnh hơn nhưng dễ cắt mất mép / còn đốm. "
+        "Giảm xuống sẽ giữ mép nhiều hơn."
     ),
     "applyMorphology": (
         "Bật open/close morphology. true giúp sạch nhiễu nhưng dễ làm đứt nét mỏng. "
@@ -72,7 +73,7 @@ REPROCESS_PRESETS: List[PresetDefinition] = [
         "options": {
             "minArea": 15,
             "adaptiveC": 4,
-            "erodeSize": 10,
+            "erodeSize": 4,
             "applyMorphology": False,
             "turdsize": 3,
             "opttolerance": 0.06,
@@ -80,7 +81,7 @@ REPROCESS_PRESETS: List[PresetDefinition] = [
         "explanation": {
             "minArea": "Lọc nhiễu nhỏ vừa phải, vẫn giữ được nét mảnh.",
             "adaptiveC": "Giữ độ dày vân ở mức cân bằng.",
-            "erodeSize": "Giữ vùng vân chính, không cắt mép quá mạnh.",
+            "erodeSize": "Erode nhẹ để giữ ROI chính, không phá nét mỏng.",
             "applyMorphology": "Tắt để tránh làm đứt nét mỏng.",
             "turdsize": "Potrace giữ tương đối nhiều path nhỏ.",
             "opttolerance": "Giữ chi tiết SVG ở mức tốt.",
@@ -93,7 +94,7 @@ REPROCESS_PRESETS: List[PresetDefinition] = [
         "options": {
             "minArea": 5,
             "adaptiveC": 3,
-            "erodeSize": 6,
+            "erodeSize": 2,
             "applyMorphology": False,
             "turdsize": 1,
             "opttolerance": 0.03,
@@ -101,7 +102,7 @@ REPROCESS_PRESETS: List[PresetDefinition] = [
         "explanation": {
             "minArea": "Giảm mạnh để không xóa các nét vân nhỏ.",
             "adaptiveC": "Giảm để vân dày và liền hơn.",
-            "erodeSize": "Giảm để ít cắt mép vùng vân.",
+            "erodeSize": "Erode rất nhẹ để giữ hầu hết mép vân.",
             "applyMorphology": "Tắt để tránh làm đứt nét mỏng.",
             "turdsize": "Giảm để SVG giữ nhiều path nhỏ.",
             "opttolerance": "Giảm để giữ nhiều chi tiết vector hơn.",
@@ -114,7 +115,7 @@ REPROCESS_PRESETS: List[PresetDefinition] = [
         "options": {
             "minArea": 25,
             "adaptiveC": 5,
-            "erodeSize": 12,
+            "erodeSize": 6,
             "applyMorphology": True,
             "turdsize": 5,
             "opttolerance": 0.08,
@@ -122,7 +123,7 @@ REPROCESS_PRESETS: List[PresetDefinition] = [
         "explanation": {
             "minArea": "Tăng để xóa nhiều blob nhỏ hơn.",
             "adaptiveC": "Tăng nhẹ để vân sạch và mảnh hơn.",
-            "erodeSize": "Tăng để tập trung vùng vân chính.",
+            "erodeSize": "Tăng vừa phải để tập trung vùng vân chính.",
             "applyMorphology": "Bật để lọc nhiễu mạnh hơn.",
             "turdsize": "Tăng để bỏ path SVG nhỏ/rác.",
             "opttolerance": "Tăng nhẹ để SVG mượt và nhẹ hơn.",
@@ -135,7 +136,7 @@ REPROCESS_PRESETS: List[PresetDefinition] = [
         "options": {
             "minArea": 10,
             "adaptiveC": 3,
-            "erodeSize": 8,
+            "erodeSize": 3,
             "applyMorphology": False,
             "turdsize": 2,
             "opttolerance": 0.04,
@@ -143,7 +144,7 @@ REPROCESS_PRESETS: List[PresetDefinition] = [
         "explanation": {
             "minArea": "Giữ nét nhỏ tốt hơn standard.",
             "adaptiveC": "Giảm để đường vân dày và liền hơn.",
-            "erodeSize": "Giảm nhẹ để ít cắt vùng rìa.",
+            "erodeSize": "Giảm để ít cắt vùng rìa.",
             "applyMorphology": "Tắt để không làm mỏng/đứt nét.",
             "turdsize": "Giữ nhiều path nhỏ hơn standard.",
             "opttolerance": "Giữ chi tiết SVG nhiều hơn standard.",
@@ -156,7 +157,7 @@ REPROCESS_PRESETS: List[PresetDefinition] = [
         "options": {
             "minArea": 10,
             "adaptiveC": 4,
-            "erodeSize": 4,
+            "erodeSize": 0,
             "applyMorphology": False,
             "turdsize": 2,
             "opttolerance": 0.05,
@@ -164,7 +165,7 @@ REPROCESS_PRESETS: List[PresetDefinition] = [
         "explanation": {
             "minArea": "Giữ nhiều chi tiết nhỏ ở vùng rìa.",
             "adaptiveC": "Giữ threshold cân bằng.",
-            "erodeSize": "Giảm mạnh để không cắt mất mép ngoài fingerprint.",
+            "erodeSize": "Tắt erode để không cắt mất mép ngoài fingerprint.",
             "applyMorphology": "Tắt để tránh mất nét mỏng vùng rìa.",
             "turdsize": "Giữ nhiều path nhỏ ở vùng rìa.",
             "opttolerance": "Giữ chi tiết vector vừa đủ.",
