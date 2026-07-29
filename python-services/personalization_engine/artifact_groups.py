@@ -26,6 +26,19 @@ ARTIFACT_ID_PREFIX = {
     TYPE_HEARTBEAT: "hb",
 }
 
+PREFIX_TO_ARTIFACT_TYPE = {
+    prefix: artifact_type
+    for artifact_type, prefix in ARTIFACT_ID_PREFIX.items()
+}
+
+
+def resolve_artifact_type_from_id(artifact_id: str) -> str | None:
+    """Infer artifact type from id prefix (`fp_…` / `sw_…` / `hb_…`)."""
+    if not artifact_id or "_" not in artifact_id:
+        return None
+    prefix = artifact_id.split("_", 1)[0].lower()
+    return PREFIX_TO_ARTIFACT_TYPE.get(prefix)
+
 # --- Fingerprint ---
 
 FINGERPRINT_VIEWER_FILES = [

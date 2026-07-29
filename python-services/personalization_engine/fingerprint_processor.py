@@ -31,7 +31,7 @@ class ProcessOptions:
     min_area: int = 15
     output_svg: bool = True
     padding: int = 24
-    erode_size: int = 10
+    erode_size: int = 4
     # Adaptive threshold (odd block size)
     adaptive_block_size: int = 31
     adaptive_c: int = 4
@@ -110,24 +110,57 @@ def remove_thin_noise_by_morphology(binary_img: np.ndarray) -> np.ndarray:
 
 
 def keep_fingerprint_main_region(
-    binary_img: np.ndarray, erode_size: int = 18
+    binary_img: np.ndarray, erode_size: int = 10
 ) -> np.ndarray:
-    """Keep the largest blob (main fingerprint) and mask out the rest."""
-    inv = cv2.bitwise_not(binary_img)
-    k = max(3, erode_size | 1)
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
-    eroded = cv2.erode(inv, kernel, iterations=1)
+    """Keep the main fingerprint region; mask out distant noise blobs.
 
-    num, labels, stats, _ = cv2.connectedComponentsWithStats(eroded, connectivity=8)
+    ``erode_size <= 0`` skips erode (largest component of closed ridges only).
+    Soft close → optional light erode → largest blob → dilate mask. If the
+    kept ridge area collapses (< ~25% of cleaned), fall back to ``binary_img``.
+    """
+    inv = cv2.bitwise_not(binary_img)
+    ridge_area = int(cv2.countNonZero(inv))
+    if ridge_area == 0:
+        return binary_img
+
+    # Connect thin ridges into one ROI before selecting the largest blob.
+    close_size = _odd_at_least(max(3, min(erode_size if erode_size > 0 else 5, 9)), 3)
+    kernel_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (close_size, close_size))
+    connected = cv2.morphologyEx(inv, cv2.MORPH_CLOSE, kernel_close, iterations=1)
+
+    seed = connected
+    erode_k = 0
+    if erode_size > 0:
+        # Cap kernel so thin ridges are not wiped to a speck.
+        erode_k = _odd_at_least(min(int(erode_size), 11), 1)
+        if erode_k >= 3:
+            kernel_erode = cv2.getStructuringElement(
+                cv2.MORPH_ELLIPSE, (erode_k, erode_k)
+            )
+            eroded = cv2.erode(connected, kernel_erode, iterations=1)
+            eroded_area = int(cv2.countNonZero(eroded))
+            if eroded_area >= max(80, int(ridge_area * 0.03)):
+                seed = eroded
+
+    num, labels, stats, _ = cv2.connectedComponentsWithStats(seed, connectivity=8)
     if num <= 1:
         return binary_img
 
     largest = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
     mask = np.zeros_like(inv)
     mask[labels == largest] = 255
-    mask = cv2.dilate(mask, kernel, iterations=2)
+
+    dilate_k = _odd_at_least(max(erode_k if erode_k > 0 else close_size, 5) + 2, 3)
+    kernel_dilate = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (dilate_k, dilate_k))
+    dilate_iters = 2 if erode_size > 0 else 1
+    mask = cv2.dilate(mask, kernel_dilate, iterations=dilate_iters)
 
     kept = cv2.bitwise_and(inv, mask)
+    kept_area = int(cv2.countNonZero(kept))
+    # Erode too aggressive → speck; keep cleaned ridges instead.
+    if kept_area < max(100, int(ridge_area * 0.25)):
+        return binary_img
+
     return cv2.bitwise_not(kept)
 
 

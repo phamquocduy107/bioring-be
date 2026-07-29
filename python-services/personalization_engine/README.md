@@ -8,7 +8,7 @@ NestJS (biometric-service) gọi HTTP tới engine này. **PostgreSQL / NestJS**
 Staff upload  →  process / reprocess  →  MinIO REVIEW
 NestJS approve →  publish-approved    →  MinIO APPROVED (giữ REVIEW)
 NestJS DB ok   →  cleanup-review      →  xóa REVIEW + local .tmp
-Mobile         →  approved-viewer-assets (chỉ APPROVED)
+Mobile         →  approved-assets (APPROVED full)
 ```
 
 Swagger: [http://localhost:8010/docs](http://localhost:8010/docs)
@@ -121,7 +121,7 @@ Chi tiết knobs OpenCV / texture / Potrace: xem `python-services/.env.example`.
 |----|---------|
 | Staff | `process`, `reprocess`, `reprocess-texture`, presets — chỉ **REVIEW** |
 | NestJS | `publish-approved` → copy REVIEW → APPROVED; rồi `cleanup-review` sau DB ok |
-| Mobile / memory card | `approved-viewer-assets` — chỉ **APPROVED** (+ audio soundwave) |
+| Mobile / memory card | `approved-assets` — **APPROVED** full (viewer + production + source) |
 
 ### Approve tách 2 bước
 
@@ -142,7 +142,7 @@ POST /fingerprint/{id}/reprocess          # JSON: preset + overrides
 POST /fingerprint/{id}/reprocess-texture  # TexturePresetRequest (shared)
 GET  /fingerprint/{id}/textures           # lấy map REVIEW
 POST /fingerprint/{id}/publish-approved
-GET  /fingerprint/{id}/approved-viewer-assets
+GET  /fingerprint/{id}/approved-assets
 POST /fingerprint/{id}/cleanup-review
 ```
 
@@ -204,7 +204,7 @@ POST /soundwave/process                   # multipart: file + segmentStartMs + s
 POST /soundwave/{id}/reprocess            # JSON: preset / style / overrides
 POST /soundwave/{id}/reprocess-texture
 POST /soundwave/{id}/publish-approved     # luôn copy audio_original.* + audio_segment.wav
-GET  /soundwave/{id}/approved-viewer-assets  # maps + audioOriginal + audioSegment
+GET  /soundwave/{id}/approved-assets  # viewer + production + source (+ audio)
 POST /soundwave/{id}/cleanup-review
 ```
 
@@ -249,7 +249,7 @@ REVIEW / APPROVED response có:
 
 - `productionFiles.audioOriginal`
 - `productionFiles.audioSegment`
-- `GET …/approved-viewer-assets` → fields `audioOriginal`, `audioSegment`
+- `GET …/approved-assets` → `approvedFiles.productionFiles.audioOriginal` / `audioSegment`
 
 ### FFmpeg
 
@@ -296,15 +296,20 @@ Body `TexturePresetRequest`: `preset` + optional overrides (`heightmapBlur`, `no
 | POST | `/fingerprint/{id}/reprocess-texture` | Fingerprint |
 | GET | `/fingerprint/{id}/textures` | Fingerprint |
 | POST | `/fingerprint/{id}/publish-approved` | Fingerprint |
-| GET | `/fingerprint/{id}/approved-viewer-assets` | Fingerprint |
+| GET | `/fingerprint/{id}/approved-assets` | Fingerprint (full final) |
 | POST | `/fingerprint/{id}/cleanup-review` | Fingerprint |
+| DELETE | `/fingerprint/{id}` | Fingerprint (purge) |
 | GET | `/soundwave/presets` | Soundwave |
 | POST | `/soundwave/process` | Soundwave |
 | POST | `/soundwave/{id}/reprocess` | Soundwave |
 | POST | `/soundwave/{id}/reprocess-texture` | Soundwave |
 | POST | `/soundwave/{id}/publish-approved` | Soundwave |
-| GET | `/soundwave/{id}/approved-viewer-assets` | Soundwave |
+| GET | `/soundwave/{id}/approved-assets` | Soundwave (full final) |
 | POST | `/soundwave/{id}/cleanup-review` | Soundwave |
+| DELETE | `/soundwave/{id}` | Soundwave (purge) |
 | POST | `/heartbeat/store` | Heartbeat (raw → MinIO APPROVED) |
+| GET | `/heartbeat/{id}/approved-assets` | Heartbeat (full final) |
+| DELETE | `/heartbeat/{id}` | Heartbeat (purge) |
+| DELETE | `/artifacts/{id}` | Auto type từ prefix fp_/sw_/hb_ |
 
 Chi tiết schema / request body: **Swagger UI** tại `/docs`.

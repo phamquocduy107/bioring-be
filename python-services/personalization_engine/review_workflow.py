@@ -274,6 +274,46 @@ def cleanup_review(
     }
 
 
+def purge_artifact(
+    storage: PersonalizationStorage,
+    artifact_id: str,
+    *,
+    artifact_type: str = TYPE_FINGERPRINT,
+    reason: str = "permanent_delete",
+) -> dict[str, Any]:
+    """Permanently delete REVIEW + APPROVED MinIO prefixes and local .tmp."""
+    deleted_review = storage.delete_review_artifact(
+        artifact_id, artifact_type=artifact_type
+    )
+    deleted_approved = storage.delete_approved_artifact(
+        artifact_id, artifact_type=artifact_type
+    )
+    local_tmp_deleted = storage.cleanup_local_artifact(artifact_id)
+    deleted_total = deleted_review + deleted_approved
+
+    if deleted_total == 0 and not local_tmp_deleted:
+        raise FileNotFoundError(
+            f"No MinIO/local objects found for {artifact_type}/{artifact_id}"
+        )
+
+    logger.info(
+        "purge-artifact type=%s artifact=%s reason=%s review=%d approved=%d localTmp=%s",
+        artifact_type,
+        artifact_id,
+        reason,
+        deleted_review,
+        deleted_approved,
+        local_tmp_deleted,
+    )
+    return {
+        "deletedObjects": deleted_total,
+        "deletedReviewObjects": deleted_review,
+        "deletedApprovedObjects": deleted_approved,
+        "reason": reason,
+        "localTmpDeleted": local_tmp_deleted,
+    }
+
+
 def save_placement(
     storage: PersonalizationStorage,
     artifact_id: str,

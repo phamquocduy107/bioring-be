@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from shared.nest_log import setup_logging
 
+from .response_envelope import register_nest_response_layer
 from .artifact_groups import (
     STAGE_APPROVED,
     SUPPORTED_ARTIFACT_TYPES,
@@ -19,6 +20,7 @@ from .artifact_groups import (
     TYPE_FINGERPRINT,
     TYPE_HEARTBEAT,
     TYPE_SOUNDWAVE,
+    resolve_artifact_type_from_id,
 )
 from .config import settings
 from .fingerprint_processor import (
@@ -43,13 +45,14 @@ from .review_workflow import (
     cleanup_review,
     finalize_process_to_review,
     publish_approved,
+    purge_artifact,
     reprocess_to_review,
     textures_to_review,
 )
 from .schemas import (
     AppliedTextureOptions,
+    ApprovedAssetsResponse,
     ApprovedFilesBundle,
-    ApprovedViewerAssetsResponse,
     CleanupReviewRequest,
     CleanupReviewResponse,
     DebugFiles,
@@ -64,6 +67,7 @@ from .schemas import (
     FingerprintTextureResponse,
     FingerprintTuneOptions,
     HealthResponse,
+    HeartbeatApprovedAssetsResponse,
     HeartbeatApprovedFiles,
     HeartbeatStoreResponse,
     PlacementTransform,
@@ -71,8 +75,10 @@ from .schemas import (
     ProductionFiles,
     PublishApprovedRequest,
     PublishApprovedResponse,
+    PurgeArtifactResponse,
     ReviewFilesBundle,
     SharedTexturePresetsResponse,
+    SoundwaveApprovedAssetsResponse,
     SoundwaveApprovedFilesBundle,
     SoundwaveDebugFiles,
     SoundwaveProductionFiles,
@@ -152,7 +158,8 @@ PostgreSQL / NestJS owns status, user, order, role. This service does **not**.
 | 2 Tune | `POST …/reprocess` \\| `reprocess-texture` | overwrite REVIEW only |
 | 3 Approve | `POST …/publish-approved` | copy REVIEW → APPROVED |
 | 4 Cleanup | `POST …/cleanup-review` | delete REVIEW (after NestJS DB ok) |
-| 5 Mobile | `GET …/approved-viewer-assets` | APPROVED URLs only |
+| 5 Final | `GET …/approved-assets` | APPROVED viewer+production+source |
+| 6 Purge | `DELETE …/{id}` | xóa vĩnh viễn REVIEW+APPROVED |
 
 ---
 
@@ -164,7 +171,8 @@ PostgreSQL / NestJS owns status, user, order, role. This service does **not**.
 | 2 Tune | `POST …/reprocess` (+ presets) \\| `reprocess-texture` | overwrite REVIEW only |
 | 3 Approve | `POST …/publish-approved` | copy REVIEW → APPROVED |
 | 4 Cleanup | `POST …/cleanup-review` | delete REVIEW (after NestJS DB ok) |
-| 5 Mobile | `GET …/approved-viewer-assets` | APPROVED URLs only |
+| 5 Final | `GET …/approved-assets` | APPROVED viewer+production+source |
+| 6 Purge | `DELETE …/{id}` | xóa vĩnh viễn REVIEW+APPROVED |
 
 ## Local tmp (.work) — fingerprint & soundwave giống nhau
 
@@ -207,7 +215,7 @@ OPENAPI_TAGS = [
             "Staff fingerprint pipeline. "
             "Process/reprocess/reprocess-texture → **REVIEW** only. "
             "publish-approved → **APPROVED**. "
-            "Mobile chỉ dùng approved-viewer-assets. "
+            "`GET …/approved-assets` lấy full final; `DELETE /{id}` xóa vĩnh viễn. "
             "Local xử lý trong `.tmp/…/.work/`, không phải storage chính."
         ),
     },
@@ -219,8 +227,21 @@ OPENAPI_TAGS = [
             "`GET /soundwave/presets`. "
             "Compressed audio cần FFmpeg (system binary, không pip). "
             "publish-approved → **APPROVED**. "
-            "Mobile dùng approved-viewer-assets. "
+            "`GET …/approved-assets` lấy full final; `DELETE /{id}` xóa vĩnh viễn. "
             "Local xử lý trong `.tmp/…/.work/`, giống fingerprint."
+        ),
+    },
+    {
+        "name": "Heartbeat",
+        "description": (
+            "Store raw heartbeat file thẳng vào APPROVED. "
+            "GET approved-assets / DELETE purge theo artifactId."
+        ),
+    },
+    {
+        "name": "Artifacts",
+        "description": (
+            "Generic purge theo artifactId (`fp_` / `sw_` / `hb_` prefix)."
         ),
     },
 ]
@@ -239,6 +260,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+register_nest_response_layer(app)
 
 
 def _default_options() -> ProcessOptions:
@@ -353,10 +375,13 @@ def _merge_options(**kwargs: Any) -> ProcessOptions:
 
 
 def _validate_options(opts: ProcessOptions) -> None:
-    if opts.min_area < 1:
-        raise HTTPException(status_code=400, detail="minArea must be >= 1.")
-    if opts.erode_size < 1:
-        raise HTTPException(status_code=400, detail="erodeSize must be >= 1.")
+    if opts.min_area < 0:
+        raise HTTPException(status_code=400, detail="minArea must be >= 0.")
+    if opts.erode_size < 0:
+        raise HTTPException(
+            status_code=400,
+            detail="erodeSize must be >= 0 (0 = skip erode / keep full cleaned ROI).",
+        )
     if opts.turdsize < 0:
         raise HTTPException(status_code=400, detail="turdsize must be >= 0.")
 
@@ -514,6 +539,158 @@ def _load_placement_from_manifest(artifact_id: str) -> Optional[PlacementTransfo
         return PlacementTransform(**raw)
     except Exception:
         return None
+
+
+def _manifest_approved_url(artifact_id: str, *, artifact_type: str) -> str:
+    return personalization_storage.build_public_url(
+        personalization_storage.build_approved_object_key(
+            artifact_id,
+            "artifact_manifest.json",
+            artifact_type=artifact_type,
+        )
+    )
+
+
+def _approved_status(
+    artifact_id: str,
+    *,
+    artifact_type: str,
+    manifest: Optional[dict[str, Any]] = None,
+) -> str:
+    if manifest is None:
+        try:
+            manifest = personalization_storage.load_approved_manifest(
+                artifact_id, artifact_type=artifact_type
+            )
+        except Exception:
+            manifest = {}
+    status = (manifest or {}).get("status")
+    if status in {"ASSET_APPROVED", "PLACEMENT_CONFIRMED"}:
+        return str(status)
+    if personalization_storage.approved_file_exists(
+        artifact_id, "placement.json", artifact_type=artifact_type
+    ):
+        return "PLACEMENT_CONFIRMED"
+    return "ASSET_APPROVED"
+
+
+def _require_fingerprint_approved(artifact_id: str) -> None:
+    has_manifest = personalization_storage.approved_file_exists(
+        artifact_id, "artifact_manifest.json", artifact_type=TYPE_FINGERPRINT
+    )
+    required = [
+        "fingerprint_overlay.png",
+        "fingerprint_alpha.png",
+        "fingerprint_heightmap.png",
+        "fingerprint_normal.png",
+        "fingerprint_roughness.png",
+        "fingerprint_ao.png",
+        "fingerprint.svg",
+    ]
+    has_files = all(
+        personalization_storage.approved_file_exists(
+            artifact_id, name, artifact_type=TYPE_FINGERPRINT
+        )
+        for name in required
+    )
+    if not has_manifest and not has_files:
+        raise HTTPException(status_code=404, detail="Approved assets not found.")
+
+
+def _require_soundwave_approved(artifact_id: str) -> None:
+    required = [
+        "soundwave_overlay.png",
+        "soundwave_alpha.png",
+        "soundwave_heightmap.png",
+        "soundwave_normal.png",
+        "soundwave_roughness.png",
+        "soundwave_ao.png",
+        "soundwave.svg",
+    ]
+    has_files = all(
+        personalization_storage.approved_file_exists(
+            artifact_id, name, artifact_type=TYPE_SOUNDWAVE
+        )
+        for name in required
+    )
+    if not has_files:
+        raise HTTPException(status_code=404, detail="Approved assets not found.")
+
+
+def _fingerprint_approved_debug_files(
+    artifact_id: str,
+) -> Optional[DebugFiles]:
+    input_exists = personalization_storage.approved_file_exists(
+        artifact_id, "input.png", artifact_type=TYPE_FINGERPRINT
+    )
+    clean_exists = personalization_storage.approved_file_exists(
+        artifact_id, "06_final_clean.png", artifact_type=TYPE_FINGERPRINT
+    )
+    if not input_exists and not clean_exists:
+        return None
+
+    def url(filename: str) -> str:
+        return personalization_storage.build_public_url(
+            personalization_storage.build_approved_object_key(
+                artifact_id, filename, artifact_type=TYPE_FINGERPRINT
+            )
+        )
+
+    return DebugFiles(
+        inputPng=url("input.png") if input_exists else "",
+        finalCleanPng=url("06_final_clean.png") if clean_exists else "",
+    )
+
+
+def _soundwave_approved_debug_files(
+    artifact_id: str,
+) -> Optional[SoundwaveDebugFiles]:
+    preview_exists = personalization_storage.approved_file_exists(
+        artifact_id, "soundwave_preview.png", artifact_type=TYPE_SOUNDWAVE
+    )
+    segment_exists = personalization_storage.approved_file_exists(
+        artifact_id, "audio_segment.wav", artifact_type=TYPE_SOUNDWAVE
+    )
+    if not preview_exists and not segment_exists:
+        return None
+
+    def url(filename: str) -> str:
+        return personalization_storage.build_public_url(
+            personalization_storage.build_approved_object_key(
+                artifact_id, filename, artifact_type=TYPE_SOUNDWAVE
+            )
+        )
+
+    return SoundwaveDebugFiles(
+        previewPng=url("soundwave_preview.png") if preview_exists else None,
+        segmentWav=url("audio_segment.wav") if segment_exists else None,
+    )
+
+
+def _purge_artifact_response(
+    artifact_id: str,
+    *,
+    artifact_type: str,
+    reason: str,
+) -> PurgeArtifactResponse:
+    try:
+        result = purge_artifact(
+            personalization_storage,
+            artifact_id,
+            artifact_type=artifact_type,
+            reason=reason,
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return PurgeArtifactResponse(
+        artifactId=artifact_id,
+        type=artifact_type,
+        deletedObjects=result["deletedObjects"],
+        deletedReviewObjects=result["deletedReviewObjects"],
+        deletedApprovedObjects=result["deletedApprovedObjects"],
+        reason=result["reason"],
+        localTmpDeleted=bool(result.get("localTmpDeleted", True)),
+    )
 
 
 @app.get(
@@ -986,75 +1163,6 @@ async def publish_fingerprint_approved(
     )
 
 
-@app.get(
-    "/fingerprint/{artifact_id}/approved-viewer-assets",
-    response_model=ApprovedViewerAssetsResponse,
-    responses={404: {"model": ErrorResponse}},
-    tags=["Fingerprint"],
-    summary="Mobile: APPROVED viewer URLs only",
-    description=(
-        "Chỉ đọc `personalization/approved/fingerprint/{id}/`. "
-        "Không trả review URL / debugFiles. 404 nếu chưa publish-approved."
-    ),
-)
-async def get_approved_viewer_assets(
-    artifact_id: str,
-) -> ApprovedViewerAssetsResponse:
-    has_manifest = personalization_storage.approved_file_exists(
-        artifact_id, "artifact_manifest.json", artifact_type=TYPE_FINGERPRINT
-    )
-    required = [
-        "fingerprint_overlay.png",
-        "fingerprint_alpha.png",
-        "fingerprint_heightmap.png",
-        "fingerprint_normal.png",
-        "fingerprint_roughness.png",
-        "fingerprint_ao.png",
-    ]
-    has_files = all(
-        personalization_storage.approved_file_exists(
-            artifact_id, name, artifact_type=TYPE_FINGERPRINT
-        )
-        for name in required
-    )
-
-    if not has_manifest and not has_files:
-        raise HTTPException(
-            status_code=404,
-            detail="Approved assets not found.",
-        )
-
-    manifest = personalization_storage.load_approved_manifest(
-        artifact_id, artifact_type=TYPE_FINGERPRINT
-    )
-    status = manifest.get("status")
-    if status not in {"ASSET_APPROVED", "PLACEMENT_CONFIRMED"}:
-        status = (
-            "PLACEMENT_CONFIRMED"
-            if personalization_storage.approved_file_exists(
-                artifact_id, "placement.json", artifact_type=TYPE_FINGERPRINT
-            )
-            else "ASSET_APPROVED"
-        )
-
-    placement_raw = personalization_storage.load_approved_placement(
-        artifact_id, artifact_type=TYPE_FINGERPRINT
-    )
-    placement = placement_from_raw(placement_raw or default_placement_dict())
-
-    viewer = personalization_storage.build_approved_viewer_response(
-        artifact_id, artifact_type=TYPE_FINGERPRINT
-    )
-    return ApprovedViewerAssetsResponse(
-        artifactId=artifact_id,
-        type=TYPE_FINGERPRINT,
-        status=status,
-        stage="approved",
-        viewerFiles=ViewerFiles(**viewer["viewerFiles"]),
-        placement=placement,
-    )
-
-
 @app.post(
     "/fingerprint/{artifact_id}/cleanup-review",
     response_model=CleanupReviewResponse,
@@ -1088,6 +1196,76 @@ async def cleanup_fingerprint_review(
         deletedObjects=result["deletedObjects"],
         reason=result["reason"],
         localTmpDeleted=bool(result.get("localTmpDeleted", True)),
+    )
+
+
+@app.get(
+    "/fingerprint/{artifact_id}/approved-assets",
+    response_model=ApprovedAssetsResponse,
+    responses={404: {"model": ErrorResponse}},
+    tags=["Fingerprint"],
+    summary="Lấy toàn bộ thành phần APPROVED cuối cùng",
+    description=(
+        "Trả `approvedFiles` đầy đủ: viewerFiles + productionFiles (SVG) + sourceFiles. "
+        "Kèm placement + manifestUrl. "
+        "`debugFiles` chỉ có nếu lúc publish có `copyDebugFiles=true`."
+    ),
+)
+async def get_fingerprint_approved_assets(
+    artifact_id: str,
+) -> ApprovedAssetsResponse:
+    _require_fingerprint_approved(artifact_id)
+    try:
+        manifest = personalization_storage.load_approved_manifest(
+            artifact_id, artifact_type=TYPE_FINGERPRINT
+        )
+    except Exception:
+        manifest = {}
+    status = _approved_status(
+        artifact_id, artifact_type=TYPE_FINGERPRINT, manifest=manifest
+    )
+    placement_raw = personalization_storage.load_approved_placement(
+        artifact_id, artifact_type=TYPE_FINGERPRINT
+    )
+    placement = placement_from_raw(placement_raw or default_placement_dict())
+    approved = personalization_storage.build_approved_viewer_response(
+        artifact_id, artifact_type=TYPE_FINGERPRINT
+    )
+    return ApprovedAssetsResponse(
+        artifactId=artifact_id,
+        type=TYPE_FINGERPRINT,
+        status=status,
+        stage="approved",
+        approvedFiles=ApprovedFilesBundle(
+            viewerFiles=ViewerFiles(**approved["viewerFiles"]),
+            productionFiles=ProductionFiles(**approved["productionFiles"]),
+            sourceFiles=SourceFiles(**approved["sourceFiles"]),
+        ),
+        placement=placement,
+        manifestUrl=_manifest_approved_url(
+            artifact_id, artifact_type=TYPE_FINGERPRINT
+        ),
+        debugFiles=_fingerprint_approved_debug_files(artifact_id),
+    )
+
+
+@app.delete(
+    "/fingerprint/{artifact_id}",
+    response_model=PurgeArtifactResponse,
+    responses={404: {"model": ErrorResponse}},
+    tags=["Fingerprint"],
+    summary="Xóa vĩnh viễn artifact (REVIEW + APPROVED)",
+    description=(
+        "Xóa toàn bộ MinIO `review/fingerprint/{id}/` + `approved/fingerprint/{id}/` "
+        "và local `.tmp/personalization/{id}/`. Không thể hoàn tác."
+    ),
+)
+async def purge_fingerprint_artifact(
+    artifact_id: str,
+    reason: str = "permanent_delete",
+) -> PurgeArtifactResponse:
+    return _purge_artifact_response(
+        artifact_id, artifact_type=TYPE_FINGERPRINT, reason=reason
     )
 
 
@@ -1383,61 +1561,6 @@ async def publish_soundwave(
     )
 
 
-@app.get(
-    "/soundwave/{artifact_id}/approved-viewer-assets",
-    response_model=ApprovedViewerAssetsResponse,
-    responses={404: {"model": ErrorResponse}},
-    tags=["Soundwave"],
-    summary="Mobile: APPROVED viewer URLs + audio playback",
-    description=(
-        "Chỉ đọc `personalization/approved/soundwave/{id}/`. "
-        "Trả viewer maps + `audioOriginal` (raw upload) + `audioSegment` (clip ≤3s) "
-        "để nghe trên memory card. Không trả REVIEW/debug."
-    ),
-)
-async def get_soundwave_approved_viewer_assets(
-    artifact_id: str,
-) -> ApprovedViewerAssetsResponse:
-    required = [
-        "soundwave_overlay.png",
-        "soundwave_alpha.png",
-        "soundwave_heightmap.png",
-        "soundwave_normal.png",
-        "soundwave_roughness.png",
-        "soundwave_ao.png",
-    ]
-    has_files = all(
-        personalization_storage.approved_file_exists(
-            artifact_id, name, artifact_type=TYPE_SOUNDWAVE
-        )
-        for name in required
-    )
-    if not has_files:
-        raise HTTPException(status_code=404, detail="Approved assets not found.")
-
-    manifest = personalization_storage.load_approved_manifest(
-        artifact_id, artifact_type=TYPE_SOUNDWAVE
-    )
-    status = manifest.get("status") or "ASSET_APPROVED"
-    placement_raw = personalization_storage.load_approved_placement(
-        artifact_id, artifact_type=TYPE_SOUNDWAVE
-    )
-    placement = placement_from_raw(placement_raw or default_placement_dict())
-    viewer = personalization_storage.build_approved_viewer_response(
-        artifact_id, artifact_type=TYPE_SOUNDWAVE
-    )
-    return ApprovedViewerAssetsResponse(
-        artifactId=artifact_id,
-        type=TYPE_SOUNDWAVE,
-        status=status,
-        stage="approved",
-        viewerFiles=ViewerFiles(**viewer["viewerFiles"]),
-        placement=placement,
-        audioOriginal=viewer.get("audioOriginal"),
-        audioSegment=viewer.get("audioSegment"),
-    )
-
-
 @app.post(
     "/soundwave/{artifact_id}/cleanup-review",
     response_model=CleanupReviewResponse,
@@ -1468,6 +1591,76 @@ async def cleanup_soundwave_review(
         deletedObjects=result["deletedObjects"],
         reason=result["reason"],
         localTmpDeleted=bool(result.get("localTmpDeleted", True)),
+    )
+
+
+@app.get(
+    "/soundwave/{artifact_id}/approved-assets",
+    response_model=SoundwaveApprovedAssetsResponse,
+    responses={404: {"model": ErrorResponse}},
+    tags=["Soundwave"],
+    summary="Lấy toàn bộ thành phần APPROVED cuối cùng",
+    description=(
+        "Trả `approvedFiles` đầy đủ: viewerFiles + productionFiles "
+        "(svg, waveformPoints, audioOriginal, audioSegment) + sourceFiles. "
+        "Kèm placement + manifestUrl."
+    ),
+)
+async def get_soundwave_approved_assets(
+    artifact_id: str,
+) -> SoundwaveApprovedAssetsResponse:
+    _require_soundwave_approved(artifact_id)
+    try:
+        manifest = personalization_storage.load_approved_manifest(
+            artifact_id, artifact_type=TYPE_SOUNDWAVE
+        )
+    except Exception:
+        manifest = {}
+    status = _approved_status(
+        artifact_id, artifact_type=TYPE_SOUNDWAVE, manifest=manifest
+    )
+    placement_raw = personalization_storage.load_approved_placement(
+        artifact_id, artifact_type=TYPE_SOUNDWAVE
+    )
+    placement = placement_from_raw(placement_raw or default_placement_dict())
+    approved = personalization_storage.build_approved_viewer_response(
+        artifact_id, artifact_type=TYPE_SOUNDWAVE
+    )
+    return SoundwaveApprovedAssetsResponse(
+        artifactId=artifact_id,
+        type=TYPE_SOUNDWAVE,
+        status=status,
+        stage="approved",
+        approvedFiles=SoundwaveApprovedFilesBundle(
+            viewerFiles=ViewerFiles(**approved["viewerFiles"]),
+            productionFiles=SoundwaveProductionFiles(**approved["productionFiles"]),
+            sourceFiles=SoundwaveSourceFiles(**approved["sourceFiles"]),
+        ),
+        placement=placement,
+        manifestUrl=_manifest_approved_url(
+            artifact_id, artifact_type=TYPE_SOUNDWAVE
+        ),
+        debugFiles=_soundwave_approved_debug_files(artifact_id),
+    )
+
+
+@app.delete(
+    "/soundwave/{artifact_id}",
+    response_model=PurgeArtifactResponse,
+    responses={404: {"model": ErrorResponse}},
+    tags=["Soundwave"],
+    summary="Xóa vĩnh viễn artifact (REVIEW + APPROVED)",
+    description=(
+        "Xóa toàn bộ MinIO `review/soundwave/{id}/` + `approved/soundwave/{id}/` "
+        "và local `.tmp/personalization/{id}/`. Không thể hoàn tác."
+    ),
+)
+async def purge_soundwave_artifact(
+    artifact_id: str,
+    reason: str = "permanent_delete",
+) -> PurgeArtifactResponse:
+    return _purge_artifact_response(
+        artifact_id, artifact_type=TYPE_SOUNDWAVE, reason=reason
     )
 
 
@@ -1546,6 +1739,102 @@ async def store_heartbeat(
             sourceFiles=SourceFiles(raw=raw_url),
         ),
         manifestUrl=manifest["url"],
+    )
+
+
+@app.get(
+    "/heartbeat/{artifact_id}/approved-assets",
+    response_model=HeartbeatApprovedAssetsResponse,
+    responses={404: {"model": ErrorResponse}},
+    tags=["Heartbeat"],
+    summary="Lấy thành phần APPROVED cuối cùng (heartbeat)",
+    description=(
+        "Trả `approvedFiles.sourceFiles.raw` (+ productionFiles.svg cùng URL). "
+        "404 nếu chưa store."
+    ),
+)
+async def get_heartbeat_approved_assets(
+    artifact_id: str,
+) -> HeartbeatApprovedAssetsResponse:
+    raw_name = personalization_storage.find_source_raw_filename(
+        artifact_id, stage=STAGE_APPROVED, artifact_type=TYPE_HEARTBEAT
+    )
+    if not raw_name:
+        raise HTTPException(status_code=404, detail="Approved assets not found.")
+    raw_url = personalization_storage.build_public_url(
+        personalization_storage.build_approved_object_key(
+            artifact_id, raw_name, artifact_type=TYPE_HEARTBEAT
+        )
+    )
+    try:
+        manifest = personalization_storage.load_approved_manifest(
+            artifact_id, artifact_type=TYPE_HEARTBEAT
+        )
+    except Exception:
+        manifest = {}
+    status = _approved_status(
+        artifact_id, artifact_type=TYPE_HEARTBEAT, manifest=manifest
+    )
+    return HeartbeatApprovedAssetsResponse(
+        artifactId=artifact_id,
+        type=TYPE_HEARTBEAT,
+        status=status,
+        stage="approved",
+        approvedFiles=HeartbeatApprovedFiles(
+            productionFiles=ProductionFiles(svg=raw_url),
+            sourceFiles=SourceFiles(raw=raw_url),
+        ),
+        manifestUrl=_manifest_approved_url(
+            artifact_id, artifact_type=TYPE_HEARTBEAT
+        ),
+    )
+
+
+@app.delete(
+    "/heartbeat/{artifact_id}",
+    response_model=PurgeArtifactResponse,
+    responses={404: {"model": ErrorResponse}},
+    tags=["Heartbeat"],
+    summary="Xóa vĩnh viễn heartbeat artifact",
+    description=(
+        "Xóa MinIO `approved/heartbeat/{id}/` (+ review nếu có) và local tmp."
+    ),
+)
+async def purge_heartbeat_artifact(
+    artifact_id: str,
+    reason: str = "permanent_delete",
+) -> PurgeArtifactResponse:
+    return _purge_artifact_response(
+        artifact_id, artifact_type=TYPE_HEARTBEAT, reason=reason
+    )
+
+
+@app.delete(
+    "/artifacts/{artifact_id}",
+    response_model=PurgeArtifactResponse,
+    responses={400: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
+    tags=["Artifacts"],
+    summary="Xóa vĩnh viễn theo artifactId (auto type)",
+    description=(
+        "Suy ra type từ prefix: `fp_` → fingerprint, `sw_` → soundwave, "
+        "`hb_` → heartbeat. Xóa REVIEW + APPROVED + local tmp."
+    ),
+)
+async def purge_artifact_by_id(
+    artifact_id: str,
+    reason: str = "permanent_delete",
+) -> PurgeArtifactResponse:
+    artifact_type = resolve_artifact_type_from_id(artifact_id)
+    if not artifact_type or artifact_type not in SUPPORTED_ARTIFACT_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Cannot infer artifact type from id. "
+                "Expected prefix fp_ / sw_ / hb_."
+            ),
+        )
+    return _purge_artifact_response(
+        artifact_id, artifact_type=artifact_type, reason=reason
     )
 
 
