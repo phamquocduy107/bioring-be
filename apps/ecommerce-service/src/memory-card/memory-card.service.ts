@@ -103,8 +103,14 @@ export class MemoryCardService {
     page: number,
     limit: number,
     hasTheme?: boolean,
+    status?: string,
   ) {
-    const where: Record<string, unknown> = { engravings: { user_id: userId } };
+    const where: any = {
+      engravings: {
+        user_id: userId,
+        ...(status ? { order: { status } } : {}),
+      },
+    };
     if (hasTheme === true) where.theme_id = { not: null };
     if (hasTheme === false) where.theme_id = null;
     const [qrMemories, total] = await Promise.all([

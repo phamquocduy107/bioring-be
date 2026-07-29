@@ -63,6 +63,7 @@ export function ApiListQrMemoriesDocs() {
     ApiQuery({ name: 'page', type: 'number', required: false, example: 1 }),
     ApiQuery({ name: 'limit', type: 'number', required: false, example: 10 }),
     ApiQuery({ name: 'hasTheme', type: 'boolean', required: false, description: 'Filter by theme selection: true=has theme, false=no theme' }),
+    ApiQuery({ name: 'status', type: 'string', required: false, example: 'COMPLETED', description: 'Filter by order status (e.g. COMPLETED, DELIVERED). Omit to return all.' }),
     ApiOkResponse({ type: QrMemoryListResponse }),
   );
 }

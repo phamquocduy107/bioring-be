@@ -154,6 +154,7 @@ export class MemoryCardController implements OnModuleInit {
     @CurrentUser() user: JwtPayload,
     @Query() query: PaginationDto,
     @Query('hasTheme') hasTheme?: string,
+    @Query('status') status?: string,
   ) {
     return this.call(() =>
       this.grpc!.listQrMemories({
@@ -161,6 +162,7 @@ export class MemoryCardController implements OnModuleInit {
         page: query.page ?? 1,
         limit: query.limit ?? 10,
         ...(hasTheme !== undefined && { hasTheme: hasTheme === 'true' }),
+        ...(status && { status }),
       }),
     );
   }

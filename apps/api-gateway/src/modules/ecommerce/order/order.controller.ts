@@ -45,6 +45,8 @@ import {
   OrderLookupDto,
   ListDeliveriesQueryDto,
   DeliveryPreferenceDto,
+  ClaimDeliveryDto,
+  GeneratePaymentLinkDto,
 } from '@app/common';
 import type { JwtPayload } from '@app/common';
 import {
@@ -71,6 +73,8 @@ import {
   ApiGetProductionInfoDocs,
   ApiLookupOrderDocs,
   ApiConfirmPickupDocs,
+  ApiClaimDeliveryDocs,
+  ApiGenerateDeliveryPaymentLinkDocs,
 } from './order.swagger';
 
 interface EngravingBioMetricResponse {
@@ -361,6 +365,17 @@ interface EcommerceGrpcService {
     status?: string;
     search?: string;
   }): Observable<unknown>;
+  claimDelivery(data: {
+    orderId: string;
+    staffId: string;
+  }): Observable<unknown>;
+  getMyCurrentDelivery(data: { staffId: string }): Observable<unknown>;
+  generateDeliveryPaymentLink(data: {
+    orderId: string;
+    staffId: string;
+    returnUrl: string;
+    cancelUrl: string;
+  }): Observable<unknown>;
 }
 
 @Controller('api/v1/orders')
@@ -459,6 +474,43 @@ export class OrderController implements OnModuleInit {
       total: result?.total ?? 0,
       page: result?.page ?? 1,
       limit: result?.limit ?? 10,
+    };
+  }
+
+  @Get('deliveries')
+  @Permissions(Permission.OrderRead)
+  @ApiListDeliveriesDocs()
+  async listDeliveries(@Query() query: ListDeliveriesQueryDto) {
+    return this.call(() =>
+      this.grpc!.listDeliveries({
+        page: query.page ?? 1,
+        limit: query.limit ?? 20,
+        status: query.status ?? '',
+        from_date: query.from_date ?? '',
+        to_date: query.to_date ?? '',
+        search: query.search ?? '',
+        assigned_delivery_staff_id: query.assigned_delivery_staff_id ?? '',
+      }),
+    );
+  }
+
+  @Get('pickups')
+  @Permissions(Permission.OrderRead)
+  @ApiListPickupsDocs()
+  async listPickups(
+    @Query('limit') limit: string,
+    @Query('status') status: string,
+    @Query('search') search: string,
+  ) {
+    const result = await this.call(() =>
+      this.grpc!.listPickups({
+        limit: Number(limit) || 200,
+        status: status ?? '',
+        search: search ?? '',
+      }),
+    );
+    return {
+      data: ((result as Record<string, unknown>)?.data as unknown[]) ?? [],
     };
   }
 
@@ -819,40 +871,35 @@ export class OrderController implements OnModuleInit {
     );
   }
 
-  @Get('deliveries')
-  @Permissions(Permission.OrderRead)
-  @ApiListDeliveriesDocs()
-  async listDeliveries(@Query() query: ListDeliveriesQueryDto) {
+  @Post(':id/delivery/claim')
+  @Permissions(Permission.OrderWrite)
+  @ApiClaimDeliveryDocs()
+  claimDelivery(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() _body: ClaimDeliveryDto,
+  ) {
     return this.call(() =>
-      this.grpc!.listDeliveries({
-        page: query.page ?? 1,
-        limit: query.limit ?? 20,
-        status: query.status ?? '',
-        from_date: query.from_date ?? '',
-        to_date: query.to_date ?? '',
-        search: query.search ?? '',
-      }),
+      this.grpc!.claimDelivery({ orderId: id, staffId: user.sub }),
     );
   }
 
-  @Get('pickups')
-  @Permissions(Permission.OrderRead)
-  @ApiListPickupsDocs()
-  async listPickups(
-    @Query('limit') limit: string,
-    @Query('status') status: string,
-    @Query('search') search: string,
+  @Post(':id/delivery/payment-link')
+  @Permissions(Permission.OrderWrite)
+  @ApiGenerateDeliveryPaymentLinkDocs()
+  generateDeliveryPaymentLink(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() body: GeneratePaymentLinkDto,
   ) {
-    const result = await this.call(() =>
-      this.grpc!.listPickups({
-        limit: Number(limit) || 200,
-        status: status ?? '',
-        search: search ?? '',
+    return this.call(() =>
+      this.grpc!.generateDeliveryPaymentLink({
+        orderId: id,
+        staffId: user.sub,
+        returnUrl: body.returnUrl ?? '',
+        cancelUrl: body.cancelUrl ?? '',
       }),
     );
-    return {
-      data: ((result as Record<string, unknown>)?.data as unknown[]) ?? [],
-    };
   }
 
   @Post('lookup')

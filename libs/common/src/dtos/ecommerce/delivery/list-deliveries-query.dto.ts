@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsInt, Min, Max } from 'class-validator';
+import { IsOptional, IsInt, Min, Max, IsUUID } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class ListDeliveriesQueryDto {
@@ -18,7 +18,7 @@ export class ListDeliveriesQueryDto {
   @Max(1000)
   limit?: number;
 
-  @ApiPropertyOptional({ example: 'in_transit' })
+  @ApiPropertyOptional({ example: 'SHIPPING' })
   @IsOptional()
   status?: string;
 
@@ -33,4 +33,9 @@ export class ListDeliveriesQueryDto {
   @ApiPropertyOptional({ example: 'DH001' })
   @IsOptional()
   search?: string;
+
+  @ApiPropertyOptional({ example: '550e8400-...' })
+  @IsOptional()
+  @IsUUID('4')
+  assigned_delivery_staff_id?: string;
 }

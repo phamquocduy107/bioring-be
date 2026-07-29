@@ -17,6 +17,7 @@ import { WarrantyController } from './warranty/warranty.controller';
 import { TransactionController } from './transaction/transaction.controller';
 import { DeviceController } from './device/device.controller';
 import { JewelerController } from './jeweler/jeweler.controller';
+import { DeliveryStaffController } from './delivery-staff/delivery-staff.controller';
 import { AddressController } from './address/address.controller';
 import {
   RingSizeController,
@@ -55,6 +56,7 @@ import {
     TransactionController,
     DeviceController,
     JewelerController,
+    DeliveryStaffController,
     AddressController,
     RingSizeController,
     MeRingSizeController,

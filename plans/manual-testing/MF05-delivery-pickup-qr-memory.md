@@ -635,6 +635,7 @@ Authorization: Bearer {{customerJwt}}
 
 > 🧪 **Test:** Gọi với JWT sai / không JWT → 401
 > 🧪 **Test:** User không có memory card nào → `qrMemencies: []`, `total: 0`
+> 🧪 **Test:** Lọc theo order status — `GET /api/v1/qr-memories?status=COMPLETED&page=1&limit=10` → chỉ trả về memory cards của orders có status COMPLETED
 
 ---
 
