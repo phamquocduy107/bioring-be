@@ -92,6 +92,15 @@ interface QrMemoryRecord {
   is_locked: boolean | null;
   created_at: Date | null;
   updated_at: Date | null;
+  card_themes?: {
+    id: string;
+    theme_code: string;
+    name: string;
+    default_bg_url: string | null;
+    style_config: unknown;
+    is_active: boolean | null;
+    created_at: Date | null;
+  } | null;
 }
 
 interface MaterialRecord {
@@ -354,8 +363,65 @@ export class EngravingService {
             orderBy: { version_number: 'desc' },
           },
           biometric_assets: true,
-          qr_memories: true,
+          qr_memories: { include: { card_themes: true } },
           order: { select: { id: true } },
+          products: {
+            include: {
+              materials: true,
+              product_materials: { include: { materials: true } },
+              product_gemstones: { include: { gemstones: true } },
+            },
+          },
+        },
+        orderBy: { created_at: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.engravings.count({ where }),
+    ]);
+
+    return {
+      engravings: (engravings as unknown as EngravingRecord[]).map((e) =>
+        this.mapEngraving(e),
+      ),
+      total,
+      page,
+      limit,
+    };
+  }
+
+  async listEngravings(
+    page: number,
+    limit: number,
+    status?: string,
+    userId?: string,
+    orderId?: string,
+    withoutOrder?: boolean,
+  ) {
+    const where: Record<string, unknown> = {};
+    if (status) where.status = status;
+    if (userId) where.user_id = userId;
+    if (orderId) where.order_id = orderId;
+    if (withoutOrder) where.order = null;
+
+    const [engravings, total] = await Promise.all([
+      this.prisma.engravings.findMany({
+        where,
+        include: {
+          engraving_versions_engraving_versions_engraving_idToengravings: {
+            include: { materials: true, gemstones: true },
+            orderBy: { version_number: 'desc' },
+          },
+          biometric_assets: true,
+          qr_memories: { include: { card_themes: true } },
+          order: { select: { id: true } },
+          products: {
+            include: {
+              materials: true,
+              product_materials: { include: { materials: true } },
+              product_gemstones: { include: { gemstones: true } },
+            },
+          },
         },
         orderBy: { created_at: 'desc' },
         skip: (page - 1) * limit,
@@ -383,7 +449,7 @@ export class EngravingService {
           orderBy: { version_number: 'desc' },
         },
         biometric_assets: true,
-        qr_memories: true,
+        qr_memories: { include: { card_themes: true } },
         order: { select: { id: true } },
         products: {
           include: {
@@ -490,6 +556,19 @@ export class EngravingService {
             biometricDisplaySettings: qrMem.biometric_display_settings ?? '',
             accessPinHash: qrMem.access_pin_hash ?? '',
             isLocked: qrMem.is_locked ?? true,
+            cardTheme: qrMem.card_themes
+              ? {
+                  id: qrMem.card_themes.id,
+                  themeCode: qrMem.card_themes.theme_code,
+                  name: qrMem.card_themes.name,
+                  defaultBgUrl: qrMem.card_themes.default_bg_url ?? '',
+                  styleConfig: qrMem.card_themes.style_config
+                    ? JSON.stringify(qrMem.card_themes.style_config)
+                    : '',
+                  isActive: qrMem.card_themes.is_active ?? false,
+                  createdAt: qrMem.card_themes.created_at?.toISOString() ?? '',
+                }
+              : null,
             createdAt: qrMem.created_at?.toISOString() ?? '',
             updatedAt: qrMem.updated_at?.toISOString() ?? '',
           }

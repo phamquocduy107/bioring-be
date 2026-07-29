@@ -98,8 +98,15 @@ export class MemoryCardService {
     return this.mapQrMemory(qrMemory);
   }
 
-  async listQrMemories(userId: string, page: number, limit: number) {
-    const where = { engravings: { user_id: userId } };
+  async listQrMemories(
+    userId: string,
+    page: number,
+    limit: number,
+    hasTheme?: boolean,
+  ) {
+    const where: Record<string, unknown> = { engravings: { user_id: userId } };
+    if (hasTheme === true) where.theme_id = { not: null };
+    if (hasTheme === false) where.theme_id = null;
     const [qrMemories, total] = await Promise.all([
       this.prisma.qr_memories.findMany({
         where,

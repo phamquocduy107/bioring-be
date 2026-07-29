@@ -425,7 +425,7 @@ GET /api/v1/guest-tablet/sessions/{{GUEST_CODE}}
         { "id": "ASSET_FP_001", "assetType": "fingerprint", "status": "ASSET_APPROVED", "rawFileUrl": "...", "processedSvgUrl": "..." },
         { "id": "ASSET_SW_001", "assetType": "soundwave", "status": "ASSET_APPROVED", "rawFileUrl": "...", "processedSvgUrl": "..." }
       ],
-      "qrMemory": { "id": "...", "cardTitle": "", "greetingMessage": "", ... }
+      "qrMemory": { "id": "...", "cardTitle": "", "greetingMessage": "", "cardTheme": null, ... }
     }
   }
 }
@@ -1018,7 +1018,23 @@ Content-Type: application/json
 
 ---
 
-## 27. Variable Reference
+## 27. Admin utility: List all orders & engravings
+
+> Yêu cầu staff/manager token có permission `order.write`.
+
+```http
+GET /api/v1/orders/admin?page=1&limit=10&status=PENDING_REVIEW
+Authorization: Bearer {{staffJwt}}
+```
+
+```http
+GET /api/v1/engravings/admin?page=1&limit=10&status=PENDING
+Authorization: Bearer {{staffJwt}}
+```
+
+---
+
+## 28. Variable Reference
 
 | Variable | Nguồn | Ghi chú |
 |----------|-------|---------|

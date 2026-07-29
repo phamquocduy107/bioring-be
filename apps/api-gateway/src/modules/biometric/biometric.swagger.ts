@@ -106,7 +106,8 @@ const approvedViewerAssetExample = {
   assetType: 'FP',
   status: 'ASSET_APPROVED',
   viewerFiles: viewerFilesExample,
-  placement: { rotation: 0, scale: 1, offsetU: 0, offsetV: 0 },
+  rawFileUrl:
+    'https://minio.example/personalization/raw/fingerprint/abc123/input.png',
 };
 
 const biometricChecklistExample = {

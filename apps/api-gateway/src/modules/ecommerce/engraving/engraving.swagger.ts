@@ -133,6 +133,43 @@ export function ApiUpdateEngravingVersionConfigDocs() {
   );
 }
 
+export function ApiListEngravingsDocs() {
+  return applyDecorators(
+    ApiBearerAuth('access-token'),
+    ApiOperation({
+      summary: 'List all engravings (admin/staff)',
+      description:
+        'Paginated list of ALL engravings. Requires order.write permission. Supports filter by status, userId, orderId, withoutOrder.',
+    }),
+    ApiQuery({ name: 'page', type: Number, required: false, example: 1 }),
+    ApiQuery({ name: 'limit', type: Number, required: false, example: 10 }),
+    ApiQuery({ name: 'status', type: String, required: false, example: 'PENDING' }),
+    ApiQuery({ name: 'userId', type: String, required: false, format: 'uuid' }),
+    ApiQuery({ name: 'orderId', type: String, required: false, format: 'uuid' }),
+    ApiQuery({ name: 'withoutOrder', type: Boolean, required: false }),
+    ApiResponse({
+      status: 200,
+      description: 'Paginated list of all engravings.',
+      schema: {
+        example: {
+          engravings: [
+            {
+              ...engravingResponseExample,
+              orderId: '550e8400-e29b-41d4-a716-446655440001',
+              currentVersion: { ...engravingVersionExample },
+            },
+          ],
+          total: 1,
+          page: 1,
+          limit: 10,
+        },
+      },
+    }),
+    ApiResponse({ status: 401, description: 'Unauthorized' }),
+    ApiResponse({ status: 403, description: 'Forbidden' }),
+  );
+}
+
 export function ApiGetMyEngravingsDocs() {
   return applyDecorators(
     ApiBearerAuth('access-token'),

@@ -15,6 +15,7 @@ import {
 import type { ClientGrpc } from '@nestjs/microservices';
 import { Observable, lastValueFrom } from 'rxjs';
 import {
+  Public,
   Permissions,
   Permission,
   CreateCardThemeDto,
@@ -79,6 +80,7 @@ export class CardThemeController implements OnModuleInit {
   }
 
   @Get()
+  @Public()
   async getAll(@Query('page') page?: number, @Query('limit') limit?: number) {
     return this.call(() =>
       this.grpc!.getCardThemes({
@@ -89,6 +91,7 @@ export class CardThemeController implements OnModuleInit {
   }
 
   @Get(':id')
+  @Public()
   async getById(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.call(() => this.grpc!.getCardTheme({ id }));
   }

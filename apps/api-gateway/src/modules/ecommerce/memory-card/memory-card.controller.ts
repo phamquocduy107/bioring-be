@@ -30,6 +30,7 @@ import {
 } from '@app/common';
 import { MinioService } from '@app/minio';
 import { ConfigService } from '@nestjs/config';
+import { ApiBearerAuth } from '@nestjs/swagger';
 import type { JwtPayload } from '@app/common';
 import {
   ApiUpdateQrMemoryDocs,
@@ -68,12 +69,14 @@ interface EcommerceGrpcService {
     userId: string;
     page: number;
     limit: number;
+    hasTheme?: boolean;
   }): Observable<QrMemoryListResponse>;
   getQrMemoryByCode(data: {
     qrCode: string;
   }): Observable<{ qrMemory: QrMemoryResponse }>;
 }
 
+@ApiBearerAuth('access-token')
 @Controller('api/v1/qr-memories')
 export class MemoryCardController implements OnModuleInit {
   private grpc?: EcommerceGrpcService;
@@ -150,12 +153,14 @@ export class MemoryCardController implements OnModuleInit {
   listQrMemories(
     @CurrentUser() user: JwtPayload,
     @Query() query: PaginationDto,
+    @Query('hasTheme') hasTheme?: string,
   ) {
     return this.call(() =>
       this.grpc!.listQrMemories({
         userId: user.sub,
         page: query.page ?? 1,
         limit: query.limit ?? 10,
+        ...(hasTheme !== undefined && { hasTheme: hasTheme === 'true' }),
       }),
     );
   }

@@ -744,5 +744,27 @@ Content-Type: application/json
      │    │                   │
      │    │                   ├── method DELIVERY → READY_FOR_DELIVERY
      │    │                   │
-     │    │                   └── method PICKUP → READY_FOR_PICKUP
+     │    │                         └── method PICKUP → READY_FOR_PICKUP
 ```
+
+---
+
+## 13. Admin utility: List all orders & engravings
+
+> Yêu cầu staff/manager token có permission `order.write`.
+
+### List all orders (filterable)
+
+```http
+GET /api/v1/orders/admin?page=1&limit=10&status=PENDING_REVIEW
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+```
+
+### List all engravings (filterable)
+
+```http
+GET /api/v1/engravings/admin?page=1&limit=10&status=PENDING
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+```
+
+

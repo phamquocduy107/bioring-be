@@ -325,7 +325,7 @@ export class BiometricAssetService {
     const approvedFiles = asset.approved_files as ApprovedFilesBundleDto | null;
     const reviewFiles = asset.review_files as ReviewFilesBundleDto | null;
     let viewerFiles = approvedFiles?.viewerFiles || reviewFiles?.viewerFiles;
-    let placement = asset.placement as Record<string, unknown> | null;
+    const rawFileUrl = approvedFiles?.sourceFiles?.raw ?? reviewFiles?.sourceFiles?.raw ?? undefined;
 
     if (
       asset.asset_type === 'fingerprint' ||
@@ -337,7 +337,6 @@ export class BiometricAssetService {
           toPythonArtifactType(asset.asset_type),
         );
         viewerFiles = refreshed.viewerFiles || viewerFiles;
-        placement = refreshed.placement ?? placement;
       } catch {
         // Fall back to PostgreSQL cached URLs.
       }
@@ -351,7 +350,7 @@ export class BiometricAssetService {
         modelCode: asset.model_code ?? undefined,
         surface: asset.surface ?? undefined,
         viewerFiles,
-        placement: placement ?? undefined,
+        rawFileUrl,
       },
     };
   }

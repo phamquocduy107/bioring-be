@@ -170,9 +170,10 @@ export class OrderService implements OnModuleInit {
       include: {
         engraving: {
           include: {
-            engraving_versions_engraving_versions_engraving_idToengravings: {
-              orderBy: { version_number: 'desc' },
-            },
+          engraving_versions_engraving_versions_engraving_idToengravings: {
+            include: { materials: true, gemstones: true },
+            orderBy: { version_number: 'desc' },
+          },
             biometric_assets: true,
             products: {
               include: {
@@ -252,7 +253,20 @@ export class OrderService implements OnModuleInit {
             include: { user_addresses: true },
           },
           engraving: {
-            include: { products: true },
+            include: {
+              engraving_versions_engraving_versions_engraving_idToengravings: {
+                include: { materials: true, gemstones: true },
+                orderBy: { version_number: 'desc' },
+              },
+              biometric_assets: true,
+              products: {
+                include: {
+                  materials: true,
+                  product_materials: { include: { materials: true } },
+                  product_gemstones: { include: { gemstones: true } },
+                },
+              },
+            },
           },
         },
       }),
@@ -260,7 +274,97 @@ export class OrderService implements OnModuleInit {
     ]);
 
     return {
-      orders: await Promise.all(orders.map((o) => this.mapOrder(o))),
+      orders: await Promise.all(
+        orders.map((o) =>
+          this.mapOrder(o).then((base) => ({
+              ...base,
+              engraving: o.engraving
+                ? this.mapEngravingForOrder(o.id, o.engraving as Parameters<typeof this.mapEngravingForOrder>[1])
+                : null,
+            })),
+        ),
+      ),
+      total,
+      page,
+      limit,
+    };
+  }
+
+  async listOrders(
+    page: number,
+    limit: number,
+    status?: string,
+    search?: string,
+    from_date?: string,
+    to_date?: string,
+  ) {
+    const skip = (page - 1) * limit;
+    const where: Prisma.ordersWhereInput = {};
+
+    if (status) where.status = status;
+    if (from_date || to_date) {
+      where.created_at = {};
+      if (from_date) where.created_at.gte = new Date(from_date);
+      if (to_date) where.created_at.lte = new Date(to_date);
+    }
+    if (search && search.trim()) {
+      const q = search.trim();
+      where.OR = [
+        { order_code: { contains: q, mode: 'insensitive' } },
+        { users_orders_user_idTousers: { full_name: { contains: q, mode: 'insensitive' } } },
+        { guest_customers: { full_name: { contains: q, mode: 'insensitive' } } },
+      ];
+    }
+
+    const [orders, total] = await Promise.all([
+      this.prisma.orders.findMany({
+        where,
+        orderBy: { created_at: 'desc' },
+        skip,
+        take: limit,
+        include: {
+          payments: true,
+          users_orders_user_idTousers: {
+            select: { id: true, full_name: true, email: true, phone: true },
+          },
+          guest_customers: {
+            select: { id: true, full_name: true, email: true, phone: true },
+          },
+          shipments: {
+            include: { user_addresses: true },
+          },
+          engraving: {
+            include: {
+              engraving_versions_engraving_versions_engraving_idToengravings: {
+                include: { materials: true, gemstones: true },
+                orderBy: { version_number: 'desc' },
+              },
+              biometric_assets: true,
+              products: {
+                include: {
+                  materials: true,
+                  product_materials: { include: { materials: true } },
+                  product_gemstones: { include: { gemstones: true } },
+                },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.orders.count({ where }),
+    ]);
+
+    return {
+      orders: await Promise.all(
+        orders.map((o) =>
+          this.mapOrder(o).then((base) => ({
+            ...base,
+            engraving: o.engraving
+              ? this.mapEngravingForOrder(o.id, o.engraving as Parameters<typeof this.mapEngravingForOrder>[1])
+              : null,
+          })),
+        ),
+      ),
       total,
       page,
       limit,
@@ -2057,6 +2161,184 @@ export class OrderService implements OnModuleInit {
     };
   }
 
+  private mapEngravingForOrder(
+    orderId: string,
+    e: NonNullable<{
+      id: string;
+      user_id?: string | null;
+      product_id?: string | null;
+      created_at?: Date | null;
+      updated_at?: Date | null;
+      unique_product_id?: string | null;
+      approved_version_id?: string | null;
+      status?: string | null;
+      engraving_versions_engraving_versions_engraving_idToengravings?: Array<{
+        id: string;
+        engraving_id: string;
+        version_number: number;
+        selected_material_id?: string | null;
+        selected_gemstone_id?: string | null;
+        ring_size?: string | null;
+        ring_style?: string | null;
+        ring_shape?: string | null;
+        customization_config?: unknown;
+        selected_biometrics?: string | null;
+        status?: string | null;
+        manager_id?: string | null;
+        manager_note?: string | null;
+        reviewed_at?: Date | null;
+        created_at?: Date | null;
+        materials?: { id: string; name: string; purity: string | null; color: string | null; current_price_per_gram: unknown; render_config?: unknown } | null;
+        gemstones?: { id: string; type: string; carat: unknown; cut: string | null; color: string | null; clarity: string | null; certification_code: string | null; price: unknown; is_available: boolean | null; render_config?: unknown } | null;
+      }>;
+      biometric_assets?: Array<{
+        id: string;
+        asset_type: string;
+        status: string;
+        artifact_id: string;
+        approved_files?: unknown;
+        created_at: Date | null;
+      }>;
+      products?: {
+        id: string;
+        name: string;
+        description: string | null;
+        base_price: unknown;
+        thumbnail_url: string | null;
+        model_3d_url: string | null;
+        materials?: { id: string; name: string; purity: string | null; color: string | null; current_price_per_gram: unknown; render_config?: unknown } | null;
+        product_materials?: Array<{ materials: { id: string; name: string; purity: string | null; color: string | null; current_price_per_gram: unknown; render_config?: unknown } }>;
+        product_gemstones?: Array<{ gemstones: { id: string; type: string; carat: unknown; cut: string | null; color: string | null; clarity: string | null; certification_code: string | null; price: unknown; is_available: boolean | null; render_config?: unknown } }>;
+      } | null;
+    }>,
+  ) {
+    const productName = e.products?.name ?? '';
+    return {
+      id: e.id,
+      orderId,
+      userId: e.user_id ?? '',
+      productId: e.product_id ?? '',
+      uniqueProductId: e.unique_product_id ?? '',
+      approvedVersionId: e.approved_version_id ?? '',
+      status: e.status ?? '',
+      createdAt: e.created_at?.toISOString() ?? '',
+      updatedAt: e.updated_at?.toISOString() ?? '',
+      versions: (
+        e.engraving_versions_engraving_versions_engraving_idToengravings ?? []
+      ).map((v) => ({
+        id: v.id,
+        engravingId: v.engraving_id,
+        versionNumber: v.version_number,
+        selectedMaterialId: v.selected_material_id ?? '',
+        selectedGemstoneId: v.selected_gemstone_id ?? '',
+        ringSize: v.ring_size ?? '',
+        ringStyle: v.ring_style || productName,
+        ringShape: v.ring_shape ?? '',
+        customizationConfig: v.customization_config
+          ? JSON.stringify(v.customization_config)
+          : '',
+        selectedBiometrics: v.selected_biometrics ?? '',
+        status: v.status ?? '',
+        managerId: v.manager_id ?? '',
+        managerNote: v.manager_note ?? '',
+        reviewedAt: v.reviewed_at?.toISOString() ?? '',
+        createdAt: v.created_at?.toISOString() ?? '',
+        selectedMaterial: v.materials
+          ? {
+              id: v.materials.id,
+              name: v.materials.name,
+              purity: v.materials.purity ?? '',
+              color: v.materials.color ?? '',
+              currentPricePerGram: Number(v.materials.current_price_per_gram ?? 0),
+              renderConfig: v.materials.render_config
+                ? JSON.stringify(v.materials.render_config)
+                : '',
+            }
+          : null,
+        selectedGemstone: v.gemstones
+          ? {
+              id: v.gemstones.id,
+              type: v.gemstones.type,
+              carat: Number(v.gemstones.carat ?? 0),
+              cut: v.gemstones.cut ?? '',
+              color: v.gemstones.color ?? '',
+              clarity: v.gemstones.clarity ?? '',
+              certificationCode: v.gemstones.certification_code ?? '',
+              price: Number(v.gemstones.price ?? 0),
+              isAvailable: v.gemstones.is_available ?? false,
+              renderConfig: v.gemstones.render_config
+                ? JSON.stringify(v.gemstones.render_config)
+                : '',
+            }
+          : null,
+      })),
+      biometricAssets: (e.biometric_assets ?? []).map((b) => {
+        const urls = resolveUrlsFromApprovedFiles(b.approved_files);
+        return {
+          id: b.id,
+          assetType: b.asset_type,
+          status: b.status,
+          artifactId: b.artifact_id,
+          rawFileUrl: urls.rawFileUrl,
+          processedSvgUrl: urls.processedSvgUrl,
+          createdAt: b.created_at?.toISOString() ?? '',
+        };
+      }),
+      product: e.products
+        ? {
+            id: e.products.id,
+            name: e.products.name,
+            description: e.products.description ?? '',
+            basePrice: Number(e.products.base_price ?? 0),
+            thumbnailUrl: e.products.thumbnail_url ?? '',
+            model3dUrl: e.products.model_3d_url ?? '',
+            baseMaterial: e.products.materials
+              ? {
+                  id: e.products.materials.id,
+                  name: e.products.materials.name,
+                  purity: e.products.materials.purity ?? '',
+                  color: e.products.materials.color ?? '',
+                  currentPricePerGram: Number(
+                    e.products.materials.current_price_per_gram ?? 0,
+                  ),
+                  renderConfig: e.products.materials.render_config
+                    ? JSON.stringify(e.products.materials.render_config)
+                    : '',
+                }
+              : null,
+            availableMaterials:
+              e.products.product_materials?.map((pm) => ({
+                id: pm.materials.id,
+                name: pm.materials.name,
+                purity: pm.materials.purity ?? '',
+                color: pm.materials.color ?? '',
+                currentPricePerGram: Number(
+                  pm.materials.current_price_per_gram ?? 0,
+                ),
+                renderConfig: pm.materials.render_config
+                  ? JSON.stringify(pm.materials.render_config)
+                  : '',
+              })) ?? [],
+            availableGemstones:
+              e.products.product_gemstones?.map((pg) => ({
+                id: pg.gemstones.id,
+                type: pg.gemstones.type,
+                carat: Number(pg.gemstones.carat ?? 0),
+                cut: pg.gemstones.cut ?? '',
+                color: pg.gemstones.color ?? '',
+                clarity: pg.gemstones.clarity ?? '',
+                certificationCode: pg.gemstones.certification_code ?? '',
+                price: Number(pg.gemstones.price ?? 0),
+                isAvailable: pg.gemstones.is_available ?? false,
+                renderConfig: pg.gemstones.render_config
+                  ? JSON.stringify(pg.gemstones.render_config)
+                  : '',
+              })) ?? [],
+          }
+        : null,
+    };
+  }
+
   private async mapOrderFull(order: {
     id: string;
     order_code: string;
@@ -2093,6 +2375,8 @@ export class OrderService implements OnModuleInit {
       unique_product_id?: string | null;
       approved_version_id?: string | null;
       status?: string | null;
+      created_at?: Date | null;
+      updated_at?: Date | null;
       engraving_versions_engraving_versions_engraving_idToengravings?: Array<{
         id: string;
         engraving_id: string;
@@ -2109,6 +2393,8 @@ export class OrderService implements OnModuleInit {
         manager_note?: string | null;
         reviewed_at?: Date | null;
         created_at?: Date | null;
+        materials?: { id: string; name: string; purity: string | null; color: string | null; current_price_per_gram: unknown; render_config?: unknown } | null;
+        gemstones?: { id: string; type: string; carat: unknown; cut: string | null; color: string | null; clarity: string | null; certification_code: string | null; price: unknown; is_available: boolean | null; render_config?: unknown } | null;
       }>;
       biometric_assets?: Array<{
         id: string;
@@ -2132,106 +2418,10 @@ export class OrderService implements OnModuleInit {
     } | null;
   }) {
     const base = await this.mapOrder(order);
-
-    const e = order.engraving;
     return {
       ...base,
-      engraving: e
-        ? {
-            id: e.id,
-            orderId: order.id,
-            userId: e.user_id ?? '',
-            productId: e.product_id ?? '',
-            uniqueProductId: e.unique_product_id ?? '',
-            approvedVersionId: e.approved_version_id ?? '',
-            status: e.status ?? '',
-            versions: (
-              e.engraving_versions_engraving_versions_engraving_idToengravings ??
-              []
-            ).map((v) => ({
-              id: v.id,
-              engravingId: v.engraving_id,
-              versionNumber: v.version_number,
-              selectedMaterialId: v.selected_material_id ?? '',
-              selectedGemstoneId: v.selected_gemstone_id ?? '',
-              ringSize: v.ring_size ?? '',
-              ringStyle: v.ring_style ?? '',
-              ringShape: v.ring_shape ?? '',
-              customizationConfig: v.customization_config
-                ? JSON.stringify(v.customization_config)
-                : '',
-              selectedBiometrics: v.selected_biometrics ?? '',
-              status: v.status ?? '',
-              managerId: v.manager_id ?? '',
-              managerNote: v.manager_note ?? '',
-              reviewedAt: v.reviewed_at?.toISOString() ?? '',
-              createdAt: v.created_at?.toISOString() ?? '',
-            })),
-            biometricAssets: (e.biometric_assets ?? []).map((b) => {
-              const urls = resolveUrlsFromApprovedFiles(b.approved_files);
-              return {
-                id: b.id,
-                assetType: b.asset_type,
-                status: b.status,
-                artifactId: b.artifact_id,
-                rawFileUrl: urls.rawFileUrl,
-                processedSvgUrl: urls.processedSvgUrl,
-                createdAt: b.created_at?.toISOString() ?? '',
-              };
-            }),
-            product: e.products
-              ? {
-                  id: e.products.id,
-                  name: e.products.name,
-                  description: e.products.description ?? '',
-                  basePrice: Number(e.products.base_price ?? 0),
-                  thumbnailUrl: e.products.thumbnail_url ?? '',
-                  model3dUrl: e.products.model_3d_url ?? '',
-                  baseMaterial: e.products.materials
-                    ? {
-                        id: e.products.materials.id,
-                        name: e.products.materials.name,
-                        purity: e.products.materials.purity ?? '',
-                        color: e.products.materials.color ?? '',
-                        currentPricePerGram: Number(
-                          e.products.materials.current_price_per_gram ?? 0,
-                        ),
-                        renderConfig: e.products.materials.render_config
-                          ? JSON.stringify(e.products.materials.render_config)
-                          : '',
-                      }
-                    : null,
-                  availableMaterials:
-                    e.products.product_materials?.map((pm) => ({
-                      id: pm.materials.id,
-                      name: pm.materials.name,
-                      purity: pm.materials.purity ?? '',
-                      color: pm.materials.color ?? '',
-                      currentPricePerGram: Number(
-                        pm.materials.current_price_per_gram ?? 0,
-                      ),
-                      renderConfig: pm.materials.render_config
-                        ? JSON.stringify(pm.materials.render_config)
-                        : '',
-                    })) ?? [],
-                  availableGemstones:
-                    e.products.product_gemstones?.map((pg) => ({
-                      id: pg.gemstones.id,
-                      type: pg.gemstones.type,
-                      carat: Number(pg.gemstones.carat ?? 0),
-                      cut: pg.gemstones.cut ?? '',
-                      color: pg.gemstones.color ?? '',
-                      clarity: pg.gemstones.clarity ?? '',
-                      certificationCode: pg.gemstones.certification_code ?? '',
-                      price: Number(pg.gemstones.price ?? 0),
-                      isAvailable: pg.gemstones.is_available ?? false,
-                      renderConfig: pg.gemstones.render_config
-                        ? JSON.stringify(pg.gemstones.render_config)
-                        : '',
-                    })) ?? [],
-                }
-              : null,
-          }
+      engraving: order.engraving
+        ? this.mapEngravingForOrder(order.id, order.engraving as Parameters<typeof this.mapEngravingForOrder>[1])
         : null,
     };
   }
