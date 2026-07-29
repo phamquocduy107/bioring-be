@@ -171,8 +171,6 @@ def build_retrieval_query(
         parts.append("chính sách cửa hàng")
     elif intent in (RagIntent.PACKAGE_QA.value, "PACKAGE_QA"):
         parts.append("gói dịch vụ package")
-    elif intent in (RagIntent.CUSTOM_DESIGN_CONSULTING.value, "CUSTOM_DESIGN_CONSULTING"):
-        parts.append("thiết kế riêng cá nhân hóa")
     elif intent in (RagIntent.RING_RECOMMENDATION.value, "RING_RECOMMENDATION"):
         parts.append("mẫu nhẫn phù hợp")
     elif intent in (RagIntent.GEMSTONE_ADVICE.value, "GEMSTONE_ADVICE"):
@@ -225,7 +223,7 @@ def _preference_phrases(prefs: Dict[str, Any], intent: str) -> List[str]:
     if stone_color:
         phrases.append(f"đá màu {COLOR_LABELS.get(str(stone_color), stone_color)}")
 
-    if intent in (RagIntent.CUSTOM_DESIGN_CONSULTING.value, "CUSTOM_DESIGN_CONSULTING"):
+    if intent in (RagIntent.PACKAGE_QA.value, "PACKAGE_QA"):
         signal = prefs.get("customSignal")
         if signal:
             phrases.append(str(signal))

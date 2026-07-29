@@ -180,12 +180,6 @@ class Retriever:
                 settings.RING_SCORE_THRESHOLD,
                 settings.MAX_CONTEXT_CHARS_RING,
             )
-        if intent == RagIntent.CUSTOM_DESIGN_CONSULTING:
-            return (
-                settings.CUSTOM_DESIGN_TOP_K,
-                settings.CUSTOM_DESIGN_SCORE_THRESHOLD,
-                settings.MAX_CONTEXT_CHARS_CUSTOM_DESIGN,
-            )
         return (
             settings.DEFAULT_TOP_K,
             settings.DEFAULT_SCORE_THRESHOLD,

@@ -5,6 +5,8 @@ from .config import settings
 from .llm_client import LLMClient
 from .query_builder import is_ambiguous_follow_up, normalize_question
 from .schemas import (
+    ClarificationData,
+    ClarificationOption,
     ExtractedRequirements,
     IntentDetectionRequest,
     IntentDetectionResponse,
@@ -17,7 +19,6 @@ INTENT_RETRIEVAL_TYPES = {
     RagIntent.GEMSTONE_ADVICE: ["gemstone_guide", "ring_guide"],
     RagIntent.PACKAGE_QA: ["package", "policy"],
     RagIntent.POLICY_QA: ["policy"],
-    RagIntent.CUSTOM_DESIGN_CONSULTING: ["custom_design", "package", "policy", "ring_guide"],
     RagIntent.GENERAL_RAG_QA: ["general", "policy", "package", "gemstone_guide", "ring_guide"],
 }
 
@@ -98,9 +99,13 @@ RING_KEYWORDS = [
     "chọn nhẫn",
 ]
 
+PURPOSE_OPTIONS = ["cầu hôn", "cưới", "kỷ niệm", "đeo hằng ngày"]
+STYLE_OPTIONS = ["tối giản", "sang trọng", "cổ điển", "nổi bật"]
+BUDGET_OPTIONS = ["dưới 5 triệu", "5-10 triệu", "10-20 triệu", "trên 20 triệu"]
+
 CLARIFICATION_TEMPLATE = (
-    "Bạn muốn nhẫn dùng cho dịp nào ạ: cầu hôn, cưới, kỷ niệm hay đeo hằng ngày? "
-    "Ngoài ra bạn có ngân sách dự kiến và thích phong cách tối giản hay nổi bật không?"
+    "Bạn muốn nhẫn dùng cho dịp nào ạ? (cầu hôn / cưới / kỷ niệm / đeo hằng ngày) "
+    "Ngoài ra bạn cho mình biết ngân sách dự kiến và phong cách bạn thích nhé."
 )
 
 LOW_RULE_CONFIDENCE = 0.55
@@ -143,7 +148,7 @@ class IntentClassifier:
         user_prompt = f"""
 Các intent hợp lệ:
 - RING_RECOMMENDATION, GEMSTONE_ADVICE, PACKAGE_QA, POLICY_QA,
-  CUSTOM_DESIGN_CONSULTING, GENERAL_RAG_QA
+  GENERAL_RAG_QA
 
 lastIntent: {request.lastIntent or "(không có)"}
 userPreferences: {prefs}
@@ -203,6 +208,9 @@ Trả về JSON:
             clarificationQuestion=self._build_clarification_question(intent, missing_fields)
             if should_ask
             else None,
+            clarificationData=self._build_clarification_data(intent, missing_fields)
+            if should_ask
+            else None,
         )
 
     def _detect_with_rules(self, request: IntentDetectionRequest) -> IntentDetectionResponse:
@@ -233,6 +241,9 @@ Trả về JSON:
             clarificationQuestion=self._build_clarification_question(intent, missing_fields)
             if should_ask
             else None,
+            clarificationData=self._build_clarification_data(intent, missing_fields)
+            if should_ask
+            else None,
         )
 
     def _classify_intent_rules(
@@ -247,8 +258,10 @@ Trả về JSON:
         if any(k in q for k in PACKAGE_KEYWORDS):
             return RagIntent.PACKAGE_QA, 0.9
 
+        # Biometric/signal keywords (vân tay, giọng nói, sóng âm, ...) là câu hỏi liên quan gói dịch vụ
+        # (FP/SW/HB packages) hơn là "thiết kế riêng/bespoke".
         if any(k in q for k in CUSTOM_DESIGN_KEYWORDS):
-            return RagIntent.CUSTOM_DESIGN_CONSULTING, 0.9
+            return RagIntent.PACKAGE_QA, 0.9
 
         # Gemstone before ring so "sapphire bền không" stays GEMSTONE.
         if any(k in q for k in GEMSTONE_KEYWORDS) and not any(
@@ -434,14 +447,30 @@ Trả về JSON:
             data["stoneColor"] = None
 
         if re.search(
-            r"bỏ (yêu cầu )?đá|không cần (đá|kim cương)|gần giống|bỏ lọc đá|nới hết lọc",
+            r"bỏ (yêu cầu )?đá|không cần (đá|kim cương)|gần giống|bỏ lọc đá",
             q,
         ):
             data["stoneName"] = None
             data["stoneColor"] = None
 
-        if re.search(r"gần giống|nới hết lọc", q) and not data.get("budgetMax"):
-            data["budgetMax"] = 20_000_000
+        if re.search(r"bỏ (lọc )?phong cách|không cần phong cách", q):
+            data["style"] = None
+
+        if re.search(r"nới hết lọc|gần giống", q):
+            data["stoneName"] = None
+            data["stoneColor"] = None
+            data["style"] = None
+            # Nới ngân sách nếu đang có budgetMax (ít nhất x2, tối thiểu 10tr)
+            current = data.get("budgetMax") or data.get("budgetApprox")
+            if current:
+                try:
+                    current_n = int(float(current))
+                except (TypeError, ValueError):
+                    current_n = 5_000_000
+                data["budgetMax"] = min(max(current_n * 2, 10_000_000), 50_000_000)
+                data["budgetApprox"] = data["budgetMax"]
+            elif not data.get("budgetMax"):
+                data["budgetMax"] = 20_000_000
 
         return ExtractedRequirements(**data)
 
@@ -543,7 +572,65 @@ Trả về JSON:
     ) -> str | None:
         if intent != RagIntent.RING_RECOMMENDATION or not missing_fields:
             return None
+
+        missing = set(missing_fields)
+
+        if "purpose" in missing:
+            return "Bạn muốn nhẫn dùng cho dịp nào ạ?"
+        if "budgetMax" in missing:
+            return "Ngân sách dự kiến khoảng bao nhiêu ạ?"
+        if "style" in missing:
+            return "Bạn thích phong cách nào ạ?"
+
         return CLARIFICATION_TEMPLATE
+
+    @staticmethod
+    def _build_clarification_data(
+        intent: RagIntent, missing_fields: List[str]
+    ) -> ClarificationData | None:
+        if intent != RagIntent.RING_RECOMMENDATION or not missing_fields:
+            return None
+
+        missing = set(missing_fields)
+
+        if "purpose" in missing:
+            return ClarificationData(
+                field="purpose",
+                question="Bạn muốn nhẫn dùng cho dịp nào ạ?",
+                inputType="chips",
+                options=[
+                    ClarificationOption(label="Cầu hôn", value="engagement"),
+                    ClarificationOption(label="Cưới", value="wedding"),
+                    ClarificationOption(label="Kỷ niệm", value="anniversary"),
+                    ClarificationOption(label="Đeo hằng ngày", value="daily"),
+                ],
+            )
+
+        if "budgetMax" in missing:
+            return ClarificationData(
+                field="budgetMax",
+                question="Ngân sách dự kiến khoảng bao nhiêu ạ?",
+                inputType="slider",
+                min=1_000_000,
+                max=50_000_000,
+                step=1_000_000,
+                unit="VNĐ",
+            )
+
+        if "style" in missing:
+            return ClarificationData(
+                field="style",
+                question="Bạn thích phong cách nào ạ?",
+                inputType="chips",
+                options=[
+                    ClarificationOption(label="Tối giản", value="minimalist"),
+                    ClarificationOption(label="Sang trọng", value="luxury"),
+                    ClarificationOption(label="Cổ điển", value="classic"),
+                    ClarificationOption(label="Nổi bật", value="bold"),
+                ],
+            )
+
+        return None
 
     @staticmethod
     def _build_product_filters(extracted: ExtractedRequirements) -> Dict[str, Any]:

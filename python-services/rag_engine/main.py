@@ -51,7 +51,8 @@ TEMPLATE_NO_PACKAGE = (
 )
 TEMPLATE_NO_PRODUCTS = (
     "Hiện mình chưa tìm thấy mẫu nhẫn khớp hoàn toàn với yêu cầu này. "
-    "Bạn có muốn mình mở rộng ngân sách, đổi màu đá hoặc gợi ý phong cách gần tương tự không?"
+    "Bạn có thể nới ngân sách, bỏ lọc phong cách (nếu đang chọn), "
+    "hoặc nới hết lọc để mình tìm mẫu gần tương tự hơn."
 )
 TEMPLATE_NO_KNOWLEDGE = (
     "Hiện cửa hàng chưa có tài liệu kiến thức phù hợp để trả lời câu hỏi này. "
@@ -574,18 +575,6 @@ def _run_query(request: QueryRequest) -> QueryResponse:
                 debug=debug_base,
             )
 
-        if intent == RagIntent.CUSTOM_DESIGN_CONSULTING:
-            return _template_response(
-                request_id=request_id,
-                intent=intent,
-                answer=TEMPLATE_CUSTOM_NO_DOCS,
-                intent_result=intent_result,
-                products=[],
-                packages=packages,
-                sources=[],
-                debug=debug_base,
-            )
-
         # GENERAL_RAG_QA và intent khác
         return _template_response(
             request_id=request_id,
@@ -968,6 +957,4 @@ def _response_type_for_intent(intent: RagIntent) -> str:
         return "package_answer"
     if intent == RagIntent.POLICY_QA:
         return "policy_answer"
-    if intent == RagIntent.CUSTOM_DESIGN_CONSULTING:
-        return "custom_design_consulting"
     return "rag_answer"

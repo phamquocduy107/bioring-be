@@ -19,7 +19,6 @@ class RagIntent(str, Enum):
     GEMSTONE_ADVICE = "GEMSTONE_ADVICE"
     PACKAGE_QA = "PACKAGE_QA"
     POLICY_QA = "POLICY_QA"
-    CUSTOM_DESIGN_CONSULTING = "CUSTOM_DESIGN_CONSULTING"
     GENERAL_RAG_QA = "GENERAL_RAG_QA"
     CLARIFICATION = "CLARIFICATION"
 
@@ -55,6 +54,25 @@ class IntentDetectionRequest(BaseModel):
     language: Literal["vi", "en"] = "vi"
 
 
+class ClarificationOption(BaseModel):
+    """One selectable option in a clarification prompt."""
+    label: str
+    value: str
+
+
+class ClarificationData(BaseModel):
+    """Structured clarification payload for FE to render chips / slider."""
+    field: str
+    question: str
+    inputType: Literal["chips", "slider"] = "chips"
+    options: List[ClarificationOption] = Field(default_factory=list)
+    # slider-specific
+    min: Optional[int] = None
+    max: Optional[int] = None
+    step: Optional[int] = None
+    unit: Optional[str] = None
+
+
 class IntentDetectionResponse(BaseModel):
     intent: RagIntent
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
@@ -66,6 +84,7 @@ class IntentDetectionResponse(BaseModel):
     productFilters: Dict[str, Any] = Field(default_factory=dict)
     shouldAskClarifyingQuestion: bool = False
     clarificationQuestion: Optional[str] = None
+    clarificationData: Optional[ClarificationData] = None
 
 
 class ProductCandidate(BaseModel):
@@ -156,6 +175,7 @@ class QueryResponse(BaseModel):
     missingFields: List[str] = Field(default_factory=list)
     productFilters: Dict[str, Any] = Field(default_factory=dict)
     shouldAskClarifyingQuestion: bool = False
+    clarificationData: Optional[ClarificationData] = None
     usage: Dict[str, Any] = Field(default_factory=dict)
     debug: Optional[QueryDebug] = None
 

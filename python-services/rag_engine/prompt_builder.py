@@ -80,13 +80,6 @@ class PromptBuilder:
                 "Có thể cá nhân hóa theo userPreferences. Không bịa chính sách/giá."
             )
 
-        if intent == RagIntent.CUSTOM_DESIGN_CONSULTING:
-            return (
-                "Bạn tư vấn thiết kế riêng/cá nhân hóa BIORING. "
-                "Dùng Context + Package Candidates. Hỏi thêm nếu thiếu đầu vào thiết kế. "
-                "Không cam kết giá/chính sách nếu Context không nêu."
-            )
-
         return (
             "Bạn là trợ lý kiến thức cửa hàng BIORING. "
             "Trả lời theo Context. Nếu thiếu Context, nói chưa tìm thấy trong tài liệu."
@@ -145,7 +138,6 @@ class PromptBuilder:
 
         if intent in (
             RagIntent.PACKAGE_QA,
-            RagIntent.CUSTOM_DESIGN_CONSULTING,
         ):
             sections.append(
                 f"Package Candidates:\n{self._dump_packages(request.packageCandidates)}"
@@ -174,8 +166,6 @@ class PromptBuilder:
             return "Yêu cầu: tư vấn hướng chọn chung; nói chưa có mẫu khớp trong catalog."
         if intent == RagIntent.GEMSTONE_ADVICE:
             return "Yêu cầu: tư vấn đá dựa trên Context và preferences."
-        if intent == RagIntent.CUSTOM_DESIGN_CONSULTING:
-            return "Yêu cầu: giải thích quy trình; hỏi thêm nếu thiếu tín hiệu thiết kế."
         if not has_context and not has_products and not has_packages:
             return "Yêu cầu: nói chưa có dữ liệu phù hợp; gợi ý bước tiếp theo ngắn."
         return "Yêu cầu: trả lời ngắn gọn theo Context."
