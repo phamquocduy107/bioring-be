@@ -9,7 +9,6 @@ export const DOCUMENT_TYPES = [
   'package',
   'ring_guide',
   'gemstone_guide',
-  'custom_design',
   'general',
 ] as const;
 
@@ -20,7 +19,6 @@ export const RETRIEVAL_TYPES = [
   'package',
   'ring_guide',
   'gemstone_guide',
-  'custom_design',
   'general',
 ] as const;
 
@@ -37,7 +35,6 @@ export const DOCUMENT_TYPE_TO_RETRIEVAL_TYPES: Record<
   package: ['package', 'policy'],
   ring_guide: ['ring_guide', 'gemstone_guide'],
   gemstone_guide: ['gemstone_guide', 'ring_guide'],
-  custom_design: ['custom_design', 'package', 'policy', 'ring_guide'],
   general: ['general'],
 };
 

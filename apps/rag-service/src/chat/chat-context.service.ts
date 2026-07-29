@@ -136,17 +136,21 @@ export class ChatContextService {
       merged[key] = value;
     }
 
-    // Follow-up nới filter: xóa slot đá/ngân sách cũ khỏi session để không kẹt vòng lặp.
+    // Follow-up nới filter: xóa slot đá/style/ngân sách cũ khỏi session để không kẹt vòng lặp.
     const q = (question || '').toLowerCase();
-    if (
-      /bỏ (yêu cầu )?đá|không cần (đá|kim cương)|gần giống|bỏ lọc đá|nới hết lọc/.test(
-        q,
-      )
+    if (/nới hết lọc|gần giống/.test(q)) {
+      delete merged.stoneName;
+      delete merged.stoneColor;
+      delete merged.style;
+    } else if (
+      /bỏ (yêu cầu )?đá|không cần (đá|kim cương)|bỏ lọc đá/.test(q)
     ) {
       delete merged.stoneName;
       delete merged.stoneColor;
     } else if (/đổi màu đá|bỏ màu đá|bỏ lọc màu/.test(q)) {
       delete merged.stoneColor;
+    } else if (/bỏ (lọc )?phong cách|không cần phong cách/.test(q)) {
+      delete merged.style;
     }
 
     return merged;

@@ -4,6 +4,14 @@ import { PrismaService } from '@app/prisma';
 import { MAX_PRODUCT_CANDIDATES } from '../chat/chat.types';
 import type { ProductCandidate } from './catalog.types';
 
+type ProductRow = Prisma.productsGetPayload<{
+  include: {
+    materials: true;
+    product_gemstones: { include: { gemstones: true } };
+    product_materials: { include: { materials: true } };
+  };
+}>;
+
 @Injectable()
 export class ProductRecommendationService {
   private readonly logger = new Logger(ProductRecommendationService.name);
@@ -12,6 +20,9 @@ export class ProductRecommendationService {
 
   /**
    * Search catalog rings via shared Prisma products table (ecommerce catalog).
+   *
+   * Hard filters: is_active, budget, material, stone.
+   * Soft rank: purpose/style keywords (không loại hết nếu name/desc không chứa từ khóa).
    */
   async searchRings(
     productFilters: Record<string, unknown>,
@@ -31,21 +42,22 @@ export class ProductRecommendationService {
 
       const material = this.toString(productFilters.material);
       if (material) {
+        const materialKeys = this.expandSearchKeywords(material);
         and.push({
-          OR: [
+          OR: materialKeys.flatMap((key) => [
             {
-              materials: { name: { contains: material, mode: 'insensitive' } },
+              materials: { name: { contains: key, mode: 'insensitive' } },
             },
             {
               product_materials: {
                 some: {
                   materials: {
-                    name: { contains: material, mode: 'insensitive' },
+                    name: { contains: key, mode: 'insensitive' },
                   },
                 },
               },
             },
-          ],
+          ]),
         });
       }
 
@@ -80,29 +92,16 @@ export class ProductRecommendationService {
         });
       }
 
-      const style = this.toString(productFilters.style);
-      const purpose = this.toString(productFilters.purpose);
-      if (style || purpose) {
-        const keywords = [
-          ...this.expandSearchKeywords(style),
-          ...this.expandSearchKeywords(purpose),
-        ];
-        and.push({
-          OR: keywords.flatMap((keyword) => [
-            { name: { contains: keyword, mode: 'insensitive' } },
-            { description: { contains: keyword, mode: 'insensitive' } },
-          ]),
-        });
-      }
-
       if (and.length) {
         where.AND = and;
       }
 
+      // Lấy rộng hơn MAX rồi soft-rank theo purpose/style.
+      const fetchLimit = Math.max(MAX_PRODUCT_CANDIDATES * 4, 20);
       const products = await this.prisma.products.findMany({
         where,
-        take: MAX_PRODUCT_CANDIDATES,
-        orderBy: { created_at: 'desc' },
+        take: fetchLimit,
+        orderBy: { base_price: 'asc' },
         include: {
           materials: true,
           product_gemstones: { include: { gemstones: true } },
@@ -110,7 +109,11 @@ export class ProductRecommendationService {
         },
       });
 
-      return products.map((product) => {
+      const style = this.toString(productFilters.style);
+      const purpose = this.toString(productFilters.purpose);
+      const ranked = this.rankByPreferences(products, { style, purpose });
+
+      return ranked.slice(0, MAX_PRODUCT_CANDIDATES).map((product) => {
         const primaryGem = product.product_gemstones?.[0]?.gemstones;
         const materialName =
           product.materials?.name ??
@@ -126,8 +129,8 @@ export class ProductRecommendationService {
           shortDescription,
           price: product.base_price ? Number(product.base_price) : undefined,
           material: materialName,
-          style: this.toString(productFilters.style) ?? undefined,
-          purpose: this.toString(productFilters.purpose) ?? undefined,
+          style: style ?? undefined,
+          purpose: purpose ?? undefined,
           stoneName: primaryGem?.type ?? stoneName ?? undefined,
           stoneColor: primaryGem?.color ?? stoneColor ?? undefined,
           imageUrl: product.thumbnail_url ?? undefined,
@@ -135,8 +138,8 @@ export class ProductRecommendationService {
             materialName,
             primaryGem?.type,
             primaryGem?.color,
-            this.toString(productFilters.style),
-            this.toString(productFilters.purpose),
+            style,
+            purpose,
           ].filter((tag): tag is string => !!tag),
           reason: this.buildReason(productFilters, product.name),
         };
@@ -148,6 +151,43 @@ export class ProductRecommendationService {
     }
   }
 
+  /**
+   * Ưu tiên sản phẩm có keyword purpose/style trong name/description,
+   * nhưng vẫn giữ sản phẩm không khớp (score 0) để không trả rỗng oan.
+   */
+  private rankByPreferences(
+    products: ProductRow[],
+    prefs: { style: string | null; purpose: string | null },
+  ): ProductRow[] {
+    const styleKeys = this.expandSearchKeywords(prefs.style);
+    const purposeKeys = this.expandSearchKeywords(prefs.purpose);
+    if (!styleKeys.length && !purposeKeys.length) {
+      return products;
+    }
+
+    const scored = products.map((product) => {
+      const haystack =
+        `${product.name ?? ''} ${product.description ?? ''}`.toLowerCase();
+      let score = 0;
+      for (const key of purposeKeys) {
+        if (haystack.includes(key.toLowerCase())) score += 3;
+      }
+      for (const key of styleKeys) {
+        if (haystack.includes(key.toLowerCase())) score += 2;
+      }
+      return { product, score };
+    });
+
+    scored.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      const pa = a.product.base_price ? Number(a.product.base_price) : 0;
+      const pb = b.product.base_price ? Number(b.product.base_price) : 0;
+      return pa - pb;
+    });
+
+    return scored.map((s) => s.product);
+  }
+
   private buildReason(
     filters: Record<string, unknown>,
     productName: string,
@@ -157,6 +197,7 @@ export class ProductRecommendationService {
       bits.push(`phù hợp ngân sách ≤ ${String(filters.budgetMax)}`);
     }
     if (filters.style) bits.push(`phong cách ${String(filters.style)}`);
+    if (filters.purpose) bits.push(`dịp ${String(filters.purpose)}`);
     if (filters.stoneColor || filters.stoneName) {
       bits.push(
         `đá ${[filters.stoneName, filters.stoneColor].filter(Boolean).join(' ')}`,
@@ -175,12 +216,17 @@ export class ProductRecommendationService {
       wedding: ['wedding', 'cưới', 'nhẫn cưới'],
       anniversary: ['anniversary', 'kỷ niệm'],
       daily: ['daily', 'hằng ngày', 'hàng ngày'],
-      minimal: ['minimal', 'tối giản', 'đơn giản'],
+      minimal: ['minimal', 'tối giản', 'đơn giản', 'minimalist'],
       luxury: ['luxury', 'sang trọng'],
-      vintage: ['vintage', 'cổ điển'],
+      vintage: ['vintage', 'cổ điển', 'classic'],
       statement: ['statement', 'nổi bật'],
-      elegant: ['elegant', 'thanh lịch'],
+      elegant: ['elegant', 'thanh lịch', 'elegance'],
       diamond: ['diamond', 'kim cương'],
+      white_gold: ['white gold', 'vàng trắng'],
+      rose_gold: ['rose gold', 'vàng hồng'],
+      yellow_gold: ['yellow gold', 'vàng'],
+      silver: ['silver', 'bạc'],
+      platinum: ['platinum', 'bạch kim'],
     };
     return aliases[v] ?? [value];
   }

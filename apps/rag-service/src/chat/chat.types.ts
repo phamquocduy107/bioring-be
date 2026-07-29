@@ -54,7 +54,8 @@ export interface RagSource {
 }
 
 export interface ChatAskPayload {
-  userId: string;
+  userId?: string;
+  guestSessionId?: string;
   workspaceId: string;
   chatSessionId?: string;
   documentIds?: string[];
@@ -73,6 +74,8 @@ export interface ChatAskResponse {
   missingFields: string[];
   productFiltersJson: string;
   shouldAskClarifyingQuestion: boolean;
+  clarificationDataJson: string;
+  suggestionChipsJson: string;
 }
 
 export interface ChatContext {

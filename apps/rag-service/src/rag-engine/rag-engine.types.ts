@@ -7,6 +7,7 @@ import type {
   RagSource,
   UserPreferences,
 } from '../chat/chat.types';
+import type { SuggestionChip } from '../chat/suggestion-chips.util';
 
 /** Intent enum aligned with Python rag-engine. */
 export type RagIntent =
@@ -14,11 +15,26 @@ export type RagIntent =
   | 'GEMSTONE_ADVICE'
   | 'PACKAGE_QA'
   | 'POLICY_QA'
-  | 'CUSTOM_DESIGN_CONSULTING'
   | 'GENERAL_RAG_QA'
   | 'CLARIFICATION';
 
 export type ExtractedRequirements = UserPreferences;
+
+export interface ClarificationOption {
+  label: string;
+  value: string;
+}
+
+export interface ClarificationData {
+  field: string;
+  question: string;
+  inputType: 'chips' | 'slider';
+  options?: ClarificationOption[];
+  min?: number;
+  max?: number;
+  step?: number;
+  unit?: string;
+}
 
 export interface IntentDetectionResponse {
   intent: RagIntent;
@@ -31,6 +47,7 @@ export interface IntentDetectionResponse {
   productFilters: Record<string, unknown>;
   shouldAskClarifyingQuestion: boolean;
   clarificationQuestion?: string | null;
+  clarificationData?: ClarificationData | null;
 }
 
 /** Payload for POST ${RAG_ENGINE_URL}/query */
@@ -82,6 +99,8 @@ export interface RagQueryResponse {
   missingFields: string[];
   productFilters: Record<string, unknown>;
   shouldAskClarifyingQuestion: boolean;
+  clarificationData?: ClarificationData | null;
+  suggestionChips?: SuggestionChip[] | null;
   usage?: Record<string, unknown> | null;
   debug?: RagQueryDebug | null;
 }
@@ -90,7 +109,6 @@ export interface RagQueryResponse {
 export const PREFERENCE_BEARING_INTENTS: RagIntent[] = [
   'RING_RECOMMENDATION',
   'GEMSTONE_ADVICE',
-  'CUSTOM_DESIGN_CONSULTING',
 ];
 
 export function retrievalOptionsForIntent(intent: RagIntent): {
@@ -106,8 +124,6 @@ export function retrievalOptionsForIntent(intent: RagIntent): {
     case 'RING_RECOMMENDATION':
     case 'GEMSTONE_ADVICE':
       return { topK: 4, scoreThreshold: 0.1 };
-    case 'CUSTOM_DESIGN_CONSULTING':
-      return { topK: 5, scoreThreshold: 0.1 };
     default:
       return { topK: 4, scoreThreshold: 0.12 };
   }

@@ -11,6 +11,7 @@ import {
   Get,
   Param,
   ParseUUIDPipe,
+  Query,
   Post,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
@@ -50,9 +51,17 @@ export class ChatController {
   getMessages(
     @Param('sessionId', new ParseUUIDPipe({ version: '4' })) sessionId: string,
     @CurrentUser() user: JwtPayload,
+    @Query('limit') limitRaw?: string,
+    @Query('before') before?: string,
   ) {
     // Gateway chỉ validate param/user rồi proxy lấy message sang rag-service.
-    return this.knowledgeService.getChatMessages(user.sub, sessionId);
+    const limit = limitRaw ? Number(limitRaw) : undefined;
+    return this.knowledgeService.getChatMessages(
+      user.sub,
+      sessionId,
+      limit,
+      before,
+    );
   }
 
   @Post('query')

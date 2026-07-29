@@ -14,7 +14,6 @@ const RETRIEVAL_TYPE_ENUM = [
   'package',
   'ring_guide',
   'gemstone_guide',
-  'custom_design',
   'general',
 ] as const;
 
@@ -77,9 +76,9 @@ export function ApiUploadDocumentDocs() {
               type: 'string',
               enum: [...RETRIEVAL_TYPE_ENUM],
             },
-            example: ['custom_design', 'package', 'policy', 'ring_guide'],
+            example: ['package', 'policy', 'ring_guide'],
             description:
-              'Optional — chọn nhiều giá trị: bấm Add item trong Swagger, hoặc nhập CSV `custom_design,package,policy`. ' +
+              'Optional — chọn nhiều giá trị: bấm Add item trong Swagger, hoặc nhập CSV `package,policy`. ' +
               'Bỏ trống thì backend tự map từ documentType.',
           },
         },

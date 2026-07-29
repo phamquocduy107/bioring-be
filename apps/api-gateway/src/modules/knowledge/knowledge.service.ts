@@ -23,6 +23,7 @@ export interface ChatSession {
   id: string;
   workspaceId: string;
   userId: string;
+  guestSessionId?: string;
   title: string;
   createdAt: string;
   updatedAt: string;
@@ -90,20 +91,30 @@ interface KnowledgeGrpcService {
     documentId: string;
   }): Observable<{ document: KnowledgeDocument }>;
   createChatSession(data: {
-    userId: string;
+    userId?: string;
+    guestSessionId?: string;
     workspaceId: string;
     title?: string;
   }): Observable<{ session: ChatSession }>;
   findChatSessions(data: {
-    userId: string;
+    userId?: string;
+    guestSessionId?: string;
     workspaceId: string;
   }): Observable<{ sessions: ChatSession[] }>;
   getChatMessages(data: {
-    userId: string;
+    userId?: string;
+    guestSessionId?: string;
     sessionId: string;
-  }): Observable<{ messages: ChatMessage[] }>;
+    limit?: number;
+    before?: string;
+  }): Observable<{
+    messages: ChatMessage[];
+    hasMore: boolean;
+    nextCursor: string;
+  }>;
   askQuestion(data: {
-    userId: string;
+    userId?: string;
+    guestSessionId?: string;
     workspaceId: string;
     chatSessionId?: string;
     documentIds?: string[];
@@ -148,6 +159,8 @@ interface KnowledgeGrpcService {
     missingFields: string[];
     productFiltersJson: string;
     shouldAskClarifyingQuestion: boolean;
+    clarificationDataJson: string;
+    suggestionChipsJson: string;
   }>;
 }
 
@@ -300,6 +313,17 @@ export class KnowledgeService implements OnModuleInit {
     );
   }
 
+  createGuestChatSession(guestSessionId: string, title?: string) {
+    const workspaceId = getKnowledgeWorkspaceId();
+    return this.call(() =>
+      this.grpc!.createChatSession({
+        guestSessionId,
+        workspaceId,
+        title,
+      }),
+    );
+  }
+
   findChatSessions(userId: string) {
     const workspaceId = getKnowledgeWorkspaceId();
     return this.call(() =>
@@ -307,9 +331,34 @@ export class KnowledgeService implements OnModuleInit {
     );
   }
 
-  getChatMessages(userId: string, sessionId: string) {
+  findGuestChatSessions(guestSessionId: string) {
+    const workspaceId = getKnowledgeWorkspaceId();
+    return this.call(() =>
+      this.grpc!.findChatSessions({ guestSessionId, workspaceId }),
+    );
+  }
+
+  getChatMessages(
+    userId: string,
+    sessionId: string,
+    limit?: number,
+    before?: string,
+  ) {
     // Lấy lịch sử chat từ rag-service để giữ format/metadata nhất quán.
-    return this.call(() => this.grpc!.getChatMessages({ userId, sessionId }));
+    return this.call(() =>
+      this.grpc!.getChatMessages({ userId, sessionId, limit, before }),
+    );
+  }
+
+  getGuestChatMessages(
+    guestSessionId: string,
+    sessionId: string,
+    limit?: number,
+    before?: string,
+  ) {
+    return this.call(() =>
+      this.grpc!.getChatMessages({ guestSessionId, sessionId, limit, before }),
+    );
   }
 
   async askQuestion(
@@ -330,7 +379,42 @@ export class KnowledgeService implements OnModuleInit {
       }),
     );
 
-    // productFilters đi qua proto dạng JSON string nên parse lại trước khi trả HTTP.
+    return this.normalizeAskResult(result);
+  }
+
+  async askGuestQuestion(
+    guestSessionId: string,
+    question: string,
+    chatSessionId?: string,
+  ) {
+    const workspaceId = getKnowledgeWorkspaceId();
+    const result = await this.call(() =>
+      this.grpc!.askQuestion({
+        guestSessionId,
+        workspaceId,
+        chatSessionId,
+        question,
+      }),
+    );
+
+    return this.normalizeAskResult(result);
+  }
+
+  private normalizeAskResult(result: {
+    messageId: string;
+    sessionId: string;
+    type: string;
+    intent: string;
+    answer: string;
+    sources?: unknown[];
+    suggestedProducts?: unknown[];
+    suggestedPackages?: unknown[];
+    missingFields?: string[];
+    productFiltersJson?: string;
+    shouldAskClarifyingQuestion?: boolean;
+    clarificationDataJson?: string;
+    suggestionChipsJson?: string;
+  }) {
     let productFilters: Record<string, unknown> = {};
     try {
       productFilters = result.productFiltersJson
@@ -338,6 +422,27 @@ export class KnowledgeService implements OnModuleInit {
         : {};
     } catch {
       productFilters = {};
+    }
+
+    let clarificationData: Record<string, unknown> | null = null;
+    try {
+      clarificationData = result.clarificationDataJson
+        ? (JSON.parse(result.clarificationDataJson) as Record<string, unknown>)
+        : null;
+    } catch {
+      clarificationData = null;
+    }
+
+    let suggestionChips: Array<Record<string, unknown>> = [];
+    try {
+      suggestionChips = result.suggestionChipsJson
+        ? (JSON.parse(result.suggestionChipsJson) as Array<
+            Record<string, unknown>
+          >)
+        : [];
+      if (!Array.isArray(suggestionChips)) suggestionChips = [];
+    } catch {
+      suggestionChips = [];
     }
 
     return {
@@ -352,6 +457,8 @@ export class KnowledgeService implements OnModuleInit {
       missingFields: result.missingFields ?? [],
       productFilters,
       shouldAskClarifyingQuestion: !!result.shouldAskClarifyingQuestion,
+      clarificationData,
+      suggestionChips,
     };
   }
 }

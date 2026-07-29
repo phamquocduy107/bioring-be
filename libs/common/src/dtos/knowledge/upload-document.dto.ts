@@ -13,7 +13,6 @@ const DOCUMENT_TYPE_VALUES = [
   'package',
   'ring_guide',
   'gemstone_guide',
-  'custom_design',
   'general',
 ] as const;
 
@@ -22,7 +21,6 @@ const RETRIEVAL_TYPE_VALUES = [
   'package',
   'ring_guide',
   'gemstone_guide',
-  'custom_design',
   'general',
 ] as const;
 
@@ -39,7 +37,6 @@ export class UploadDocumentDto {
       '- package: Gói dịch vụ, quyền lợi gói, giá gói\n' +
       '- ring_guide: Hướng dẫn chọn nhẫn, phong cách, chất liệu\n' +
       '- gemstone_guide: Hướng dẫn chọn đá, màu đá, ý nghĩa đá\n' +
-      '- custom_design: Thiết kế riêng, biometric, vân tay, giọng nói\n' +
       '- general: Tài liệu chung',
     enum: DOCUMENT_TYPE_VALUES,
     default: 'general',
@@ -55,11 +52,11 @@ export class UploadDocumentDto {
     description:
       'Optional: chọn NHIỀU retrieval type (array). Một tài liệu có thể phục vụ nhiều intent. ' +
       'Nếu bỏ trống, backend tự map từ documentType. ' +
-      'Swagger multipart: Add item nhiều lần, hoặc nhập CSV `custom_design,package,policy`.',
+      'Swagger multipart: Add item nhiều lần, hoặc nhập CSV `package,policy`.',
     isArray: true,
     enum: RETRIEVAL_TYPE_VALUES,
     uniqueItems: true,
-    example: ['custom_design', 'package', 'policy', 'ring_guide'],
+    example: ['package', 'policy', 'ring_guide'],
   })
   @IsOptional()
   @Transform(({ value }: { value: unknown }) =>

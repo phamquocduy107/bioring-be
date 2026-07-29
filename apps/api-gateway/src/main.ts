@@ -1,10 +1,10 @@
-import 'dotenv/config';
-import { join } from 'node:path';
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
+import 'dotenv/config';
+import { join } from 'node:path';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -40,6 +40,13 @@ async function bootstrap() {
       },
       'access-token',
     )
+    .addCookieAuth('guest-session', {
+      type: 'apiKey',
+      in: 'cookie',
+      name: 'guest_session_id',
+      description:
+        'Guest browser session (HttpOnly). Auto-set by guest chat endpoints.',
+    })
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
@@ -75,14 +82,5 @@ async function bootstrap() {
   logger.log(
     `Chat demo at http://localhost:${port}/demo/knowledge-chat-demo.html`,
   );
-
-  const url = new URL(process.env.DATABASE_URL!);
-
-  console.log({
-    dbHost: url.hostname,
-    dbPort: url.port,
-    dbUser: url.username,
-    dbName: url.pathname,
-  });
 }
 void bootstrap();

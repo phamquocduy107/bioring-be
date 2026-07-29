@@ -4,6 +4,7 @@ import {
   ApiBody,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiResponse,
 } from '@nestjs/swagger';
 import { ApiAuthFailures } from '@app/common';
@@ -152,9 +153,26 @@ export function ApiGetChatMessagesDocs() {
       format: 'uuid',
       example: '550e8400-e29b-41d4-a716-446655440010',
     }),
+    ApiQuery({
+      name: 'limit',
+      required: false,
+      type: Number,
+      example: 30,
+      description: 'Số tin nhắn mỗi page (default 50, max 100).',
+    }),
+    ApiQuery({
+      name: 'before',
+      required: false,
+      type: String,
+      format: 'uuid',
+      description:
+        'Cursor: messageId của tin cũ nhất FE đang có. ' +
+        'Lần đầu bỏ trống (lấy N tin mới nhất). ' +
+        'Scroll lên → truyền nextCursor từ response trước để lấy tin cũ hơn.',
+    }),
     ApiResponse({
       status: 200,
-      description: 'Chat message history.',
+      description: 'Chat message history (cursor page).',
       schema: {
         example: {
           messages: [
@@ -165,6 +183,8 @@ export function ApiGetChatMessagesDocs() {
             },
             chatMessageExample,
           ],
+          hasMore: true,
+          nextCursor: '550e8400-e29b-41d4-a716-446655440020',
         },
       },
     }),

@@ -9,7 +9,8 @@ export class ChatController {
 
   @GrpcMethod('KnowledgeService', 'CreateChatSession')
   createChatSession(data: {
-    userId: string;
+    userId?: string;
+    guestSessionId?: string;
     workspaceId: string;
     title?: string;
   }) {
@@ -18,21 +19,32 @@ export class ChatController {
   }
 
   @GrpcMethod('KnowledgeService', 'FindChatSessions')
-  findChatSessions(data: { userId: string; workspaceId: string }) {
-    // Trả danh sách session theo user/workspace cho gateway.
+  findChatSessions(data: {
+    userId?: string;
+    guestSessionId?: string;
+    workspaceId: string;
+  }) {
+    // Trả danh sách session theo user/workspace hoặc guest cho gateway.
     return this.chatService.findSessions(data);
   }
 
   @GrpcMethod('KnowledgeService', 'GetChatMessages')
-  getChatMessages(data: { userId: string; sessionId: string }) {
-    // Lấy message đã lưu
+  getChatMessages(data: {
+    userId?: string;
+    guestSessionId?: string;
+    sessionId: string;
+    limit?: number;
+    before?: string;
+  }) {
+    // Lấy message đã lưu (cursor pagination: limit + before)
     return this.chatService.getMessages(data);
   }
 
   @SkipTimeout()
   @GrpcMethod('KnowledgeService', 'AskQuestion')
   askQuestion(data: {
-    userId: string;
+    userId?: string;
+    guestSessionId?: string;
     workspaceId: string;
     chatSessionId?: string;
     documentIds?: string[];

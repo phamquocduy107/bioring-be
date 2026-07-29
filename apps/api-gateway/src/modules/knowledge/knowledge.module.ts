@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { DocumentsController } from './documents/documents.controller';
 import { ChatController } from './chat/chat.controller';
+import { GuestChatController } from './chat/guest-chat.controller';
 import { KnowledgeService } from './knowledge.service';
 
 @Module({
@@ -22,7 +23,7 @@ import { KnowledgeService } from './knowledge.service';
       },
     ]),
   ],
-  controllers: [DocumentsController, ChatController],
+  controllers: [DocumentsController, ChatController, GuestChatController],
   providers: [KnowledgeService],
   exports: [KnowledgeService],
 })
