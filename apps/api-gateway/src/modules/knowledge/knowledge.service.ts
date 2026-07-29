@@ -35,6 +35,12 @@ export interface ChatMessage {
   role: string;
   content: string;
   createdAt: string;
+  intent?: string;
+  type?: string;
+  sources?: unknown[];
+  suggestedProducts?: unknown[];
+  suggestedPackages?: unknown[];
+  metadataJson?: string;
 }
 
 export interface UploadedFilePayload {
@@ -338,27 +344,68 @@ export class KnowledgeService implements OnModuleInit {
     );
   }
 
-  getChatMessages(
+  async getChatMessages(
     userId: string,
     sessionId: string,
     limit?: number,
     before?: string,
   ) {
-    // Lấy lịch sử chat từ rag-service để giữ format/metadata nhất quán.
-    return this.call(() =>
+    const result = await this.call(() =>
       this.grpc!.getChatMessages({ userId, sessionId, limit, before }),
     );
+    return this.normalizeMessagesPage(result);
   }
 
-  getGuestChatMessages(
+  async getGuestChatMessages(
     guestSessionId: string,
     sessionId: string,
     limit?: number,
     before?: string,
   ) {
-    return this.call(() =>
+    const result = await this.call(() =>
       this.grpc!.getChatMessages({ guestSessionId, sessionId, limit, before }),
     );
+    return this.normalizeMessagesPage(result);
+  }
+
+  private normalizeMessagesPage(result: {
+    messages?: ChatMessage[];
+    hasMore?: boolean;
+    nextCursor?: string;
+  }) {
+    return {
+      messages: (result.messages ?? []).map((m) => this.normalizeChatMessage(m)),
+      hasMore: !!result.hasMore,
+      nextCursor: result.nextCursor ?? '',
+    };
+  }
+
+  private normalizeChatMessage(message: ChatMessage) {
+    let extras: Record<string, unknown> = {};
+    try {
+      extras = message.metadataJson
+        ? (JSON.parse(message.metadataJson) as Record<string, unknown>)
+        : {};
+    } catch {
+      extras = {};
+    }
+
+    return {
+      id: message.id,
+      sessionId: message.sessionId,
+      role: message.role,
+      content: message.content,
+      createdAt: message.createdAt,
+      intent: message.intent ?? '',
+      type: message.type ?? '',
+      sources: message.sources ?? [],
+      suggestedProducts: message.suggestedProducts ?? [],
+      suggestedPackages: message.suggestedPackages ?? [],
+      productFilters: (extras.productFilters as Record<string, unknown>) ?? {},
+      missingFields: (extras.missingFields as string[]) ?? [],
+      clarificationData: extras.clarificationData ?? null,
+      suggestionChips: (extras.suggestionChips as unknown[]) ?? [],
+    };
   }
 
   async askQuestion(

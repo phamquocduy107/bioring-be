@@ -1,0 +1,70 @@
+name: bioring-python
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+
+services:
+  rag-engine:
+    image: ${DOCKER_USERNAME:-kietmn}/bioring-python:${IMAGE_TAG:-latest}
+    pull_policy: ${PULL_POLICY:-always}
+    container_name: bioring-rag-engine
+    restart: unless-stopped
+    logging: *default-logging
+    env_file: .env
+    command:
+      - uvicorn
+      - rag_engine.main:app
+      - --host
+      - '0.0.0.0'
+      - --port
+      - '8000'
+      - --workers
+      - '1'
+    ports:
+      - '${RAG_ENGINE_PORT:-8000}:8000'
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://127.0.0.1:8000/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  personalization-engine:
+    image: ${DOCKER_USERNAME:-kietmn}/bioring-python:${IMAGE_TAG:-latest}
+    pull_policy: ${PULL_POLICY:-always}
+    container_name: bioring-personalization-engine
+    restart: unless-stopped
+    logging: *default-logging
+    env_file: .env
+    command:
+      - uvicorn
+      - personalization_engine.main:app
+      - --host
+      - '0.0.0.0'
+      - --port
+      - '8010'
+      - --workers
+      - '1'
+    ports:
+      - '${PERSONALIZATION_PORT:-8010}:8010'
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://127.0.0.1:8010/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 25s
+
+  ingestion-worker:
+    image: ${DOCKER_USERNAME:-kietmn}/bioring-python:${IMAGE_TAG:-latest}
+    pull_policy: ${PULL_POLICY:-always}
+    container_name: bioring-ingestion-worker
+    restart: unless-stopped
+    logging: *default-logging
+    env_file: .env
+    command:
+      - python
+      - -m
+      - ingestion_worker.rabbitmq_worker

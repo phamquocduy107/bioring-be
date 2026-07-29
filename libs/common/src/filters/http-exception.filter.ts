@@ -67,7 +67,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
       message =
         typeof responseBody === 'object' && responseBody !== null
           ? 'message' in responseBody
-            ? String((responseBody as Record<string, string>).message ?? '')
+            ? Array.isArray(
+                (responseBody as Record<string, unknown>).message,
+              )
+              ? (
+                  (responseBody as Record<string, unknown>).message as unknown[]
+                ).join(', ')
+              : String(
+                  (responseBody as Record<string, unknown>).message ?? '',
+                )
             : JSON.stringify(responseBody)
           : typeof responseBody === 'string'
             ? responseBody
@@ -117,6 +125,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     response.status(status).json({
       statusCode: status,
       message: message,
+      data: null,
       timestamp: new Date().toISOString(),
       path: request.url,
     });

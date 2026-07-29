@@ -369,17 +369,57 @@ export class PersonalizationEngineClient {
   }
 
   private async parseResponse<T>(response: Response, path: string): Promise<T> {
+    const rawText = await response.text();
+    let payload: unknown = null;
+    try {
+      payload = rawText ? JSON.parse(rawText) : null;
+    } catch {
+      payload = rawText;
+    }
+
     if (!response.ok) {
-      const errText = await response.text();
+      const message = this.extractErrorMessage(payload, rawText);
       this.logger.error(
-        `personalization_engine ${path} failed (${response.status}): ${errText}`,
+        `personalization_engine ${path} failed (${response.status}): ${message}`,
       );
       throw new HttpException(
-        `personalization_engine ${path} failed: ${errText}`,
+        `personalization_engine ${path} failed: ${message}`,
         HttpStatus.BAD_GATEWAY,
       );
     }
-    return (await response.json()) as T;
+
+    return this.unwrapNestEnvelope<T>(payload);
+  }
+
+  /**
+   * Python personalization_engine wraps success as Nest shape:
+   * { statusCode, message, data }.
+   * Backward-compatible: nếu body chưa bọc envelope thì trả nguyên payload.
+   */
+  private unwrapNestEnvelope<T>(payload: unknown): T {
+    if (
+      payload &&
+      typeof payload === 'object' &&
+      !Array.isArray(payload) &&
+      'data' in payload &&
+      'statusCode' in payload
+    ) {
+      return (payload as { data: T }).data;
+    }
+    return payload as T;
+  }
+
+  private extractErrorMessage(payload: unknown, fallback: string): string {
+    if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+      const obj = payload as Record<string, unknown>;
+      if (typeof obj.message === 'string' && obj.message.trim()) {
+        return obj.message;
+      }
+      if (typeof obj.detail === 'string' && obj.detail.trim()) {
+        return obj.detail;
+      }
+    }
+    return fallback || 'unknown error';
   }
 
   private rethrow(path: string, error: unknown): never {

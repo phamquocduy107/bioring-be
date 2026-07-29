@@ -22,7 +22,7 @@ import {
 } from './rbac.swagger';
 
 @ApiBearerAuth('access-token')
-@Controller('rbac')
+@Controller('api/v1/rbac')
 export class RbacController {
   constructor(private readonly identityService: IdentityService) {}
 

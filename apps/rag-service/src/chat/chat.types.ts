@@ -2,6 +2,7 @@ import type {
   PackageCandidate,
   ProductCandidate,
 } from '../catalog/catalog.types';
+import type { SuggestionChip } from './suggestion-chips.util';
 
 export const MAX_RECENT_MESSAGES = Number(process.env.MAX_RECENT_MESSAGES ?? 8);
 export const MAX_AMBIGUOUS_RECENT_MESSAGES = Number(
@@ -93,5 +94,7 @@ export interface MessageMetadata {
   suggestedPackages?: PackageCandidate[];
   productFilters?: Record<string, unknown>;
   missingFields?: string[];
+  clarificationData?: Record<string, unknown> | null;
+  suggestionChips?: SuggestionChip[];
   usage?: Record<string, unknown> | null;
 }

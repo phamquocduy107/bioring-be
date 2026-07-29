@@ -78,16 +78,19 @@ export class RagEngineClient {
       if (!response.ok) {
         // Log body lỗi từ Python để debug retrieval/LLM, nhưng không log prompt/context dài.
         const errText = await response.text();
+        const message = this.extractErrorMessage(errText);
         this.logger.error(
-          `rag-engine ${path} failed (${response.status}): ${errText}`,
+          `rag-engine ${path} failed (${response.status}): ${message}`,
         );
         throw new HttpException(
-          `rag-engine ${path} failed: ${errText}`,
+          `rag-engine ${path} failed: ${message}`,
           HttpStatus.BAD_GATEWAY,
         );
       }
 
-      return (await response.json()) as T;
+      const payload: unknown = await response.json();
+      // Hỗ trợ cả payload phẳng lẫn envelope Nest { statusCode, message, data }.
+      return this.unwrapNestEnvelope<T>(payload);
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -100,5 +103,36 @@ export class RagEngineClient {
     } finally {
       clearTimeout(timeoutId);
     }
+  }
+
+  private unwrapNestEnvelope<T>(payload: unknown): T {
+    if (
+      payload &&
+      typeof payload === 'object' &&
+      !Array.isArray(payload) &&
+      'data' in payload &&
+      'statusCode' in payload
+    ) {
+      return (payload as { data: T }).data;
+    }
+    return payload as T;
+  }
+
+  private extractErrorMessage(rawText: string): string {
+    try {
+      const parsed: unknown = JSON.parse(rawText);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        const obj = parsed as Record<string, unknown>;
+        if (typeof obj.message === 'string' && obj.message.trim()) {
+          return obj.message;
+        }
+        if (typeof obj.detail === 'string' && obj.detail.trim()) {
+          return obj.detail;
+        }
+      }
+    } catch {
+      // keep raw
+    }
+    return rawText;
   }
 }

@@ -26,6 +26,7 @@ import { MAX_PACKAGE_CANDIDATES, MAX_PRODUCT_CANDIDATES } from './chat.types';
 import { ConversationSummaryService } from './conversation-summary.service';
 import { WorkspacePermissionService } from './workspace-permission.service';
 import { buildEmptyProductSuggestionChips } from './suggestion-chips.util';
+import type { ClarificationData } from '../rag-engine/rag-engine.types';
 
 @Injectable()
 export class ChatService {
@@ -235,7 +236,7 @@ export class ChatService {
         `cacheHit=${ragResult.debug?.cacheHit ?? false}`,
     );
 
-    // Lưu assistant message kèm metadata để FE xem lại sources/sản phẩm/gói được gợi ý.
+    // Lưu assistant message kèm metadata để FE xem lại sources/sản phẩm/gói khi load lịch sử.
     const assistantMessage = await this.aiChatRepository.createMessage({
       sessionId: session.id,
       role: 'assistant',
@@ -250,6 +251,9 @@ export class ChatService {
         suggestedPackages: ragResult.suggestedPackages ?? [],
         productFilters: ragResult.productFilters ?? {},
         missingFields: ragResult.missingFields ?? [],
+        clarificationData: (ragResult.clarificationData ??
+          null) as Record<string, unknown> | null,
+        suggestionChips: ragResult.suggestionChips ?? [],
         usage: ragResult.usage ?? null,
       },
     });
@@ -291,8 +295,20 @@ export class ChatService {
   }
 
   /**
-   * Intent switch is allowed in-session. Preferences are preserved.
+   * Production mặc định không trả sources cho FE.
+   * Bật lại bằng CHAT_INCLUDE_SOURCES=true (dev/debug).
    */
+  private shouldIncludeSources(): boolean {
+    const flag = process.env.CHAT_INCLUDE_SOURCES?.trim().toLowerCase();
+    if (flag === 'true' || flag === '1' || flag === 'yes') return true;
+    if (flag === 'false' || flag === '0' || flag === 'no') return false;
+    const env = (
+      process.env.NODE_ENV ||
+      process.env.APP_ENV ||
+      ''
+    ).toLowerCase();
+    return env !== 'production' && env !== 'prod';
+  }
   private handleIntentSwitch(
     currentIntent: string,
     lastIntent: string | null,
@@ -618,20 +634,31 @@ export class ChatService {
     created_at: Date | null;
   }) {
     const metadata = this.aiChatRepository.parseMetadata(message.metadata);
+    const extras = {
+      productFilters: metadata.productFilters ?? {},
+      missingFields: metadata.missingFields ?? [],
+      clarificationData: metadata.clarificationData ?? null,
+      suggestionChips: metadata.suggestionChips ?? [],
+    };
     return {
       id: message.id,
       sessionId: message.ai_session_id,
       role: message.sender ?? 'user',
       content: message.message ?? '',
-      intent: metadata.intent ?? null,
-      type: metadata.type ?? null,
-      sources: metadata.sources ?? [],
-      suggestedProducts: metadata.suggestedProducts ?? [],
+      intent: metadata.intent ?? '',
+      type: metadata.type ?? '',
+      sources: this.normalizeSources(metadata.sources),
+      suggestedProducts: this.normalizeProducts(metadata.suggestedProducts),
+      suggestedPackages: this.normalizePackages(metadata.suggestedPackages),
+      metadataJson: JSON.stringify(extras),
       createdAt: (message.created_at ?? new Date()).toISOString(),
     };
   }
 
   private normalizeSources(sources?: RagSource[]) {
+    if (!this.shouldIncludeSources()) {
+      return [];
+    }
     return (sources ?? []).map((source) => ({
       documentId: source.documentId ?? '',
       source: source.source ?? '',

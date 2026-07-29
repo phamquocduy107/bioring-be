@@ -41,7 +41,7 @@ interface UploadedPdfFile {
 
 @ApiTags('Knowledge - Documents')
 @ApiBearerAuth('access-token')
-@Controller('knowledge/documents')
+@Controller('api/v1/knowledge/documents')
 export class DocumentsController {
   constructor(private readonly knowledgeService: KnowledgeService) {}
 

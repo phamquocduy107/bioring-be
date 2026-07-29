@@ -25,7 +25,7 @@ import {
 
 @ApiTags('Knowledge - Chat')
 @ApiBearerAuth('access-token')
-@Controller('knowledge/chat')
+@Controller('api/v1/knowledge/chat')
 export class ChatController {
   constructor(private readonly knowledgeService: KnowledgeService) {}
 

@@ -22,7 +22,7 @@ import {
   ApiGetMeDocs,
 } from './auth.swagger';
 
-@Controller('auth')
+@Controller('api/v1/auth')
 @Public()
 export class AuthController {
   constructor(

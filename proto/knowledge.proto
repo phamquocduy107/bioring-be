@@ -234,4 +234,11 @@ message ChatMessage {
   string role = 3;
   string content = 4;
   string createdAt = 5;
+  string intent = 6;
+  string type = 7;
+  repeated RagSource sources = 8;
+  repeated SuggestedProduct suggestedProducts = 9;
+  repeated SuggestedPackage suggestedPackages = 10;
+  // JSON: productFilters, missingFields, clarificationData, suggestionChips, ...
+  string metadataJson = 11;
 }

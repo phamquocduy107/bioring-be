@@ -17,10 +17,10 @@ Compose dung `env_file: .env` (dung theo docs Arcane) — moi bien trong .env se
 
 ## Ports
 
-| Service | Port |
-|---------|------|
-| rag-engine | 8000 |
-| personalization-engine | 8010 |
-| ingestion-worker | (khong mo port) |
+| Service                | Port            |
+| ---------------------- | --------------- |
+| rag-engine             | 8000            |
+| personalization-engine | 8010            |
+| ingestion-worker       | (khong mo port) |
 
 Bat buoc trong `.env`: `RABBITMQ_URL`, `MINIO_ENDPOINT`, `QDRANT_URL`, `OPENROUTER_API_KEY`.

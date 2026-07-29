@@ -21,7 +21,7 @@ export class GoogleOauthGuard extends AuthGuard('google') {
     const protocol =
       (req.headers['x-forwarded-proto'] as string) || req.protocol;
     const host = (req.headers['x-forwarded-host'] as string) || req.get('host');
-    const callbackURL = `${protocol}://${host}/auth/google/callback`;
+    const callbackURL = `${protocol}://${host}/api/v1/auth/google/callback`;
 
     return {
       prompt: 'select_account consent' as const,
