@@ -106,6 +106,7 @@ export class MemoryCardService {
     status?: string,
   ) {
     const where: any = {
+      is_locked: false,
       engravings: {
         user_id: userId,
         ...(status ? { order: { status } } : {}),

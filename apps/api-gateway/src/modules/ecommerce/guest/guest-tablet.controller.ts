@@ -348,13 +348,14 @@ export class GuestTabletController implements OnModuleInit {
       selectedGemstoneId?: string;
       ringSize?: string;
       selectedBiometrics?: string;
+      staffId?: string;
     },
   ) {
     return this.call(() =>
       this.grpc!.createGuestEngraving({
         guestCode: body.guestCode,
         productId: body.productId,
-        staffId: '',
+        staffId: body.staffId ?? '',
         selectedMaterialId: body.selectedMaterialId,
         selectedGemstoneId: body.selectedGemstoneId,
         ringSize: body.ringSize,
@@ -371,13 +372,14 @@ export class GuestTabletController implements OnModuleInit {
     body: {
       guestCode: string;
       engravingId: string;
+      staffId?: string;
     },
   ) {
     return this.call(() =>
       this.grpc!.createGuestOrder({
         guestCode: body.guestCode,
         engravingId: body.engravingId,
-        staffId: '',
+        staffId: body.staffId ?? '',
       }),
     );
   }

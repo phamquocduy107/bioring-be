@@ -13,13 +13,9 @@ import {
   Permissions,
   Permission,
   CreateGuestSessionDto,
-  CreateGuestOrderDto,
 } from '@app/common';
 import type { JwtPayload } from '@app/common';
-import {
-  ApiCreateGuestSessionDocs,
-  ApiCreateGuestOrderDocs,
-} from './guest.swagger';
+import { ApiCreateGuestSessionDocs } from './guest.swagger';
 
 interface GuestCustomerResponse {
   id: string;
@@ -36,41 +32,6 @@ interface CreateGuestSessionResponse {
   isMember: boolean;
   isExistingGuest: boolean;
   message: string;
-}
-
-interface GuestOrderResponse {
-  order: {
-    id: string;
-    orderCode: string;
-    userId: string;
-    guestCustomerId: string;
-    designSource: string;
-    status: string;
-    totalPrice: number;
-    paidAmount: number;
-    remainingAmount: number;
-    createdAt: string;
-  };
-  engraving: {
-    id: string;
-    userId: string;
-    productId: string;
-    status: string;
-  };
-  version: {
-    id: string;
-    engravingId: string;
-    versionNumber: number;
-    selectedMaterialId: string;
-    selectedGemstoneId: string;
-    ringSize: string;
-    ringStyle: string;
-    ringShape: string;
-    customizationConfig: string;
-    selectedBiometrics: string;
-    status: string;
-    createdAt: string;
-  };
 }
 
 interface EcommerceGrpcService {
@@ -94,7 +55,7 @@ interface EcommerceGrpcService {
     guestCode: string;
     engravingId: string;
     staffId: string;
-  }): Observable<GuestOrderResponse>;
+  }): Observable<unknown>;
 }
 
 @Controller('api/v1/guest-tablet')
@@ -131,42 +92,6 @@ export class GuestController implements OnModuleInit {
         phone: dto.phone,
         email: dto.email,
         note: dto.note,
-        staffId: user.sub,
-      }),
-    );
-  }
-
-  @Post('engravings')
-  // @ApiCreateGuestEngravingDocs()
-  @Permissions(Permission.OrderWrite)
-  async createEngraving(
-    @Body() dto: import('@app/common').CreateGuestEngravingDto,
-    @CurrentUser() user: JwtPayload,
-  ) {
-    return this.call(() =>
-      this.grpc!.createGuestEngraving({
-        guestCode: dto.guestCode,
-        productId: dto.productId,
-        selectedMaterialId: dto.selectedMaterialId,
-        selectedGemstoneId: dto.selectedGemstoneId,
-        ringSize: dto.ringSize,
-        selectedBiometrics: dto.selectedBiometrics,
-        staffId: user.sub,
-      }),
-    );
-  }
-
-  @Post('orders')
-  @ApiCreateGuestOrderDocs()
-  @Permissions(Permission.OrderWrite)
-  async createOrder(
-    @Body() dto: CreateGuestOrderDto,
-    @CurrentUser() user: JwtPayload,
-  ) {
-    return this.call(() =>
-      this.grpc!.createGuestOrder({
-        guestCode: dto.guestCode,
-        engravingId: dto.engravingId,
         staffId: user.sub,
       }),
     );

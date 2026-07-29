@@ -4199,6 +4199,24 @@ Route prefix: `api/v1/warranty-claims`
 
 ---
 
+### 114. POST `/api/v1/warranty-claims/upload`
+**Auth:** JWT (bearer)
+**Description:** Upload warranty proof file (image or video) to MinIO, returns public URL.
+**Content-Type:** `multipart/form-data`
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| file | binary | Yes | Image: jpg/png/webp (max 10MB). Video: mp4/quicktime (max 50MB). |
+
+**Response:**
+```json
+{
+  "url": "https://minio.bioring.vn/warranty-proofs/uuid.jpg"
+}
+```
+
+---
+
 ### 114. GET `/api/v1/warranty-claims`
 **Auth:** JWT (bearer)
 **Description:** Get warranty claims (paginated). Mặc định trả claims của user đang login. Admin/Manager dùng `?view=all` để xem tất cả.
