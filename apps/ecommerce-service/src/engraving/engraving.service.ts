@@ -335,7 +335,10 @@ export class EngravingService {
     orderId?: string,
     withoutOrder?: boolean,
   ) {
-    const where: Record<string, unknown> = { user_id: userId };
+    const where: Record<string, unknown> = {
+      user_id: userId,
+      status: { not: 'CANCELLED' },
+    };
     if (status) where.status = status;
     if (orderId) where.order_id = orderId;
     if (withoutOrder) where.order = null;
@@ -384,7 +387,7 @@ export class EngravingService {
     orderId?: string,
     withoutOrder?: boolean,
   ) {
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { status: { not: 'CANCELLED' } };
     if (status) where.status = status;
     if (userId) where.user_id = userId;
     if (orderId) where.order_id = orderId;
@@ -676,8 +679,8 @@ export class EngravingService {
       },
     });
     if (!engraving) throw new NotFoundException('Engraving not found');
-    if (engraving.user_id !== userId)
-      throw new ForbiddenException('Not your engraving');
+    // if (engraving.user_id !== userId)
+    //   throw new ForbiddenException('Not your engraving');
     if (engraving.order)
       throw new BadRequestException('Cannot cancel — already has order');
     if (engraving.status === 'CANCELLED')
