@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   Body,
   Req,
+  Res,
   Query,
   Inject,
   OnModuleInit,
@@ -14,7 +15,7 @@ import {
 } from '@nestjs/common';
 import type { ClientGrpc } from '@nestjs/microservices';
 import { Observable, lastValueFrom } from 'rxjs';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import {
   Public,
   CurrentUser,
@@ -26,6 +27,7 @@ import {
   GetMyDraftsQueryDto,
 } from '@app/common';
 import type { JwtPayload } from '@app/common';
+import { ensureGuestSessionId } from '../../../common/guest-session.util';
 import {
   ApiCreateDesignDraftDocs,
   ApiGetDesignDraftByCodeDocs,
@@ -139,10 +141,12 @@ export class DesignController implements OnModuleInit {
   @Post('drafts')
   @Public()
   @ApiCreateDesignDraftDocs()
-  createDesignDraft(@Body() body: CreateDesignDraftDto, @Req() req: Request) {
-    const guestSessionId =
-      (req.cookies as Record<string, string> | undefined)?.guest_session_id ??
-      '';
+  createDesignDraft(
+    @Body() body: CreateDesignDraftDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const guestSessionId = ensureGuestSessionId(req, res);
     return this.call(() =>
       this.grpc!.createDesignDraft({ ...body, guestSessionId }),
     );
@@ -160,10 +164,12 @@ export class DesignController implements OnModuleInit {
   @Get('drafts')
   @Public()
   @ApiGetMyDraftsDocs()
-  async getMyDrafts(@Req() req: Request, @Query() query: GetMyDraftsQueryDto) {
-    const guestSessionId =
-      (req.cookies as Record<string, string> | undefined)?.guest_session_id ??
-      '';
+  async getMyDrafts(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+    @Query() query: GetMyDraftsQueryDto,
+  ) {
+    const guestSessionId = ensureGuestSessionId(req, res);
     const result = await this.call(() =>
       this.grpc!.getMyDrafts({
         guestSessionId,
@@ -186,10 +192,9 @@ export class DesignController implements OnModuleInit {
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @Body() body: UpdateDesignDraftDto,
     @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
   ) {
-    const guestSessionId =
-      (req.cookies as Record<string, string> | undefined)?.guest_session_id ??
-      '';
+    const guestSessionId = ensureGuestSessionId(req, res);
     return this.call(() =>
       this.grpc!.updateDesignDraft({ ...body, id, guestSessionId }),
     );

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { EmailService, templates } from '@app/common';
 import { PrismaService } from '@app/prisma';
+import { InvoiceBuilder } from './invoice.builder';
 
 interface CustomerInfo {
   email: string;
@@ -9,11 +10,19 @@ interface CustomerInfo {
   orderCode: string;
 }
 
+/**
+ * Customer emails (chỉ các case sau):
+ * - order.approved / order.rejected (review thiết kế)
+ * - payment.confirmed (DEPOSIT_1 / DEPOSIT_2 / REMAINING / FULL) + PDF biên lai
+ * - order.ready_for_delivery | pickup
+ * - order.completed → hóa đơn cuối + PDF
+ */
 @Injectable()
 export class NotificationListener {
   constructor(
     private readonly emailService: EmailService,
     private readonly prisma: PrismaService,
+    private readonly invoiceBuilder: InvoiceBuilder,
   ) {}
 
   private async getCustomerInfo(orderId: string): Promise<CustomerInfo | null> {
@@ -41,39 +50,96 @@ export class NotificationListener {
     };
   }
 
-  @OnEvent('order.submitted')
-  async handleOrderSubmitted(payload: { orderId: string }) {
-    try {
-      const order = await this.prisma.orders.findUnique({
-        where: { id: payload.orderId },
-        select: { order_code: true, engraving: { select: { user_id: true } } },
-      });
-      if (!order?.order_code) return;
+  private async sendInvoiceEmail(params: {
+    orderId: string;
+    kind: 'payment' | 'final';
+    paymentId?: string;
+    type: string;
+    subject?: string;
+  }) {
+    const built = await this.invoiceBuilder.build({
+      orderId: params.orderId,
+      kind: params.kind,
+      paymentId: params.paymentId,
+    });
+    if (!built) return;
 
-      const managers = await this.prisma.user_roles.findMany({
-        where: {
-          roles: { name: { in: ['ADMIN', 'MANAGER'] } },
-          users: { status: 'ACTIVE' },
-        },
-        include: { users: { select: { email: true, full_name: true } } },
-      });
+    const { data, pdf } = built;
+    const currentStep = data.paymentPlan.find((s) => s.status === 'current');
+    const highlightStepLabel = currentStep
+      ? `Lần ${currentStep.stepIndex}/${currentStep.totalSteps}`
+      : undefined;
 
-      for (const m of managers) {
-        if (!m.users.email) continue;
-        await this.emailService.send({
-          to: m.users.email,
-          type: 'order.submitted',
-          subject: 'Đơn hàng mới cần duyệt',
-          html: templates.orderSubmitted({
-            orderCode: order.order_code,
-            customerName: m.users.full_name ?? '',
-          }),
-          orderId: payload.orderId,
-        });
+    const common = {
+      fullName: data.customerName,
+      orderCode: data.orderCode,
+      invoiceNumber: data.invoiceNumber,
+      issuedAt: data.issuedAt,
+      productName: data.productName,
+      packageType: data.packageType,
+      paymentPlanSummary: data.paymentPlanSummary,
+      paymentPlan: data.paymentPlan.map((s) => ({
+        stepIndex: s.stepIndex,
+        totalSteps: s.totalSteps,
+        label: s.label,
+        status: s.status,
+        amountPaid: s.amountPaid,
+      })),
+      highlightStepLabel,
+      totalPrice: data.totalPrice,
+      paidAmount: data.paidAmount,
+      remainingAmount: data.remainingAmount,
+      subtotal: data.subtotal,
+      serviceFee: data.serviceFee,
+      extraFee: data.extraFee,
+      discountAmount: data.discountAmount,
+      companyName: data.companyName,
+      companyTaxCode: data.companyTaxCode,
+    };
+
+    const html =
+      params.kind === 'final'
+        ? templates.invoiceFinal({ ...common, kind: 'final' })
+        : templates.invoicePayment({
+            ...common,
+            kind: 'payment',
+            highlightLabel: data.highlightPayment?.phaseLabel,
+            highlightAmount: data.highlightPayment?.amount,
+            highlightMethod: data.highlightPayment?.method,
+          });
+
+    let subject = params.subject;
+    if (!subject) {
+      if (params.kind === 'final') {
+        subject = `Hóa đơn tổng kết — ${data.orderCode}`;
+      } else {
+        const stepLabel = currentStep
+          ? `lần ${currentStep.stepIndex}/${currentStep.totalSteps}`
+          : 'thanh toán';
+        const amount = data.highlightPayment?.amount;
+        const amountLabel =
+          amount != null
+            ? ` ${Math.round(amount).toLocaleString('vi-VN')}₫`
+            : '';
+        subject = `Biên lai ${stepLabel}${amountLabel} — ${data.orderCode}`;
       }
-    } catch (error) {
-      console.warn('[Notification] order.submitted failed:', error);
     }
+
+    await this.emailService.send({
+      to: data.customerEmail,
+      type: params.type,
+      subject,
+      html,
+      orderId: params.orderId,
+      attachments: [
+        {
+          content: pdf.toString('base64'),
+          filename: `${data.invoiceNumber}.pdf`,
+          type: 'application/pdf',
+          disposition: 'attachment',
+        },
+      ],
+    });
   }
 
   @OnEvent('order.approved')
@@ -84,7 +150,7 @@ export class NotificationListener {
       await this.emailService.send({
         to: info.email,
         type: 'order.approved',
-        subject: 'Đơn hàng đã được duyệt',
+        subject: 'Thiết kế đã được duyệt',
         html: templates.orderApproved(info),
         orderId: payload.orderId,
       });
@@ -101,7 +167,7 @@ export class NotificationListener {
       await this.emailService.send({
         to: info.email,
         type: 'order.rejected',
-        subject: 'Đơn hàng cần chỉnh sửa',
+        subject: 'Thiết kế cần chỉnh sửa',
         html: templates.orderRejected({ ...info, note: payload.note }),
         orderId: payload.orderId,
       });
@@ -111,49 +177,43 @@ export class NotificationListener {
   }
 
   @OnEvent('payment.confirmed')
-  async handlePaymentConfirmed(payload: { orderId: string }) {
+  async handlePaymentConfirmed(payload: {
+    orderId: string;
+    paymentId?: string;
+    paymentPhase?: string;
+  }) {
     try {
-      const info = await this.getCustomerInfo(payload.orderId);
-      if (!info) return;
-      await this.emailService.send({
-        to: info.email,
-        type: 'payment.confirmed',
-        subject: 'Thanh toán thành công',
-        html: templates.paymentConfirmed(info),
+      await this.sendInvoiceEmail({
         orderId: payload.orderId,
+        kind: 'payment',
+        paymentId: payload.paymentId,
+        type: 'invoice.payment',
       });
     } catch (error) {
-      console.warn('[Notification] payment.confirmed failed:', error);
-    }
-  }
-
-  @OnEvent('order.production_started')
-  async handleProductionStarted(payload: { orderId: string }) {
-    try {
-      const info = await this.getCustomerInfo(payload.orderId);
-      if (!info) return;
-      await this.emailService.send({
-        to: info.email,
-        type: 'order.production_started',
-        subject: 'Đơn hàng đang được sản xuất',
-        html: templates.productionStarted(info),
-        orderId: payload.orderId,
-      });
-    } catch (error) {
-      console.warn('[Notification] production_started failed:', error);
+      console.warn('[Notification] payment.confirmed invoice failed:', error);
     }
   }
 
   @OnEvent('order.ready_for_delivery')
-  async handleReadyForDelivery(payload: { orderId: string }) {
+  async handleReadyForDelivery(payload: {
+    orderId: string;
+    method?: 'DELIVERY' | 'PICKUP';
+  }) {
     try {
       const info = await this.getCustomerInfo(payload.orderId);
       if (!info) return;
+      const method = payload.method ?? 'DELIVERY';
       await this.emailService.send({
         to: info.email,
-        type: 'order.ready_for_delivery',
-        subject: 'Đơn hàng sẵn sàng giao',
-        html: templates.readyForDelivery(info),
+        type:
+          method === 'PICKUP'
+            ? 'order.ready_for_pickup'
+            : 'order.ready_for_delivery',
+        subject:
+          method === 'PICKUP'
+            ? 'Đơn hàng sẵn sàng nhận (pickup)'
+            : 'Đơn hàng sẵn sàng giao',
+        html: templates.readyForDelivery({ ...info, method }),
         orderId: payload.orderId,
       });
     } catch (error) {
@@ -161,20 +221,16 @@ export class NotificationListener {
     }
   }
 
-  @OnEvent('order.delivered')
-  async handleOrderDelivered(payload: { orderId: string }) {
+  @OnEvent('order.completed')
+  async handleOrderCompleted(payload: { orderId: string }) {
     try {
-      const info = await this.getCustomerInfo(payload.orderId);
-      if (!info) return;
-      await this.emailService.send({
-        to: info.email,
-        type: 'order.delivered',
-        subject: 'Đơn hàng đã giao thành công',
-        html: templates.orderDelivered(info),
+      await this.sendInvoiceEmail({
         orderId: payload.orderId,
+        kind: 'final',
+        type: 'invoice.final',
       });
     } catch (error) {
-      console.warn('[Notification] order.delivered failed:', error);
+      console.warn('[Notification] order.completed invoice failed:', error);
     }
   }
 }

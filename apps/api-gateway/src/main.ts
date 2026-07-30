@@ -82,5 +82,7 @@ async function bootstrap() {
   logger.log(
     `Chat demo at http://localhost:${port}/demo/knowledge-chat-demo.html`,
   );
-}
-void bootstrap();
+  logger.log(
+    `Email previews at http://localhost:${port}/demo/email-previews/index.html`,
+  );
+}void bootstrap();

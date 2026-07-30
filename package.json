@@ -35,7 +35,8 @@
     "py:rag-worker": "node scripts/py.js -m ingestion_worker.rabbitmq_worker",
     "py:personalization": "node scripts/py.js -m uvicorn personalization_engine.main:app --host 0.0.0.0 --port 8010 --reload",
     "py:rag-stack": "concurrently -n rag,worker -c cyan,yellow \"npm run py:rag\" \"npm run py:rag-worker\"",
-    "py:all": "concurrently -n rag,worker,personalization -c cyan,yellow,magenta \"npm run py:rag\" \"npm run py:rag-worker\" \"npm run py:personalization\""
+    "py:all": "concurrently -n rag,worker,personalization -c cyan,yellow,magenta \"npm run py:rag\" \"npm run py:rag-worker\" \"npm run py:personalization\"",
+    "email:previews": "ts-node --transpile-only -r tsconfig-paths/register scripts/generate-email-previews.ts"
   },
   "prisma": {
     "seed": "ts-node -r tsconfig-paths/register libs/prisma/prisma/seed.ts"
@@ -44,6 +45,7 @@
     "@bull-board/api": "^6.16.4",
     "@bull-board/express": "^6.16.4",
     "@bull-board/nestjs": "^6.16.4",
+    "@fontsource/noto-sans": "^5.3.0",
     "@grpc/grpc-js": "^1.14.4",
     "@grpc/proto-loader": "^0.8.1",
     "@nestjs/bullmq": "^11.0.4",
@@ -74,6 +76,7 @@
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "pdf-parse": "^2.4.5",
+    "pdfkit": "^0.19.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },
@@ -91,6 +94,7 @@
     "@types/passport": "^1.0.17",
     "@types/passport-google-oauth20": "^2.0.17",
     "@types/pdf-parse": "^1.1.5",
+    "@types/pdfkit": "^0.17.6",
     "@types/supertest": "^7.0.0",
     "concurrently": "^9.2.1",
     "eslint": "^9.18.0",
