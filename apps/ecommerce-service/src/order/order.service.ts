@@ -423,7 +423,7 @@ export class OrderService implements OnModuleInit {
       const biometrics = await this.prisma.biometric_assets.findMany({
         where: { engraving_id: engraving.id },
       });
-      if (assets.length > 0) {
+      if (biometrics.length > 0) {
         const assetTypeMap: Record<string, string> = {
           fingerprint: 'FP',
           soundwave: 'SW',

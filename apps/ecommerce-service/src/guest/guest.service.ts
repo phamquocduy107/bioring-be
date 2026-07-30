@@ -5,6 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '@app/prisma';
+import { ASSET_TYPE_TO_CHECKLIST } from '@app/common';
 import { OrderService } from '../order/order.service';
 import { MemoryCardService } from '../memory-card/memory-card.service';
 import { randomUUID, createHash, randomBytes } from 'node:crypto';
@@ -545,11 +546,13 @@ export class GuestService {
     const uploaded = await this.prisma.biometric_assets.findMany({
       where: {
         engraving_id: engraving.id,
-        status: 'CAPTURED',
+        status: { in: ['CAPTURED', 'ASSET_APPROVED'] },
       },
       select: { asset_type: true },
     });
-    const uploadedTypes = new Set(uploaded.map((b) => b.asset_type));
+    const uploadedTypes = new Set(
+      uploaded.map((b) => ASSET_TYPE_TO_CHECKLIST[b.asset_type] ?? b.asset_type),
+    );
     const missing = selected.filter((t: string) => !uploadedTypes.has(t));
     if (missing.length > 0) {
       throw new BadRequestException(

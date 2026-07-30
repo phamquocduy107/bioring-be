@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '@app/prisma';
-import { normalizeApprovedFiles, asApprovedFilesJson } from '@app/common';
+import { normalizeApprovedFiles, asApprovedFilesJson, ASSET_TYPE_TO_CHECKLIST } from '@app/common';
 import { biometric_assets, Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import {
