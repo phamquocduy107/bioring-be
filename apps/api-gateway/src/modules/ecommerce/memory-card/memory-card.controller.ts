@@ -65,6 +65,10 @@ interface EcommerceGrpcService {
     qrCode: string;
     accessPin: string;
   }): Observable<{ qrMemory: QrMemoryResponse }>;
+  verifyQrMemoryPin(data: {
+    qrCode: string;
+    accessPin: string;
+  }): Observable<{ valid: boolean }>;
   listQrMemories(data: {
     userId: string;
     page: number;
@@ -128,6 +132,7 @@ export class MemoryCardController implements OnModuleInit {
   }
 
   @Get(':engravingId')
+  @Public()
   @ApiGetQrMemoryDocs()
   getQrMemory(
     @Param('engravingId', new ParseUUIDPipe({ version: '4' }))
@@ -142,6 +147,17 @@ export class MemoryCardController implements OnModuleInit {
   activate(@Body() body: ActivateQrMemoryDto) {
     return this.call(() =>
       this.grpc!.activateQrMemory({
+        qrCode: body.qrCode,
+        accessPin: body.accessPin,
+      }),
+    );
+  }
+
+  @Post('verify-pin')
+  @Public()
+  verifyPin(@Body() body: ActivateQrMemoryDto) {
+    return this.call(() =>
+      this.grpc!.verifyQrMemoryPin({
         qrCode: body.qrCode,
         accessPin: body.accessPin,
       }),

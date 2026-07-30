@@ -67,6 +67,7 @@ rpc GetProductionTasks (GetProductionTasksRequest) returns (GetProductionTasksRe
   rpc UpdateQrMemory (UpdateQrMemoryRequest) returns (UpdateQrMemoryResponse);
   rpc GetQrMemory (GetQrMemoryRequest) returns (GetQrMemoryResponse);
   rpc ActivateQrMemory (ActivateQrMemoryRequest) returns (ActivateQrMemoryResponse);
+  rpc VerifyQrMemoryPin (VerifyQrMemoryPinRequest) returns (VerifyQrMemoryPinResponse);
   rpc ListQrMemories (ListQrMemoriesRequest) returns (ListQrMemoriesResponse);
   rpc GetQrMemoryByCode (GetQrMemoryByCodeRequest) returns (GetQrMemoryByCodeResponse);
 
@@ -654,6 +655,7 @@ message InitiatePaymentResponse {
   Payment payment = 1;
   string paymentUrl = 2;
   string qrCode = 3;
+  int64 orderCode = 4;
 }
 
 message PayOSWebhookRequest {
@@ -949,6 +951,13 @@ message ActivateQrMemoryRequest {
 }
 
 message ActivateQrMemoryResponse { QrMemory qrMemory = 1; }
+
+message VerifyQrMemoryPinRequest {
+  string qrCode = 1;
+  string accessPin = 2;
+}
+
+message VerifyQrMemoryPinResponse { bool valid = 1; }
 
 message ListQrMemoriesRequest {
   string userId = 1;
@@ -1322,6 +1331,18 @@ message WarrantyClaim {
   string createdAt = 14;
   string updatedAt = 15;
   repeated ServiceTicketMessage serviceTickets = 16;
+  string orderCode = 17;
+  WarrantyCustomer customer = 18;
+  string warrantyCode = 19;
+  string warrantyExpiry = 20;
+}
+
+message WarrantyCustomer {
+  string id = 1;
+  string kind = 2;
+  string name = 3;
+  string phone = 4;
+  string email = 5;
 }
 
 message ServiceTicketMessage {

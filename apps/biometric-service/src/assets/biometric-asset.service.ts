@@ -497,25 +497,24 @@ export class BiometricAssetService {
       biometricType === 'HB' ? 'MEMORY_CARD' : 'ENGRAVING';
     const now = new Date();
 
-    await this.prisma.engraving_biometrics.upsert({
+    await this.prisma.biometric_assets.upsert({
       where: {
-        engraving_id_biometric_type: {
+        engraving_id_asset_type: {
           engraving_id: asset.engraving_id,
-          biometric_type: biometricType,
+          asset_type: asset.asset_type,
         },
       },
       create: {
         id: randomUUID(),
-        engraving_id: asset.engraving_id,
-        biometric_type: biometricType,
-        required_channel: requiredChannel,
-        biometric_asset_id: asset.id,
+        artifact_id: asset.artifact_id,
+        asset_type: asset.asset_type,
         status: ASSET_APPROVED,
+        approved_files: asset.approved_files as Prisma.InputJsonValue,
+        engraving_id: asset.engraving_id,
         created_at: now,
         updated_at: now,
       },
       update: {
-        biometric_asset_id: asset.id,
         status: ASSET_APPROVED,
         updated_at: now,
       },

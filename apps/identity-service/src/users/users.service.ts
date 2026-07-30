@@ -216,12 +216,12 @@ export class UsersService {
       throw new NotFoundException('Role not found');
     }
 
-    await this.prisma.$transaction([
-      this.prisma.user_roles.deleteMany({ where: { user_id: userId } }),
-      this.prisma.user_roles.create({
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user_roles.deleteMany({ where: { user_id: userId } });
+      await tx.user_roles.create({
         data: { user_id: userId, role_id: roleId },
-      }),
-    ]);
+      });
+    });
 
     return { success: true };
   }

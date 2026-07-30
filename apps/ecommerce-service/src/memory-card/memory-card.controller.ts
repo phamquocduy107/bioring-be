@@ -38,6 +38,11 @@ export class MemoryCardController {
     return { qrMemory };
   }
 
+  @GrpcMethod('EcommerceService', 'VerifyQrMemoryPin')
+  async verifyQrMemoryPin(data: { qrCode: string; accessPin: string }) {
+    return this.memoryCardService.verifyQrMemoryPin(data.qrCode, data.accessPin);
+  }
+
   @GrpcMethod('EcommerceService', 'ActivateQrMemory')
   async activateQrMemory(data: { qrCode: string; accessPin: string }) {
     const qrMemory = await this.memoryCardService.activateQrMemory(

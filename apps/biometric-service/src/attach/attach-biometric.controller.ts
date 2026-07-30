@@ -109,8 +109,6 @@ export class AttachBiometricController {
         status: b.status,
 
         artifactId: b.artifactId,
-
-        extraDataJson: JSON.stringify(b.extraData ?? {}),
       })),
     };
   }

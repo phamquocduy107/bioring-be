@@ -280,9 +280,7 @@ export class GuestService {
             engraving_versions_engraving_versions_engraving_idToengravings: {
               orderBy: { version_number: 'desc' },
             },
-            engraving_biometrics: {
-              include: { biometric_asset: true },
-            },
+            biometric_assets: true,
             qr_memories: true,
           },
         },
@@ -323,16 +321,16 @@ export class GuestService {
     if (order.status === 'REVISION_REQUIRED') {
       // Validate biometrics cho resubmit
       await this.validateBiometricsReady(orderId);
-      await this.prisma.$transaction([
-        this.prisma.engravings.updateMany({
+      await this.prisma.$transaction(async (tx) => {
+        await tx.engravings.updateMany({
           where: { order: { id: orderId } },
           data: { status: 'PENDING' },
-        }),
-        this.prisma.orders.update({
+        });
+        await tx.orders.update({
           where: { id: orderId },
           data: { status: 'PENDING_REVIEW' },
-        }),
-      ]);
+        });
+      });
 
       const updated = (await this.prisma.orders.findUnique({
         where: { id: orderId },
@@ -536,14 +534,14 @@ export class GuestService {
       version?.selected_biometrics?.split(',').filter(Boolean) ?? [];
     if (selected.length === 0) return;
 
-    const uploaded = await this.prisma.engraving_biometrics.findMany({
+    const uploaded = await this.prisma.biometric_assets.findMany({
       where: {
         engraving_id: engraving.id,
         status: 'CAPTURED',
       },
-      select: { biometric_type: true },
+      select: { asset_type: true },
     });
-    const uploadedTypes = new Set(uploaded.map((b) => b.biometric_type));
+    const uploadedTypes = new Set(uploaded.map((b) => b.asset_type));
     const missing = selected.filter((t: string) => !uploadedTypes.has(t));
     if (missing.length > 0) {
       throw new BadRequestException(
@@ -698,7 +696,7 @@ export class GuestService {
                   qr_memories: {
                     select: { is_locked: true, activated_at: true },
                   },
-                  engraving_biometrics: { select: { biometric_type: true } },
+                  biometric_assets: { select: { asset_type: true } },
                 },
               },
               warranties: { select: { status: true, expiry_date: true } },
@@ -736,7 +734,7 @@ export class GuestService {
         const warrantyOrder = g.orders.find((o) => o.warranties.length > 0);
         const warranty = warrantyOrder?.warranties[0];
         const biometricTypes = g.orders.flatMap(
-          (o) => o.engraving?.engraving_biometrics ?? [],
+          (o) => o.engraving?.biometric_assets ?? [],
         );
 
         return {
@@ -776,12 +774,12 @@ export class GuestService {
     };
   }
 
-  private computeDigitalAssets(biometrics: Array<{ biometric_type: string }>) {
-    const types = new Set(biometrics.map((b) => b.biometric_type));
+  private computeDigitalAssets(biometrics: Array<{ asset_type: string }>) {
+    const types = new Set(biometrics.map((b) => b.asset_type));
     return {
-      has_voice: types.has('SW'),
-      has_fingerprint: types.has('FP'),
-      has_heartbeat: types.has('HB'),
+      has_voice: types.has('soundwave'),
+      has_fingerprint: types.has('fingerprint'),
+      has_heartbeat: types.has('heartbeat'),
     };
   }
 

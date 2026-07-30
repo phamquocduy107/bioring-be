@@ -11,13 +11,17 @@ export class TrackController {
   @Public()
   async trackOpen(@Query('id') emailId: string, @Res() res: Response) {
     if (emailId) {
-      await this.prisma.email_trackings.update({
-        where: { email_id: emailId },
-        data: {
-          opened_at: new Date(),
-          open_count: { increment: 1 },
-        },
-      });
+      await this.prisma.email_trackings
+        .update({
+          where: { email_id: emailId },
+          data: {
+            opened_at: new Date(),
+            open_count: { increment: 1 },
+          },
+        })
+        .catch((error: unknown) =>
+          console.warn('[Email] Failed to track open:', error),
+        );
     }
 
     // 1x1 transparent GIF pixel

@@ -44,6 +44,7 @@ import { DevModule } from './modules/dev/dev.module';
     KnowledgeModule,
     DevModule,
   ],
+  controllers: [TrackController],
   providers: [
     {
       provide: APP_FILTER,
@@ -73,7 +74,6 @@ import { DevModule } from './modules/dev/dev.module';
       provide: APP_INTERCEPTOR,
       useClass: TransformInterceptor,
     },
-    TrackController,
   ],
 })
 export class AppModule {}

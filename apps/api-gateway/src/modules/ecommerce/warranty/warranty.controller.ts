@@ -18,7 +18,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { ClientGrpc } from '@nestjs/microservices';
 import { Observable, lastValueFrom } from 'rxjs';
-import { randomUUID } from 'node:crypto';
+import { v2 as cloudinary } from 'cloudinary';
 import {
   Public,
   CurrentUser,
@@ -30,7 +30,6 @@ import {
   ReceiveServiceTicketDto,
   CompleteServiceTicketDto,
 } from '@app/common';
-import { MinioService } from '@app/minio';
 import { ConfigService } from '@nestjs/config';
 import type { JwtPayload } from '@app/common';
 import { ApiUploadWarrantyProofDocs } from './warranty.swagger';
@@ -74,9 +73,14 @@ export class WarrantyController implements OnModuleInit {
   constructor(
     @Inject('ECOMMERCE_SERVICE')
     private readonly client: ClientGrpc,
-    private readonly minioService: MinioService,
     private readonly configService: ConfigService,
-  ) {}
+  ) {
+    cloudinary.config({
+      cloud_name: this.configService.get<string>('CLOUDINARY_CLOUD_NAME'),
+      api_key: this.configService.get<string>('CLOUDINARY_API_KEY'),
+      api_secret: this.configService.get<string>('CLOUDINARY_API_SECRET'),
+    });
+  }
 
   onModuleInit() {
     this.grpc =
@@ -184,6 +188,7 @@ export class WarrantyController implements OnModuleInit {
   }
 
   @Post(':id/payments')
+  @Permissions(Permission.OrderRead)
   async initiatePayment(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @CurrentUser() user: JwtPayload,
@@ -260,11 +265,21 @@ export class WarrantyController implements OnModuleInit {
     )
     file: UploadedFile,
   ) {
-    const ext = file.originalname.split('.').pop() ?? 'jpg';
-    const key = `warranty-proofs/${randomUUID()}.${ext}`;
-    await this.minioService.uploadObject(key, file.buffer, file.mimetype);
-    const endpoint = this.configService.get<string>('MINIO_PUBLIC_ENDPOINT', 'http://localhost:9000');
-    const bucket = this.minioService.getDefaultBucket();
-    return { url: `${endpoint}/${bucket}/${key}` };
+    const result = await new Promise<{ secure_url: string }>(
+      (resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            folder: 'warranty-proofs',
+            resource_type: 'auto',
+          },
+          (err, result) => {
+            if (err || !result) reject(err ?? new Error('Upload failed'));
+            else resolve(result);
+          },
+        );
+        uploadStream.end(file.buffer);
+      },
+    );
+    return { url: result.secure_url };
   }
 }

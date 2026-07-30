@@ -228,16 +228,16 @@ export class AuthService {
       });
 
       if (guest) {
-        await this.prisma.$transaction([
-          this.prisma.guest_customers.update({
+        await this.prisma.$transaction(async (tx) => {
+          await tx.guest_customers.update({
             where: { id: guest.id },
             data: { converted_user_id: userId },
-          }),
-          this.prisma.orders.updateMany({
+          });
+          await tx.orders.updateMany({
             where: { guest_customer_id: guest.id },
             data: { user_id: userId },
-          }),
-        ]);
+          });
+        });
       }
     } catch (error) {
       // ponytail: fail silently, don't block registration

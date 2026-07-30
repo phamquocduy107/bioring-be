@@ -23,7 +23,6 @@ interface EngravingRecord {
   updated_at: Date | null;
   order?: { id: string; guest_customer_id?: string | null } | null;
   engraving_versions_engraving_versions_engraving_idToengravings?: EngravingVersionRecord[];
-  engraving_biometrics?: EngravingBiometricRecord[];
   qr_memories?: QrMemoryRecord[];
   biometric_assets?: Array<{
     id: string;

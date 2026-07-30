@@ -35,7 +35,7 @@ import {
           protoPath: join(process.cwd(), 'proto/ecommerce.proto'),
           url: process.env.ECOMMERCE_GRPC_URL ?? 'localhost:50051',
           channelOptions: BIOMETRIC_GRPC_CHANNEL_OPTIONS,
-          loader: { arrays: true, keepCase: true },
+          loader: { arrays: true, keepCase: true, longs: Number },
         },
       },
     ]),

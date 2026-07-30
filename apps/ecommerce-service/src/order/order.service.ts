@@ -420,21 +420,17 @@ export class OrderService implements OnModuleInit {
       }
 
       // Update qr_memories with biometric display settings
-      const biometrics = await this.prisma.engraving_biometrics.findMany({
+      const biometrics = await this.prisma.biometric_assets.findMany({
         where: { engraving_id: engraving.id },
-        include: { biometric_asset: true },
       });
       if (biometrics.length > 0) {
         const displaySettings: Record<string, unknown> = {};
         for (const b of biometrics) {
-          const urls = resolveUrlsFromApprovedFiles(
-            b.biometric_asset?.approved_files,
-          );
-          displaySettings[b.biometric_type] = {
-            biometricAssetId: b.biometric_asset_id,
+          const urls = resolveUrlsFromApprovedFiles(b.approved_files);
+          displaySettings[b.asset_type] = {
+            biometricAssetId: b.id,
             processedSvgUrl: urls.processedSvgUrl,
             rawFileUrl: urls.rawFileUrl,
-            extraData: b.extra_data,
           };
         }
         await this.prisma.qr_memories.updateMany({
@@ -862,6 +858,40 @@ export class OrderService implements OnModuleInit {
     if (!payment) {
       console.warn('[PayOS] Payment not found for orderCode:', orderCode);
       return { success: false };
+    }
+
+    if (payment.payment_phase === 'EXTRA_FEE') {
+      const claim = await this.prisma.warranty_claims.findUnique({
+        where: { id: payment.warranty_claim_id ?? undefined },
+      });
+      if (!claim) {
+        console.warn('[PayOS] Warranty claim not found for payment:', payment.id);
+        return { success: false };
+      }
+
+      const isSuccess = webhookData.code === '00';
+      await this.prisma.payments.update({
+        where: { id: payment.id },
+        data: {
+          status: isSuccess ? 'PAID' : 'FAILED',
+          paid_at: isSuccess ? new Date() : null,
+        },
+      });
+
+      if (isSuccess) {
+        await this.prisma.warranty_claims.update({
+          where: { id: claim.id },
+          data: { status: 'PENDING_RECEIVE' },
+        });
+        this.eventEmitter.emit('payment.confirmed', {
+          orderId: '',
+          paymentId: payment.id,
+          paymentPhase: 'EXTRA_FEE',
+        });
+      }
+
+      // ponytail: return payment_code as orderCode so gateway emits SSE event
+      return { success: true, orderCode: payment.payment_code };
     }
 
     const order = await this.prisma.orders.findUnique({
@@ -2081,20 +2111,18 @@ export class OrderService implements OnModuleInit {
       throw new NotFoundException('No warranty found for this order');
 
     return {
-      warranty: {
-        id: warranty.id,
-        engravingId: warranty.engraving_id,
-        orderId: warranty.order_id,
-        warrantyCode: warranty.warranty_code ?? '',
-        warrantyType: warranty.warranty_type ?? '',
-        issueDate: warranty.issue_date?.toISOString() ?? '',
-        expiryDate: warranty.expiry_date?.toISOString() ?? '',
-        activatedAt: warranty.activated_at?.toISOString() ?? '',
-        status: warranty.status ?? '',
-        warrantyScope: warranty.warranty_scope
-          ? JSON.stringify(warranty.warranty_scope)
-          : '',
-      },
+      id: warranty.id,
+      engravingId: warranty.engraving_id,
+      orderId: warranty.order_id,
+      warrantyCode: warranty.warranty_code ?? '',
+      warrantyType: warranty.warranty_type ?? '',
+      issueDate: warranty.issue_date?.toISOString() ?? '',
+      expiryDate: warranty.expiry_date?.toISOString() ?? '',
+      activatedAt: warranty.activated_at?.toISOString() ?? '',
+      status: warranty.status ?? '',
+      warrantyScope: warranty.warranty_scope
+        ? JSON.stringify(warranty.warranty_scope)
+        : '',
     };
   }
 

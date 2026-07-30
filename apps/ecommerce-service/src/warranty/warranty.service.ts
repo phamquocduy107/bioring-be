@@ -140,7 +140,17 @@ export class WarrantyService {
         skip,
         take: limit,
         orderBy: { created_at: 'desc' },
-        include: { service_tickets: true },
+        include: {
+          service_tickets: true,
+          orders: { select: { order_code: true } },
+          warranties: { select: { warranty_code: true, expiry_date: true } },
+          users_warranty_claims_requested_by_user_idTousers: {
+            select: { id: true, full_name: true, phone: true, email: true },
+          },
+          guest_customers: {
+            select: { id: true, full_name: true, phone: true, email: true },
+          },
+        },
       }),
       this.prisma.warranty_claims.count({ where }),
     ]);
@@ -277,6 +287,8 @@ export class WarrantyService {
         createdAt: payment.created_at?.toISOString() ?? '',
       },
       paymentUrl: result.paymentUrl,
+      qrCode: result.qrCode,
+      orderCode: payosOrderCode,
     };
   }
 
@@ -310,8 +322,8 @@ export class WarrantyService {
     });
     if (!jeweler) throw new NotFoundException('Jeweler not found');
 
-    await this.prisma.$transaction([
-      this.prisma.service_tickets.update({
+    await this.prisma.$transaction(async (tx) => {
+      await tx.service_tickets.update({
         where: { id: ticket.id },
         data: {
           status: 'RECEIVED',
@@ -321,12 +333,12 @@ export class WarrantyService {
           received_product_at: new Date(),
           service_started_at: new Date(),
         },
-      }),
-      this.prisma.warranty_claims.update({
+      });
+      await tx.warranty_claims.update({
         where: { id: claimId },
         data: { status: 'IN_SERVICE' },
-      }),
-      this.prisma.staff_assignments.create({
+      });
+      await tx.staff_assignments.create({
         data: {
           id: randomUUID(),
           staff_id: data.jewelerId,
@@ -335,8 +347,8 @@ export class WarrantyService {
           status: 'ASSIGNED',
           assigned_at: new Date(),
         },
-      }),
-    ]);
+      });
+    });
 
     return { claim: await this.getClaimFull(claimId) };
   }
@@ -428,7 +440,18 @@ export class WarrantyService {
   private async getClaimFull(claimId: string) {
     const claim = await this.prisma.warranty_claims.findUnique({
       where: { id: claimId },
-      include: { service_tickets: true, payments: true },
+      include: {
+        service_tickets: true,
+        payments: true,
+        orders: { select: { order_code: true } },
+        warranties: { select: { warranty_code: true, expiry_date: true } },
+        users_warranty_claims_requested_by_user_idTousers: {
+          select: { id: true, full_name: true, phone: true, email: true },
+        },
+        guest_customers: {
+          select: { id: true, full_name: true, phone: true, email: true },
+        },
+      },
     });
     if (!claim) throw new NotFoundException('Claim not found');
     return this.mapClaim(claim);
@@ -438,6 +461,32 @@ export class WarrantyService {
     const c = claim as Record<string, unknown>;
     const tickets = (c.service_tickets as unknown[]) ?? [];
     const payments = (c.payments as unknown[]) ?? [];
+
+    const order = c.orders as Record<string, unknown> | null;
+    const warranty = c.warranties as Record<string, unknown> | null;
+    const user = c.users_warranty_claims_requested_by_user_idTousers as
+      | Record<string, unknown>
+      | null;
+    const guest = c.guest_customers as Record<string, unknown> | null;
+
+    const customer = user
+      ? {
+          id: (user.id as string) ?? '',
+          kind: 'user' as const,
+          name: (user.full_name as string) ?? '',
+          phone: (user.phone as string) ?? '',
+          email: (user.email as string) ?? '',
+        }
+      : guest
+        ? {
+            id: (guest.id as string) ?? '',
+            kind: 'guest' as const,
+            name: (guest.full_name as string) ?? '',
+            phone: (guest.phone as string) ?? '',
+            email: (guest.email as string) ?? '',
+          }
+        : null;
+
     return {
       payments: payments.map((p: unknown) => {
         const pm = p as Record<string, unknown>;
@@ -470,6 +519,11 @@ export class WarrantyService {
         (c.customer_confirmed_at as Date)?.toISOString() ?? '',
       createdAt: (c.created_at as Date)?.toISOString() ?? '',
       updatedAt: (c.updated_at as Date)?.toISOString() ?? '',
+      orderCode: (order?.order_code as string) ?? '',
+      customer,
+      warrantyCode: (warranty?.warranty_code as string) ?? '',
+      warrantyExpiry:
+        (warranty?.expiry_date as Date)?.toISOString() ?? '',
       serviceTickets: tickets.map((t: unknown) => {
         const tk = t as Record<string, unknown>;
         return {

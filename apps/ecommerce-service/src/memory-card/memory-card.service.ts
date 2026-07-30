@@ -69,6 +69,15 @@ export class MemoryCardService {
     return this.mapQrMemory(qrMemory);
   }
 
+  async verifyQrMemoryPin(qrCode: string, accessPin: string) {
+    const qrMemory = await this.prisma.qr_memories.findUnique({
+      where: { qr_code: qrCode },
+    });
+    if (!qrMemory) return { valid: false };
+    const hash = createHash('sha256').update(accessPin).digest('hex');
+    return { valid: qrMemory.access_pin_hash === hash };
+  }
+
   async activateQrMemory(qrCode: string, accessPin: string) {
     const qrMemory = await this.prisma.qr_memories.findUnique({
       where: { qr_code: qrCode },
