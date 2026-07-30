@@ -120,6 +120,7 @@ export class WarrantyController implements OnModuleInit {
   }
 
   @Get()
+  @Permissions(Permission.OrderRead)
   async getMyClaims(
     @Query('page') page: string,
     @Query('limit') limit: string,
@@ -149,6 +150,7 @@ export class WarrantyController implements OnModuleInit {
   }
 
   @Get(':id')
+  @Permissions(Permission.OrderRead)
   async getClaim(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.call(() => this.grpc!.getWarrantyClaim({ id }));
   }

@@ -15,7 +15,7 @@ import { PayOSService } from '@app/common/payment/payos.service';
 import { Webhook } from '@payos/node';
 import { randomUUID } from 'node:crypto';
 import { Observable, lastValueFrom } from 'rxjs';
-import { DEFAULT_PAYOS_LINK_TTL_MS, IOT_FEE_AMOUNT } from '@app/common';
+import { DEFAULT_PAYOS_LINK_TTL_MS } from '@app/common';
 import { resolveUrlsFromApprovedFiles } from '@app/common';
 
 interface BiometricGrpcService {
@@ -724,7 +724,8 @@ export class OrderService implements OnModuleInit {
       amount = Number(order.total_price ?? 0);
       if (amount <= 0) throw new BadRequestException('Invalid total price');
     } else if (paymentPhase === 'DEPOSIT_1') {
-      amount = IOT_FEE_AMOUNT;
+      amount = Number(order.service_fee ?? 0);
+      if (amount <= 0) throw new BadRequestException('Invalid service fee');
     } else if (paymentPhase === 'DEPOSIT_2') {
       amount = Math.max(Math.round(Number(order.total_price ?? 0) * 0.3), 3000);
       if (Number(order.paid_amount ?? 0) >= amount) {

@@ -653,15 +653,21 @@ export class OrderController implements OnModuleInit {
           webhookBody: JSON.stringify(body),
         },
       );
+      console.log('[Gateway] Webhook result:', JSON.stringify(result));
       if (result?.success) {
         const orderCode = result.orderCode;
+        console.log('[Gateway] Webhook success:', { orderCode, hasEE: !!this.eventEmitter });
         if (orderCode && this.eventEmitter) {
           this.eventEmitter.emit(`payment.update.${orderCode}`, {
             status: body.code === '00' ? 'PAID' : 'FAILED',
             transactionId: (body.data as Record<string, unknown> | undefined)?.reference,
             orderCode,
           });
+        } else {
+          console.warn('[Gateway] Webhook — cannot emit:', { orderCode, hasEE: !!this.eventEmitter });
         }
+      } else {
+        console.warn('[Gateway] Webhook result success=false');
       }
       return result;
     } catch (error) {
@@ -676,6 +682,7 @@ export class OrderController implements OnModuleInit {
   ssePaymentStatus(
     @Param('orderCode') orderCode: string,
   ): Observable<MessageEvent> {
+    console.log('[Gateway] SSE connected:', { orderCode, hasEE: !!this.eventEmitter });
     const payment$ = this.eventEmitter
       ? fromEvent(this.eventEmitter, `payment.update.${orderCode}`).pipe(
           map((data) => ({ data }) as MessageEvent),
