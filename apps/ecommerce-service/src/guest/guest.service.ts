@@ -164,10 +164,16 @@ export class GuestService {
         version_number: 1,
         ring_shape: 'ROUND',
         status: 'PENDING',
-        ...(data.selectedMaterialId ? { selected_material_id: data.selectedMaterialId } : {}),
-        ...(data.selectedGemstoneId ? { selected_gemstone_id: data.selectedGemstoneId } : {}),
+        ...(data.selectedMaterialId
+          ? { selected_material_id: data.selectedMaterialId }
+          : {}),
+        ...(data.selectedGemstoneId
+          ? { selected_gemstone_id: data.selectedGemstoneId }
+          : {}),
         ...(data.ringSize ? { ring_size: data.ringSize } : {}),
-        ...(data.selectedBiometrics ? { selected_biometrics: data.selectedBiometrics } : {}),
+        ...(data.selectedBiometrics
+          ? { selected_biometrics: data.selectedBiometrics }
+          : {}),
       },
     })) as unknown as VersionRecord;
 
@@ -214,7 +220,8 @@ export class GuestService {
     if (!engraving) throw new NotFoundException('Engraving not found');
 
     const version =
-      engraving.engraving_versions_engraving_versions_engraving_idToengravings[0];
+      engraving
+        .engraving_versions_engraving_versions_engraving_idToengravings[0];
     if (!version) throw new NotFoundException('Engraving version not found');
 
     // ponytail: biometric validation moved to submit step (guestSubmitOrder), removed here
@@ -280,7 +287,6 @@ export class GuestService {
             engraving_versions_engraving_versions_engraving_idToengravings: {
               orderBy: { version_number: 'desc' },
             },
-            biometric_assets: true,
             biometric_assets: true,
             qr_memories: true,
           },
@@ -370,8 +376,9 @@ export class GuestService {
     if (!versionRecord) throw new NotFoundException('Version not found');
 
     // ponytail: lock core fields after order exists; only customizationConfig is editable
-    const hasOrder = !!versionRecord
-      .engravings_engraving_versions_engraving_idToengravings.order;
+    const hasOrder =
+      !!versionRecord.engravings_engraving_versions_engraving_idToengravings
+        .order;
 
     const updateData: Record<string, unknown> = {};
     if (!hasOrder) {
@@ -697,7 +704,6 @@ export class GuestService {
                   qr_memories: {
                     select: { is_locked: true, activated_at: true },
                   },
-                  biometric_assets: { select: { asset_type: true } },
                   biometric_assets: { select: { asset_type: true } },
                 },
               },
