@@ -607,8 +607,6 @@ export class OrderService implements OnModuleInit {
       newValue: { status: 'PENDING_REVIEW' },
     });
 
-    this.eventEmitter.emit('order.submitted', { orderId: id });
-
     return { order: await this.mapOrder(updated) };
   }
 
@@ -956,18 +954,31 @@ export class OrderService implements OnModuleInit {
         },
       });
 
-      // ponytail: chỉ emit cho payment đáng chú ý
-      if (newStatus === 'DEPOSIT_PAID' || newStatus === 'READY_FOR_DELIVERY') {
-        this.eventEmitter.emit('payment.confirmed', { orderId: order.id });
-        this.eventEmitter.emit('audit.log', {
-          action: 'payment_received',
-          entityName: 'orders',
-          entityId: order.id,
-          newValue: {
-            paymentPhase: payment.payment_phase,
-            amount: webhookData.amount,
-            status: 'PAID',
-          },
+      // Biên lai thanh toán: mọi phase thành công (DEPOSIT_1/2, REMAINING, FULL)
+      this.eventEmitter.emit('payment.confirmed', {
+        orderId: order.id,
+        paymentId: payment.id,
+        paymentPhase: payment.payment_phase ?? undefined,
+      });
+      this.eventEmitter.emit('audit.log', {
+        action: 'payment_received',
+        entityName: 'orders',
+        entityId: order.id,
+        newValue: {
+          paymentPhase: payment.payment_phase,
+          amount: webhookData.amount,
+          status: 'PAID',
+        },
+      });
+
+      if (
+        newStatus === 'READY_FOR_DELIVERY' ||
+        newStatus === 'READY_FOR_PICKUP'
+      ) {
+        this.eventEmitter.emit('order.ready_for_delivery', {
+          orderId: order.id,
+          method:
+            newStatus === 'READY_FOR_PICKUP' ? 'PICKUP' : 'DELIVERY',
         });
       }
 
@@ -1112,8 +1123,27 @@ export class OrderService implements OnModuleInit {
       },
     });
 
-    if (newStatus === 'DEPOSIT_PAID' || newStatus === 'READY_FOR_DELIVERY') {
-      this.eventEmitter.emit('payment.confirmed', { orderId });
+    if (
+      data.paymentPhase === 'DEPOSIT_1' ||
+      data.paymentPhase === 'DEPOSIT_2' ||
+      data.paymentPhase === 'REMAINING' ||
+      data.paymentPhase === 'FULL'
+    ) {
+      this.eventEmitter.emit('payment.confirmed', {
+        orderId,
+        paymentId: payment.id,
+        paymentPhase: data.paymentPhase,
+      });
+    }
+
+    if (
+      newStatus === 'READY_FOR_DELIVERY' ||
+      newStatus === 'READY_FOR_PICKUP'
+    ) {
+      this.eventEmitter.emit('order.ready_for_delivery', {
+        orderId,
+        method: newStatus === 'READY_FOR_PICKUP' ? 'PICKUP' : 'DELIVERY',
+      });
     }
 
     if (newStatus === 'DEPOSIT_PAID') {
@@ -1216,6 +1246,8 @@ export class OrderService implements OnModuleInit {
         data: { is_locked: false },
       });
     }
+
+    this.eventEmitter.emit('order.completed', { orderId });
 
     return {
       success: true,
@@ -1660,7 +1692,10 @@ export class OrderService implements OnModuleInit {
       });
 
       if (nextStatus === 'READY_FOR_DELIVERY') {
-        this.eventEmitter.emit('order.ready_for_delivery', { orderId });
+        this.eventEmitter.emit('order.ready_for_delivery', {
+          orderId,
+          method: 'DELIVERY',
+        });
       }
 
       return { order: await this.mapOrder(updated) };
@@ -2017,6 +2052,8 @@ export class OrderService implements OnModuleInit {
         status: 'COMPLETED',
       },
     });
+
+    this.eventEmitter.emit('order.completed', { orderId });
 
     return { order: await this.mapOrder(updated) };
   }

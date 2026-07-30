@@ -12,6 +12,7 @@ import {
   CommonModule,
   CustomValidationPipe,
   LoggingInterceptor,
+  NotificationModule,
   PermissionRbacGuard,
   TimeoutInterceptor,
   TransformInterceptor,
@@ -22,6 +23,7 @@ import { IdentityModule } from './modules/identity/identity.module';
 import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 import { TrackController } from './modules/track/track.controller';
 import { PrismaModule } from '@app/prisma';
+import { DevModule } from './modules/dev/dev.module';
 
 @Module({
   imports: [
@@ -29,6 +31,7 @@ import { PrismaModule } from '@app/prisma';
     RedisModule,
     MinioModule,
     PrismaModule,
+    NotificationModule,
     BullConfigModule,
     BullBoardModule.forRoot({
       route: '/admin/queues',
@@ -39,6 +42,7 @@ import { PrismaModule } from '@app/prisma';
     EcommerceModule,
     IdentityModule,
     KnowledgeModule,
+    DevModule,
   ],
   providers: [
     {

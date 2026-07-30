@@ -79,12 +79,12 @@ function designDraftExample() {
 }
 
 const COOKIE_NOTE =
-  'Requires `guest_session_id` cookie (set automatically by the gateway for guest users)';
+  'Guest web: gateway ensures HttpOnly cookie `guest_session_id` (creates UUID if missing) and persists it on the draft. FE must send `credentials: include`.';
 
 export function ApiCreateDesignDraftDocs() {
   return applyDecorators(
     ApiOperation({
-      summary: 'Create a new design draft (guest)',
+      summary: 'Create a new design draft (guest web)',
       description: COOKIE_NOTE,
     }),
     ApiResponse({

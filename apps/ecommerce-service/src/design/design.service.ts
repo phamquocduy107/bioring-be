@@ -91,7 +91,7 @@ export class DesignService {
       data: {
         id: randomUUID(),
         product_id: data.productId,
-        guest_session_id: data.guestSessionId ?? null,
+        guest_session_id: data.guestSessionId?.trim() || null,
         design_code: designCode,
         design_source: 'WEB',
         ring_style: data.ringStyle ?? null,
@@ -127,7 +127,12 @@ export class DesignService {
     page: number = 1,
     limit: number = 10,
   ) {
-    const where = { guest_session_id: guestSessionId };
+    const sessionId = guestSessionId?.trim();
+    if (!sessionId) {
+      return { drafts: [], total: 0, page, limit };
+    }
+
+    const where = { guest_session_id: sessionId };
 
     const [drafts, total] = await Promise.all([
       this.prisma.design_drafts.findMany({

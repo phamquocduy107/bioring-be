@@ -24,7 +24,7 @@ import {
   ApiGetGuestChatMessagesDocs,
   ApiGuestAskQuestionDocs,
 } from './guest-chat.swagger';
-import { ensureGuestSessionId } from './guest-session.util';
+import { ensureGuestSessionId } from '../../../common/guest-session.util';
 
 @ApiTags('Knowledge - Chat (Guest)')
 @Public()
