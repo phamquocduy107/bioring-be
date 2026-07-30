@@ -86,7 +86,6 @@ model biometric_assets {
   users_biometric_assets_assigned_user    users?                @relation("biometric_assets_assigned_user", fields: [assigned_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   users_biometric_assets_created_by_staff users?                @relation("biometric_assets_created_by_staff", fields: [created_by_staff_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   engravings                              engravings?           @relation(fields: [engraving_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  engraving_biometric                     engraving_biometrics?
 
   @@unique([engraving_id, asset_type])
   @@index([artifact_id])
@@ -148,24 +147,6 @@ model device_health_logs {
   iot_devices   iot_devices @relation(fields: [device_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
-/// Checklist of required biometric types per engraving. File pipeline lives on biometric_assets.
-model engraving_biometrics {
-  id                 String            @id @db.Uuid
-  engraving_id       String            @db.Uuid
-  biometric_type     String            @db.VarChar(50)
-  required_channel   String            @db.VarChar(50)
-  extra_data         Json?
-  status             String?           @default("PENDING_CAPTURE") @db.VarChar(100)
-  created_at         DateTime?         @db.Timestamptz(6)
-  updated_at         DateTime?         @db.Timestamptz(6)
-  biometric_asset_id String?           @unique @db.Uuid
-  biometric_asset    biometric_assets? @relation(fields: [biometric_asset_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  engravings         engravings        @relation(fields: [engraving_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@unique([engraving_id, biometric_type])
-  @@index([engraving_id])
-}
-
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
 model engraving_versions {
   id                                                            String       @id @db.Uuid
@@ -209,7 +190,6 @@ model engravings {
   user_id                                                               String?                @db.Uuid
   guest_customer_id                                                     String?                @db.Uuid
   biometric_assets                                                      biometric_assets[]
-  engraving_biometrics                                                  engraving_biometrics[]
   engraving_versions_engraving_versions_engraving_idToengravings        engraving_versions[]   @relation("engraving_versions_engraving_idToengravings")
   engraving_versions_engravings_approved_version_idToengraving_versions engraving_versions?    @relation("engravings_approved_version_idToengraving_versions", fields: [approved_version_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   products                                                              products?              @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -221,15 +201,6 @@ model engravings {
   warranty_claims                                                       warranty_claims[]
 
   @@index([status])
-}
-
-model firmware_updates {
-  id            String    @id @db.Uuid
-  device_type   String?   @db.VarChar(100)
-  version       String?   @db.VarChar(100)
-  download_url  String?   @db.VarChar(500)
-  release_notes String?
-  released_at   DateTime? @db.Timestamptz(6)
 }
 
 model gemstones {
@@ -266,22 +237,6 @@ model guest_customers {
   @@index([phone])
 }
 
-/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
-model inventory_ledgers {
-  id                          String           @id @db.Uuid
-  item_type                   String?          @db.VarChar(100)
-  item_id                     String?          @db.Uuid
-  transaction_type            String?          @db.VarChar(100)
-  quantity                    Decimal?         @db.Decimal(18, 2)
-  unit                        String?          @db.VarChar(50)
-  reference_order_id          String?          @db.Uuid
-  reference_warranty_claim_id String?          @db.Uuid
-  note                        String?
-  created_at                  DateTime?        @db.Timestamptz(6)
-  orders                      orders?          @relation(fields: [reference_order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  warranty_claims             warranty_claims? @relation(fields: [reference_warranty_claim_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-}
-
 model iot_devices {
   id                 String               @id @db.Uuid
   device_name        String?              @db.VarChar(255)
@@ -308,18 +263,6 @@ model materials {
   engraving_versions     engraving_versions[]
   product_materials      product_materials[]
   products               products[]
-}
-
-/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
-model notifications {
-  id         String    @id @db.Uuid
-  user_id    String    @db.Uuid
-  title      String?   @db.VarChar(255)
-  content    String?
-  type       String?   @db.VarChar(100)
-  is_read    Boolean?  @default(false)
-  created_at DateTime? @db.Timestamptz(6)
-  users      users     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model email_trackings {
@@ -363,7 +306,6 @@ model orders {
   created_at                                 DateTime?           @db.Timestamptz(6)
   updated_at                                 DateTime?           @db.Timestamptz(6)
   engraving_id                               String              @unique @db.Uuid
-  inventory_ledgers                          inventory_ledgers[]
   users_orders_approved_by_manager_idTousers users?              @relation("orders_approved_by_manager_idTousers", fields: [approved_by_manager_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   users_orders_created_by_staff_idTousers    users?              @relation("orders_created_by_staff_idTousers", fields: [created_by_staff_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   design_drafts                              design_drafts?      @relation(fields: [design_draft_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -511,44 +453,30 @@ model qa_checks {
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
 model qr_memories {
-  id                         String                  @id @db.Uuid
-  engraving_id               String                  @unique @db.Uuid
-  theme_id                   String?                 @db.Uuid
-  qr_code                    String                  @unique @db.VarChar(255)
-  landing_page_url           String?                 @db.VarChar(500)
-  access_pin_hash            String?                 @db.VarChar(255)
-  card_title                 String?                 @db.VarChar(255)
+  id                         String       @id @db.Uuid
+  engraving_id               String       @unique @db.Uuid
+  theme_id                   String?      @db.Uuid
+  qr_code                    String       @unique @db.VarChar(255)
+  landing_page_url           String?      @db.VarChar(500)
+  access_pin_hash            String?      @db.VarChar(255)
+  card_title                 String?      @db.VarChar(255)
   greeting_message           String?
   custom_images              Json?
   biometric_display_settings Json?
-  is_locked                  Boolean?                @default(false)
-  failed_attempts            Int?                    @default(0)
-  activated_at               DateTime?               @db.Timestamptz(6)
-  created_at                 DateTime?               @db.Timestamptz(6)
-  updated_at                 DateTime?               @db.Timestamptz(6)
-  recipient_email            String?                 @db.VarChar(255)
-  shared_at                  DateTime?               @db.Timestamptz(6)
-  shared_user_id             String?                 @db.Uuid
-  engravings                 engravings              @relation(fields: [engraving_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users                      users?                  @relation(fields: [shared_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  card_themes                card_themes?            @relation(fields: [theme_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  qr_memory_access_logs      qr_memory_access_logs[]
+  is_locked                  Boolean?     @default(false)
+  failed_attempts            Int?         @default(0)
+  activated_at               DateTime?    @db.Timestamptz(6)
+  created_at                 DateTime?    @db.Timestamptz(6)
+  updated_at                 DateTime?    @db.Timestamptz(6)
+  recipient_email            String?      @db.VarChar(255)
+  shared_at                  DateTime?    @db.Timestamptz(6)
+  shared_user_id             String?      @db.Uuid
+  engravings                 engravings   @relation(fields: [engraving_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users                      users?       @relation(fields: [shared_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  card_themes                card_themes? @relation(fields: [theme_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([theme_id])
   @@index([shared_user_id])
-}
-
-/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
-model qr_memory_access_logs {
-  id                  String      @id @db.Uuid
-  qr_memory_id        String      @db.Uuid
-  accessed_by_user_id String?     @db.Uuid
-  ip_address          String?     @db.VarChar(100)
-  user_agent          String?
-  success             Boolean?
-  created_at          DateTime?   @db.Timestamptz(6)
-  users               users?      @relation(fields: [accessed_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  qr_memories         qr_memories @relation(fields: [qr_memory_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
@@ -754,7 +682,6 @@ model users {
   engravings                                                  engravings[]             @relation("engravings_user_idTousers")
   guest_customers                                             guest_customers[]
   knowledge_documents                                         knowledge_documents[]
-  notifications                                               notifications[]
   orders_orders_approved_by_manager_idTousers                 orders[]                 @relation("orders_approved_by_manager_idTousers")
   orders_orders_created_by_staff_idTousers                    orders[]                 @relation("orders_created_by_staff_idTousers")
   orders_orders_user_idTousers                                orders[]                 @relation("orders_user_idTousers")
@@ -762,7 +689,6 @@ model users {
   production_tasks                                            production_tasks[]
   qa_checks                                                   qa_checks[]
   qr_memories                                                 qr_memories[]
-  qr_memory_access_logs                                       qr_memory_access_logs[]
   refresh_tokens                                              refresh_tokens[]
   return_requests_return_requests_requested_by_idTousers      return_requests[]        @relation("return_requests_requested_by_idTousers")
   return_requests_return_requests_resolved_by_idTousers       return_requests[]        @relation("return_requests_resolved_by_idTousers")
@@ -824,7 +750,6 @@ model warranty_claims {
   customer_confirmed_at                             DateTime?           @db.Timestamptz(6)
   created_at                                        DateTime?           @db.Timestamptz(6)
   updated_at                                        DateTime?           @db.Timestamptz(6)
-  inventory_ledgers                                 inventory_ledgers[]
   payments                                          payments[]
   service_tickets                                   service_tickets[]
   staff_assignments                                 staff_assignments[]

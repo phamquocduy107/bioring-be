@@ -11,7 +11,6 @@ DELETE FROM qa_checks;
 DELETE FROM production_tasks;
 
 -- 3. Xóa các bảng con liên quan đến Đơn hàng (Orders)
-DELETE FROM inventory_ledgers;
 DELETE FROM payments;
 DELETE FROM pickup_records;
 DELETE FROM return_requests;
@@ -25,7 +24,6 @@ DELETE FROM orders;
 
 -- 5. Xóa các bảng con liên quan đến Engravings
 DELETE FROM qr_memories;
-DELETE FROM engraving_biometrics;
 DELETE FROM engraving_versions;
 
 -- 6. Xóa dữ liệu Sinh trắc học (Biometric Assets)

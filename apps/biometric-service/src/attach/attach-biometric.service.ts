@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import {
   asApprovedFilesJson,
+  ASSET_TYPE_TO_CHECKLIST,
   buildEcommerceApprovedFiles,
   CHECKLIST_TO_ASSET_TYPE,
   normalizeApprovedFiles,
@@ -50,9 +51,7 @@ export class AttachBiometricService {
   async listForEngraving(engravingId: string, userId: string) {
     const engraving = await this.prisma.engravings.findUnique({
       where: { id: engravingId },
-      include: {
-        engraving_biometrics: { include: { biometric_asset: true } },
-      },
+      include: { biometric_assets: true },
     });
     if (!engraving) throw new NotFoundException('Engraving not found');
     if (engraving.user_id !== userId) {
@@ -60,23 +59,9 @@ export class AttachBiometricService {
     }
 
     return {
-      biometrics: engraving.engraving_biometrics.map((row) => {
-        const urls = resolveUrlsFromApprovedFiles(
-          row.biometric_asset?.approved_files,
-        );
-        return {
-          id: row.id,
-          engravingId: row.engraving_id,
-          biometricType: row.biometric_type,
-          requiredChannel: row.required_channel,
-          biometricAssetId: row.biometric_asset_id ?? '',
-          rawFileUrl: urls.rawFileUrl,
-          processedSvgUrl: urls.processedSvgUrl,
-          status: row.status ?? 'PENDING_CAPTURE',
-          artifactId: row.biometric_asset?.artifact_id ?? '',
-          extraData: row.extra_data ?? {},
-        };
-      }),
+      biometrics: engraving.biometric_assets.map((asset) =>
+        this.mapAssetToChecklistItem(asset),
+      ),
     };
   }
 
@@ -157,120 +142,91 @@ export class AttachBiometricService {
           assetType,
         );
 
-    const requiredChannel =
-      data.biometricType === 'HB' ? 'MEMORY_CARD' : 'ENGRAVING';
     const now = new Date();
     const artifactId = processed.artifactId ?? `ecommerce_${randomUUID()}`;
+    const placementValue =
+      Object.keys(extraDataJson).length > 0
+        ? (extraDataJson as Prisma.InputJsonValue)
+        : undefined;
 
-    const biometric = await this.prisma.$transaction(async (tx) => {
-      const existingChecklist = await tx.engraving_biometrics.findUnique({
+    const asset = await this.prisma.$transaction(async (tx) => {
+      const existingAsset = await tx.biometric_assets.findFirst({
         where: {
-          engraving_id_biometric_type: {
-            engraving_id: data.engravingId,
-            biometric_type: data.biometricType,
-          },
+          engraving_id: data.engravingId,
+          asset_type: assetType,
         },
       });
 
-      let assetId = existingChecklist?.biometric_asset_id ?? null;
-
-      if (assetId) {
-        await tx.biometric_assets.update({
-          where: { id: assetId },
+      if (existingAsset) {
+        return tx.biometric_assets.update({
+          where: { id: existingAsset.id },
           data: {
             artifact_id: artifactId,
             approved_files: asApprovedFilesJson(
               approvedFiles,
             ) as Prisma.InputJsonValue,
             status: 'ASSET_APPROVED',
+            assigned_user_id: engraving.user_id,
+            ...(placementValue !== undefined
+              ? { placement: placementValue }
+              : {}),
             updated_at: now,
           },
         });
-      } else {
-        const existingAsset = await tx.biometric_assets.findFirst({
-          where: {
-            engraving_id: data.engravingId,
-            asset_type: assetType,
-          },
-        });
-        if (existingAsset) {
-          assetId = existingAsset.id;
-          await tx.biometric_assets.update({
-            where: { id: assetId },
-            data: {
-              artifact_id: artifactId,
-              approved_files: asApprovedFilesJson(
-                approvedFiles,
-              ) as Prisma.InputJsonValue,
-              status: 'ASSET_APPROVED',
-              updated_at: now,
-            },
-          });
-        } else {
-          assetId = randomUUID();
-          await tx.biometric_assets.create({
-            data: {
-              id: assetId,
-              artifact_id: artifactId,
-              asset_type: assetType,
-              status: 'ASSET_APPROVED',
-              engraving_id: data.engravingId,
-              assigned_user_id: engraving.user_id,
-              approved_files: asApprovedFilesJson(
-                approvedFiles,
-              ) as Prisma.InputJsonValue,
-              created_at: now,
-              updated_at: now,
-            },
-          });
-        }
       }
 
-      return tx.engraving_biometrics.upsert({
-        where: {
-          engraving_id_biometric_type: {
-            engraving_id: data.engravingId,
-            biometric_type: data.biometricType,
-          },
-        },
-        create: {
+      return tx.biometric_assets.create({
+        data: {
           id: randomUUID(),
-          engraving_id: data.engravingId,
-          biometric_type: data.biometricType,
-          required_channel: requiredChannel,
-          biometric_asset_id: assetId,
-          extra_data: extraDataJson as Prisma.InputJsonValue,
+          artifact_id: artifactId,
+          asset_type: assetType,
           status: 'ASSET_APPROVED',
+          engraving_id: data.engravingId,
+          assigned_user_id: engraving.user_id,
+          approved_files: asApprovedFilesJson(
+            approvedFiles,
+          ) as Prisma.InputJsonValue,
+          ...(placementValue !== undefined
+            ? { placement: placementValue }
+            : {}),
           created_at: now,
           updated_at: now,
         },
-        update: {
-          biometric_asset_id: assetId,
-          extra_data: extraDataJson as Prisma.InputJsonValue,
-          status: 'ASSET_APPROVED',
-          updated_at: now,
-        },
-        include: { biometric_asset: true },
       });
     });
 
-    const urls = resolveUrlsFromApprovedFiles(
-      biometric.biometric_asset?.approved_files,
-    );
-
     return {
-      biometric: {
-        id: biometric.id,
-        engravingId: biometric.engraving_id,
-        biometricType: biometric.biometric_type,
-        requiredChannel: biometric.required_channel,
-        biometricAssetId: biometric.biometric_asset_id ?? '',
-        rawFileUrl: urls.rawFileUrl,
-        processedSvgUrl: urls.processedSvgUrl,
-        extraData: biometric.extra_data ?? {},
-        status: biometric.status ?? 'ASSET_APPROVED',
-        artifactId,
-      },
+      biometric: this.mapAssetToChecklistItem(asset, artifactId),
+    };
+  }
+
+  private mapAssetToChecklistItem(
+    asset: {
+      id: string;
+      engraving_id: string | null;
+      asset_type: string;
+      status: string | null;
+      artifact_id: string;
+      approved_files?: unknown;
+      placement?: unknown;
+    },
+    artifactId?: string,
+  ) {
+    const biometricType =
+      ASSET_TYPE_TO_CHECKLIST[asset.asset_type] ?? asset.asset_type;
+    const urls = resolveUrlsFromApprovedFiles(asset.approved_files);
+    return {
+      id: asset.id,
+      engravingId: asset.engraving_id ?? '',
+      biometricType,
+      requiredChannel: biometricType === 'HB' ? 'MEMORY_CARD' : 'ENGRAVING',
+      biometricAssetId: asset.id,
+      rawFileUrl: urls.rawFileUrl,
+      processedSvgUrl: urls.processedSvgUrl,
+      status: asset.status ?? 'ASSET_APPROVED',
+      artifactId: artifactId ?? asset.artifact_id,
+      extraData:
+        (asset.placement as Record<string, unknown> | null) ?? {},
     };
   }
 

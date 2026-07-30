@@ -419,22 +419,25 @@ export class OrderService implements OnModuleInit {
         });
       }
 
-      // Update qr_memories with biometric display settings
-      const biometrics = await this.prisma.engraving_biometrics.findMany({
+      // Update qr_memories with biometric display settings from linked assets
+      const assets = await this.prisma.biometric_assets.findMany({
         where: { engraving_id: engraving.id },
-        include: { biometric_asset: true },
       });
-      if (biometrics.length > 0) {
+      if (assets.length > 0) {
+        const assetTypeMap: Record<string, string> = {
+          fingerprint: 'FP',
+          soundwave: 'SW',
+          heartbeat: 'HB',
+        };
         const displaySettings: Record<string, unknown> = {};
-        for (const b of biometrics) {
-          const urls = resolveUrlsFromApprovedFiles(
-            b.biometric_asset?.approved_files,
-          );
-          displaySettings[b.biometric_type] = {
-            biometricAssetId: b.biometric_asset_id,
+        for (const asset of assets) {
+          const type = assetTypeMap[asset.asset_type] ?? asset.asset_type;
+          const urls = resolveUrlsFromApprovedFiles(asset.approved_files);
+          displaySettings[type] = {
+            biometricAssetId: asset.id,
             processedSvgUrl: urls.processedSvgUrl,
             rawFileUrl: urls.rawFileUrl,
-            extraData: b.extra_data,
+            extraData: asset.placement ?? {},
           };
         }
         await this.prisma.qr_memories.updateMany({

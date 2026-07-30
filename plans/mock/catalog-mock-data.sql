@@ -15,9 +15,7 @@ BEGIN;
 -- Xóa dữ liệu cũ (thứ tự reverse do foreign key)
 DELETE FROM product_gemstones;
 DELETE FROM product_materials;
-DELETE FROM qr_memory_access_logs;
 DELETE FROM qr_memories;
-DELETE FROM engraving_biometrics;
 DELETE FROM biometric_assets;
 DELETE FROM warranty_claims;
 DELETE FROM warranties;

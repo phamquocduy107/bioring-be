@@ -6,11 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '@app/prisma';
-import {
-  ASSET_TYPE_TO_CHECKLIST,
-  normalizeApprovedFiles,
-  asApprovedFilesJson,
-} from '@app/common';
+import { normalizeApprovedFiles, asApprovedFilesJson } from '@app/common';
 import { biometric_assets, Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import {
@@ -233,10 +229,6 @@ export class BiometricAssetService {
       },
     });
 
-    if (updated.engraving_id) {
-      await this.linkEngravingChecklist(updated);
-    }
-
     try {
       await this.engine.cleanupReview(
         asset.artifact_id,
@@ -304,8 +296,6 @@ export class BiometricAssetService {
         updated_at: new Date(),
       },
     });
-
-    await this.linkEngravingChecklist(updated);
 
     return { asset: this.toResponse(updated) };
   }
@@ -480,46 +470,6 @@ export class BiometricAssetService {
         `Asset type ${assetType} does not support this operation`,
       );
     }
-  }
-
-  private async linkEngravingChecklist(asset: biometric_assets): Promise<void> {
-    if (!asset.engraving_id) return;
-
-    const biometricType = ASSET_TYPE_TO_CHECKLIST[asset.asset_type];
-    if (!biometricType) {
-      this.logger.warn(
-        `No checklist mapping for asset_type=${asset.asset_type}; skip link`,
-      );
-      return;
-    }
-
-    const requiredChannel =
-      biometricType === 'HB' ? 'MEMORY_CARD' : 'ENGRAVING';
-    const now = new Date();
-
-    await this.prisma.engraving_biometrics.upsert({
-      where: {
-        engraving_id_biometric_type: {
-          engraving_id: asset.engraving_id,
-          biometric_type: biometricType,
-        },
-      },
-      create: {
-        id: randomUUID(),
-        engraving_id: asset.engraving_id,
-        biometric_type: biometricType,
-        required_channel: requiredChannel,
-        biometric_asset_id: asset.id,
-        status: ASSET_APPROVED,
-        created_at: now,
-        updated_at: now,
-      },
-      update: {
-        biometric_asset_id: asset.id,
-        status: ASSET_APPROVED,
-        updated_at: now,
-      },
-    });
   }
 
   private async updateReviewState(

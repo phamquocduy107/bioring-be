@@ -23,7 +23,6 @@ interface EngravingRecord {
   updated_at: Date | null;
   order?: { id: string; guest_customer_id?: string | null } | null;
   engraving_versions_engraving_versions_engraving_idToengravings?: EngravingVersionRecord[];
-  engraving_biometrics?: EngravingBiometricRecord[];
   qr_memories?: QrMemoryRecord[];
   biometric_assets?: Array<{
     id: string;
@@ -64,20 +63,6 @@ interface EngravingVersionRecord {
   created_at: Date | null;
   materials?: MaterialRecord | null;
   gemstones?: GemstoneRecord | null;
-}
-
-interface EngravingBiometricRecord {
-  id: string;
-  engraving_id: string;
-  biometric_type: string;
-  required_channel: string;
-  biometric_asset_id?: string | null;
-  biometric_asset?: {
-    id: string;
-    approved_files?: unknown;
-  } | null;
-  extra_data: unknown;
-  status: string | null;
 }
 
 interface QrMemoryRecord {

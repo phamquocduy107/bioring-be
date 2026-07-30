@@ -280,9 +280,7 @@ export class GuestService {
             engraving_versions_engraving_versions_engraving_idToengravings: {
               orderBy: { version_number: 'desc' },
             },
-            engraving_biometrics: {
-              include: { biometric_asset: true },
-            },
+            biometric_assets: true,
             qr_memories: true,
           },
         },
@@ -536,14 +534,20 @@ export class GuestService {
       version?.selected_biometrics?.split(',').filter(Boolean) ?? [];
     if (selected.length === 0) return;
 
-    const uploaded = await this.prisma.engraving_biometrics.findMany({
-      where: {
-        engraving_id: engraving.id,
-        status: 'CAPTURED',
-      },
-      select: { biometric_type: true },
+    const uploaded = await this.prisma.biometric_assets.findMany({
+      where: { engraving_id: engraving.id },
+      select: { asset_type: true },
     });
-    const uploadedTypes = new Set(uploaded.map((b) => b.biometric_type));
+    const assetTypeMap: Record<string, string> = {
+      fingerprint: 'FP',
+      soundwave: 'SW',
+      heartbeat: 'HB',
+    };
+    const uploadedTypes = new Set(
+      uploaded
+        .map((b) => assetTypeMap[b.asset_type] ?? b.asset_type)
+        .filter(Boolean),
+    );
     const missing = selected.filter((t: string) => !uploadedTypes.has(t));
     if (missing.length > 0) {
       throw new BadRequestException(
@@ -698,7 +702,7 @@ export class GuestService {
                   qr_memories: {
                     select: { is_locked: true, activated_at: true },
                   },
-                  engraving_biometrics: { select: { biometric_type: true } },
+                  biometric_assets: { select: { asset_type: true } },
                 },
               },
               warranties: { select: { status: true, expiry_date: true } },
@@ -735,8 +739,15 @@ export class GuestService {
         const latestOrder = sorted[0];
         const warrantyOrder = g.orders.find((o) => o.warranties.length > 0);
         const warranty = warrantyOrder?.warranties[0];
-        const biometricTypes = g.orders.flatMap(
-          (o) => o.engraving?.engraving_biometrics ?? [],
+        const assetTypeMap: Record<string, string> = {
+          fingerprint: 'FP',
+          soundwave: 'SW',
+          heartbeat: 'HB',
+        };
+        const biometricTypes = g.orders.flatMap((o) =>
+          (o.engraving?.biometric_assets ?? []).map((a) => ({
+            biometric_type: assetTypeMap[a.asset_type] ?? a.asset_type,
+          })),
         );
 
         return {

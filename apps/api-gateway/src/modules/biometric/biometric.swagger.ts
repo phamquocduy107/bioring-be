@@ -550,8 +550,7 @@ export function ApiAdminAssignBiometricAssetDocs() {
       summary: 'Staff — gán asset đã approve cho customer + engraving',
       description:
         '**Workflow A — Step assign**\n\n' +
-        '1. Cập nhật `biometric_assets.assigned_user_id`, `engraving_id`\n' +
-        '2. Upsert `engraving_biometrics` checklist row\n\n' +
+        '1. Cập nhật `biometric_assets.assigned_user_id`, `engraving_id`\n\n' +
         'Áp dụng cho FP, SW (sau approve) và HB (sau store).',
     }),
     assetIdParam(),
@@ -647,7 +646,7 @@ export function ApiMeListEngravingBiometricsDocs() {
     ApiOperation({
       summary: 'Customer — danh sách biometric checklist của engraving',
       description:
-        'Trả `engraving_biometrics` rows kèm URL resolve từ `biometric_assets`.\n\n' +
+        'Trả biometric gắn engraving từ `biometric_assets` (map type FP/SW/HB).\n\n' +
         'Dùng trên mobile/web để hiển thị trạng thái SW/FP/HB trên order.',
     }),
     engravingIdParam(),
@@ -689,7 +688,7 @@ export function ApiMeAttachEngravingBiometricDocs() {
         '1. Multipart `file` + `biometricType` (thường SW)\n' +
         '2. Optional `extraData` JSON cho segment audio SW\n' +
         '3. Auto process + publish qua Python\n' +
-        '4. Tạo `biometric_assets` + upsert `engraving_biometrics`\n\n' +
+        '4. Upsert `biometric_assets` gắn `engraving_id`\n\n' +
         '**Điều kiện:** engraving thuộc user, order `AWAITING_SUBMIT` hoặc `REVISION_REQUIRED`, ' +
         'package có biometric type tương ứng.',
     }),
