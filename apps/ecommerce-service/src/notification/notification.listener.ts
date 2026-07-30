@@ -229,8 +229,92 @@ export class NotificationListener {
         kind: 'final',
         type: 'invoice.final',
       });
+      await this.sendQrCodeEmail(payload.orderId);
     } catch (error) {
       console.warn('[Notification] order.completed invoice failed:', error);
+    }
+  }
+
+  @OnEvent('warranty.claim.completed')
+  async handleClaimCompleted(payload: { claimId: string }) {
+    try {
+      const claim = await this.prisma.warranty_claims.findUnique({
+        where: { id: payload.claimId },
+        include: {
+          users_warranty_claims_requested_by_user_idTousers: {
+            select: { email: true, full_name: true },
+          },
+          guest_customers: { select: { email: true, full_name: true } },
+          orders: { select: { order_code: true } },
+        },
+      });
+      if (!claim?.claim_code) return;
+
+      const user = claim.users_warranty_claims_requested_by_user_idTousers;
+      const guest = claim.guest_customers;
+      const email = user?.email ?? guest?.email;
+      if (!email) return;
+
+      await this.emailService.send({
+        to: email,
+        type: 'warranty.ready_for_pickup',
+        subject: `Nhẫn đã sẵn sàng — ${claim.claim_code}`,
+        html: templates.claimReadyForPickup({
+          fullName: user?.full_name ?? guest?.full_name ?? '',
+          claimCode: claim.claim_code,
+          orderCode: claim.orders?.order_code ?? '',
+        }),
+      });
+    } catch (error) {
+      console.warn('[Notification] warranty.claim.completed failed:', error);
+    }
+  }
+
+  private async sendQrCodeEmail(orderId: string) {
+    try {
+      const order = await this.prisma.orders.findUnique({
+        where: { id: orderId },
+        select: {
+          order_code: true,
+          users_orders_user_idTousers: {
+            select: { email: true, full_name: true },
+          },
+          guest_customers: { select: { email: true, full_name: true } },
+          engraving: {
+            select: {
+              qr_memories: { select: { qr_code: true, landing_page_url: true } },
+            },
+          },
+        },
+      });
+      if (!order?.order_code) return;
+
+      const user = order.users_orders_user_idTousers;
+      const guest = order.guest_customers;
+      const email = user?.email ?? guest?.email;
+      if (!email) return;
+
+      const qrMemory = order.engraving?.qr_memories;
+      if (!qrMemory?.qr_code) return;
+
+      const memoryCardUrl =
+        qrMemory.landing_page_url ??
+        `https://bioring.vn/memories/${qrMemory.qr_code}`;
+      const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(memoryCardUrl)}`;
+
+      await this.emailService.send({
+        to: email,
+        type: 'order.qr_memory',
+        subject: `Memory Card — ${order.order_code}`,
+        html: templates.qrMemoryCard({
+          fullName: user?.full_name ?? guest?.full_name ?? '',
+          orderCode: order.order_code,
+          qrImageUrl,
+          memoryCardUrl,
+        }),
+      });
+    } catch (error) {
+      console.warn('[Notification] sendQrCodeEmail failed:', error);
     }
   }
 }

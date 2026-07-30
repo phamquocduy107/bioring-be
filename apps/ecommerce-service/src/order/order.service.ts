@@ -1718,8 +1718,19 @@ export class OrderService implements OnModuleInit {
 
     if (result === 'PASS') {
       const remaining = Number(order.remaining_amount ?? 0);
-      const nextStatus =
-        remaining > 0 ? 'AWAITING_REMAINING' : 'READY_FOR_DELIVERY';
+      let nextStatus: string;
+      if (remaining > 0) {
+        nextStatus = 'AWAITING_REMAINING';
+      } else {
+        const shipment = await this.prisma.shipments.findFirst({
+          where: { order_id: orderId },
+          select: { delivery_method: true },
+        });
+        nextStatus =
+          shipment?.delivery_method === 'PICKUP'
+            ? 'READY_FOR_PICKUP'
+            : 'READY_FOR_DELIVERY';
+      }
 
       const updated = await this.prisma.orders.update({
         where: { id: orderId },
@@ -2196,7 +2207,7 @@ export class OrderService implements OnModuleInit {
     };
   }
 
-  private async calculatePrice(engraving: any) {
+  async calculatePrice(engraving: any) {
     let subtotal = 0;
     let serviceFee = 0;
     const extraFee = 0;

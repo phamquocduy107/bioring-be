@@ -29,10 +29,6 @@ interface EngravingRecord {
   status: string | null;
 }
 
-interface EngravingWithProductId {
-  product_id?: string | null;
-}
-
 interface OrderSummaryRecord {
   id: string;
   order_code: string;
@@ -237,10 +233,7 @@ export class GuestService {
       captureRoute = packageType === 'SW' ? 'ONLINE' : 'OFFLINE';
     }
 
-    // ponytail: qr_memories already created at engraving time, fallback removed
-    const subtotal = await this.calculateSubtotal(engraving);
-    const serviceFee = Math.round(subtotal * 0.1);
-    const totalPrice = subtotal + serviceFee;
+    const price = await this.orderService.calculatePrice(engraving);
 
     const order = (await this.prisma.orders.create({
       data: {
@@ -254,11 +247,13 @@ export class GuestService {
         package_type: packageType,
         capture_route: captureRoute,
         status: 'AWAITING_SUBMIT',
-        subtotal,
-        service_fee: serviceFee,
-        total_price: totalPrice,
+        subtotal: price.subtotal,
+        service_fee: price.serviceFee,
+        extra_fee: price.extraFee,
+        discount_amount: price.discountAmount,
+        total_price: price.totalPrice,
         paid_amount: 0,
-        remaining_amount: totalPrice,
+        remaining_amount: price.totalPrice,
       },
     })) as unknown as OrderSummaryRecord;
 
@@ -277,10 +272,9 @@ export class GuestService {
     })) as unknown as GuestRecord | null;
     if (!guest) throw new NotFoundException('Guest not found');
 
-    const order = await this.prisma.orders.findFirst({
+    const orders = await this.prisma.orders.findMany({
       where: {
         guest_customer_id: guest.id,
-        status: { in: ['AWAITING_SUBMIT', 'REVISION_REQUIRED'] },
       },
       include: {
         engraving: {
@@ -297,13 +291,13 @@ export class GuestService {
       orderBy: { created_at: 'desc' },
     });
 
-    const orderResult = order
-      ? await this.orderService.getOrder(order.id).then((r) => r.order)
-      : null;
+    const orderResults = await Promise.all(
+      orders.map((o) => this.orderService.getOrder(o.id).then((r) => r.order)),
+    );
 
     return {
       guest: this.mapGuest(guest),
-      order: orderResult,
+      orders: orderResults,
     };
   }
 
@@ -640,16 +634,6 @@ export class GuestService {
       exists = !!found;
     } while (exists);
     return code;
-  }
-
-  private async calculateSubtotal(
-    engraving: EngravingWithProductId,
-  ): Promise<number> {
-    if (!engraving.product_id) return 0;
-    const product = await this.prisma.products.findUnique({
-      where: { id: engraving.product_id },
-    });
-    return Number(product?.base_price ?? 0);
   }
 
   private mapGuest(guest: GuestRecord) {

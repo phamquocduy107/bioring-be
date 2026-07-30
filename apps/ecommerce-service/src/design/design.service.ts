@@ -236,6 +236,55 @@ export class DesignService {
     });
     if (!draft) throw new NotFoundException('Design draft not found');
 
+    if (draft.status === 'CONVERTED') {
+      const existing = await this.prisma.engravings.findFirst({
+        where: { unique_product_id: designCode },
+        include: {
+          engraving_versions_engraving_versions_engraving_idToengravings: {
+            orderBy: { version_number: 'desc' },
+            take: 1,
+          },
+          qr_memories: true,
+          order: { select: { id: true } },
+        },
+      });
+      if (existing) {
+        const ver = existing
+          .engraving_versions_engraving_versions_engraving_idToengravings[0];
+        const qr = existing.qr_memories;
+        return {
+          draft: await this.includeRelations(draft),
+          engraving: {
+            id: existing.id,
+            orderId: existing.order?.id ?? '',
+            userId: existing.user_id ?? '',
+            productId: existing.product_id ?? '',
+            uniqueProductId: existing.unique_product_id ?? '',
+            approvedVersionId: existing.approved_version_id ?? '',
+            status: existing.status ?? '',
+            versions: [],
+            biometrics: [],
+          },
+          engravingVersion: {
+            id: ver?.id ?? '',
+            engravingId: existing.id,
+            versionNumber: ver?.version_number ?? 1,
+            selectedMaterialId: ver?.selected_material_id ?? '',
+            selectedGemstoneId: ver?.selected_gemstone_id ?? '',
+            ringSize: ver?.ring_size ?? '',
+            ringStyle: ver?.ring_style ?? '',
+            ringShape: ver?.ring_shape ?? '',
+            customizationConfig: ver?.customization_config
+              ? JSON.stringify(ver.customization_config)
+              : '',
+            selectedBiometrics: ver?.selected_biometrics ?? '',
+            status: ver?.status ?? '',
+          },
+          qrCode: qr?.qr_code ?? '',
+        };
+      }
+    }
+
     const engravingId = randomUUID();
     const versionId = randomUUID();
 
@@ -255,9 +304,13 @@ export class DesignService {
           user_id: userId,
           product_id: draft.product_id,
           unique_product_id: draft.design_code,
-          status: 'ACTIVE',
+          status: 'PENDING',
         },
       });
+
+      const cfg = draft.customization_config as Record<string, unknown> | null;
+      const bioList = (cfg?.selectedBiometrics as string[]) ?? [];
+      const selectedBiometrics = bioList.map((b) => b.toUpperCase()).join(',');
 
       const engravingVersion = await tx.engraving_versions.create({
         data: {
@@ -269,6 +322,7 @@ export class DesignService {
           ring_size: draft.ring_size,
           ring_style: draft.ring_style,
           ring_shape: draft.ring_shape,
+          selected_biometrics: selectedBiometrics,
           customization_config:
             draft.customization_config as Prisma.InputJsonValue,
           status: 'PENDING',

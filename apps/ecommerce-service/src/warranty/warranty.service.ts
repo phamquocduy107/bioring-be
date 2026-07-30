@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '@app/prisma';
 import { PayOSService } from '@app/common/payment/payos.service';
 import { randomUUID } from 'node:crypto';
@@ -14,6 +15,7 @@ export class WarrantyService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly payOS: PayOSService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async createClaim(data: {
@@ -401,6 +403,8 @@ export class WarrantyService {
       where: { id },
       data: { status: 'COMPLETED', updated_at: new Date() },
     });
+
+    this.eventEmitter.emit('warranty.claim.completed', { claimId: id });
 
     return { claim: await this.getClaimFull(id) };
   }

@@ -1188,7 +1188,7 @@ message GetGuestSessionRequest {
 
 message GetGuestSessionResponse {
   GuestCustomer guest = 1;
-  Order order = 2;
+  repeated Order orders = 2;
 }
 
 message GuestSubmitOrderRequest {

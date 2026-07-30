@@ -382,4 +382,40 @@ export const templates = {
       </p>
       ${ctaButton(`bioring://memory/${vars.orderCode}`, 'Mở Memory Card')}
     `),
+
+  claimReadyForPickup: (vars: {
+    fullName: string;
+    claimCode: string;
+    orderCode: string;
+  }) =>
+    layout(`
+      ${statusBadge('package', 'Sẵn sàng trả')}
+      ${hero('BioRing Atelier', 'COMPLETED', 'ready for pickup')}
+      <p style="color:${C.body};margin:0">Xin chào <span style="color:${C.ink};font-weight:600">${vars.fullName}</span>,</p>
+      <p style="color:${C.body};margin:12px 0 0">
+        Yêu cầu bảo hành <strong style="color:${C.gold}">${vars.claimCode}</strong> 
+        đã hoàn tất. Nhẫn của bạn đã sẵn sàng để nhận tại cửa hàng.
+      </p>
+      ${ctaButton(`bioring://order/${vars.orderCode}`, 'Xem chi tiết')}
+    `),
+
+  qrMemoryCard: (vars: {
+    fullName: string;
+    orderCode: string;
+    qrImageUrl: string;
+    memoryCardUrl: string;
+  }) =>
+    layout(`
+      ${statusBadge('check-circle-2', 'Kỷ niệm của bạn')}
+      ${hero('BioRing Atelier', 'MEMORY', 'card')}
+      <p style="color:${C.body};margin:0">Xin chào <span style="color:${C.ink};font-weight:600">${vars.fullName}</span>,</p>
+      <p style="color:${C.body};margin:12px 0 0">
+        Đơn hàng <strong style="color:${C.gold}">${vars.orderCode}</strong> đã hoàn tất.
+        Quét mã QR bên dưới để mở Memory Card — nơi lưu giữ dấu ấn cá nhân của bạn.
+      </p>
+      <div style="text-align:center;margin:24px 0">
+        <img src="${vars.qrImageUrl}" width="200" height="200" alt="QR Code" style="display:inline-block;border-radius:12px;border:1px solid ${C.cardBorder}" />
+      </div>
+      ${ctaButton(vars.memoryCardUrl, 'Mở Memory Card')}
+    `),
 };
