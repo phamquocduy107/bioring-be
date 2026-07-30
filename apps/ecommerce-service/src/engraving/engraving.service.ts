@@ -65,20 +65,6 @@ interface EngravingVersionRecord {
   gemstones?: GemstoneRecord | null;
 }
 
-interface EngravingBiometricRecord {
-  id: string;
-  engraving_id: string;
-  biometric_type: string;
-  required_channel: string;
-  biometric_asset_id?: string | null;
-  biometric_asset?: {
-    id: string;
-    approved_files?: unknown;
-  } | null;
-  extra_data: unknown;
-  status: string | null;
-}
-
 interface QrMemoryRecord {
   id: string;
   engraving_id: string;

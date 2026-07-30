@@ -281,6 +281,7 @@ export class GuestService {
               orderBy: { version_number: 'desc' },
             },
             biometric_assets: true,
+            biometric_assets: true,
             qr_memories: true,
           },
         },
@@ -696,6 +697,7 @@ export class GuestService {
                   qr_memories: {
                     select: { is_locked: true, activated_at: true },
                   },
+                  biometric_assets: { select: { asset_type: true } },
                   biometric_assets: { select: { asset_type: true } },
                 },
               },

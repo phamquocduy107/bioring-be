@@ -7,6 +7,7 @@ import {
 import {
   asApprovedFilesJson,
   ASSET_TYPE_TO_CHECKLIST,
+  ASSET_TYPE_TO_CHECKLIST,
   buildEcommerceApprovedFiles,
   CHECKLIST_TO_ASSET_TYPE,
   normalizeApprovedFiles,
@@ -51,6 +52,7 @@ export class AttachBiometricService {
   async listForEngraving(engravingId: string, userId: string) {
     const engraving = await this.prisma.engravings.findUnique({
       where: { id: engravingId },
+      include: { biometric_assets: true },
       include: { biometric_assets: true },
     });
     if (!engraving) throw new NotFoundException('Engraving not found');
@@ -155,6 +157,10 @@ export class AttachBiometricService {
 
     const now = new Date();
     const artifactId = processed.artifactId ?? `ecommerce_${randomUUID()}`;
+    const placementValue =
+      Object.keys(extraDataJson).length > 0
+        ? (extraDataJson as Prisma.InputJsonValue)
+        : undefined;
 
     const biometric = await this.prisma.biometric_assets.upsert({
       where: {

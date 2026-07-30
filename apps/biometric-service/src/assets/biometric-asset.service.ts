@@ -6,11 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '@app/prisma';
-import {
-  ASSET_TYPE_TO_CHECKLIST,
-  normalizeApprovedFiles,
-  asApprovedFilesJson,
-} from '@app/common';
+import { normalizeApprovedFiles, asApprovedFilesJson } from '@app/common';
 import { biometric_assets, Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import {
@@ -233,10 +229,6 @@ export class BiometricAssetService {
       },
     });
 
-    if (updated.engraving_id) {
-      await this.linkEngravingChecklist(updated);
-    }
-
     try {
       await this.engine.cleanupReview(
         asset.artifact_id,
@@ -304,8 +296,6 @@ export class BiometricAssetService {
         updated_at: new Date(),
       },
     });
-
-    await this.linkEngravingChecklist(updated);
 
     return { asset: this.toResponse(updated) };
   }
